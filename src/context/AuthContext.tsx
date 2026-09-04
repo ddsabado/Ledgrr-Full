@@ -27,10 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setLoading(false)
-      if (session) {
-        console.log('provider_token:', session.provider_token)
-        console.log('provider_refresh_token:', session.provider_refresh_token)
-      }
     })
 
     return () => subscription.unsubscribe()
