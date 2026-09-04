@@ -29,7 +29,7 @@ function Router() {
 
     storedTokens.current = true
 
-    fetch(`${SUPABASE_URL}/functions/v1/auth-store-tokens`, {
+    fetch(`${SUPABASE_URL}/functions/v1/sync`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -37,7 +37,7 @@ function Router() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ provider_refresh_token: refreshToken }),
-    }).catch(err => console.error('auth-store-tokens failed (non-fatal):', err))
+    }).catch(err => console.error('sync failed (non-fatal):', err))
   }, [session])
 
   // Full-screen spinner while session state is unknown
