@@ -8,13 +8,14 @@ import { AuthProvider, useAuth } from '@/context/AuthContext'
 
 // Helper: renders a component that exposes auth context values
 function AuthConsumer() {
-  const { session, user, loading, signInWithGoogle, signOut } = useAuth()
+  const { session, user, loading, signInWithGoogle, signInWithGoogleReauth, signOut } = useAuth()
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="user-email">{user?.email ?? 'none'}</span>
       <span data-testid="session">{session ? 'has-session' : 'no-session'}</span>
       <button onClick={signInWithGoogle}>sign-in</button>
+      <button onClick={signInWithGoogleReauth}>reauth</button>
       <button onClick={signOut}>sign-out</button>
     </div>
   )
@@ -77,11 +78,32 @@ describe('AuthContext', () => {
           scopes: 'https://www.googleapis.com/auth/spreadsheets',
           queryParams: expect.objectContaining({
             access_type: 'offline',
-            prompt: 'consent',
           }),
         }),
       })
     )
+  })
+
+  it('normal signInWithGoogle does NOT include prompt: consent', async () => {
+    const user = userEvent.setup()
+    renderWithAuth()
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'))
+
+    await user.click(screen.getByText('sign-in'))
+
+    const callArgs = mockAuth.signInWithOAuth.mock.calls[0][0]
+    expect(callArgs.options.queryParams?.prompt).toBeUndefined()
+  })
+
+  it('signInWithGoogleReauth includes prompt: consent', async () => {
+    const user = userEvent.setup()
+    renderWithAuth()
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'))
+
+    await user.click(screen.getByText('reauth'))
+
+    const callArgs = mockAuth.signInWithOAuth.mock.calls[0][0]
+    expect(callArgs.options.queryParams.prompt).toBe('consent')
   })
 
   it('redirectTo points to /dashboard', async () => {

@@ -1,21 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-/**
- * auth-store-tokens
- *
- * Called once by AuthCallbackPage immediately after login.
- * Encrypts the Google refresh token in Vault and upserts a user_sheets row.
- *
- * Deliberately scoped to auth only:
- * - No spreadsheet creation (separate concern, separate spec)
- * - No Sheets API calls
- * - No token exchange beyond confirming the refresh token is valid
- *
- * POST body: { provider_refresh_token: string }
- * Auth:      Bearer <supabase_access_token>
- * Returns:   { success: true }
- */
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -42,7 +27,7 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return Response.json(
-        { error: 'Missing Authorization header', code: 'UNAUTHORIZED' },
+        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
         { status: 401, headers: cors }
       )
     }
@@ -70,7 +55,7 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false },
     })
 
-    // Check for existing row (returning user)
+    // Check for existing row (returning user / reauth)
     const { data: existing } = await supabaseAdmin
       .from('user_sheets')
       .select('id, refresh_token_secret_id')
@@ -86,7 +71,7 @@ Deno.serve(async (req: Request) => {
         })
         if (vaultErr) console.error('Vault rotation failed (non-fatal):', vaultErr.message)
       } else {
-        // Row exists but no secret yet — create one
+        // Row exists but no secret — create one
         const { data: newSecretId, error: vaultErr } = await supabaseAdmin.rpc('create_vault_secret', {
           p_secret: providerRefreshToken,
           p_name:   `user-${userId}-google-refresh`,
@@ -98,10 +83,10 @@ Deno.serve(async (req: Request) => {
             .eq('user_id', userId)
         }
       }
-      return Response.json({ success: true }, { headers: cors })
+      return new Response(null, { status: 201, headers: cors })
     }
 
-    // New user — store refresh token in Vault
+    // New user — store refresh token in Vault first
     const { data: secretId, error: vaultErr } = await supabaseAdmin.rpc('create_vault_secret', {
       p_secret: providerRefreshToken,
       p_name:   `user-${userId}-google-refresh`,
@@ -109,12 +94,12 @@ Deno.serve(async (req: Request) => {
     if (vaultErr || !secretId) {
       console.error('Vault create error:', vaultErr)
       return Response.json(
-        { error: 'Failed to store refresh token securely', code: 'VAULT_ERROR' },
+        { error: 'Failed to store credentials securely', code: 'VAULT_ERROR' },
         { status: 500, headers: cors }
       )
     }
 
-    // Insert user_sheets row — sheet_id empty until sheet creation spec
+    // Insert user_sheets row
     const { error: dbErr } = await supabaseAdmin
       .from('user_sheets')
       .insert({
@@ -129,7 +114,7 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    return Response.json({ success: true }, { headers: cors })
+    return new Response(null, { status: 201, headers: cors })
 
   } catch (err) {
     return Response.json(

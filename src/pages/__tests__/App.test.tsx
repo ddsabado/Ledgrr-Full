@@ -12,15 +12,16 @@ Object.defineProperty(window, 'location', {
 
 // Mock fetch for auth-store-tokens call
 const mockFetch = vi.fn().mockResolvedValue({
-  ok: true,
-  json: async () => ({ success: true }),
+  ok:     true,
+  status: 201,
+  json:   async () => { throw new Error('No body') },
 })
-global.fetch = mockFetch
+vi.stubGlobal('fetch', mockFetch)
 
 describe('App routing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ success: true }) })
+    mockFetch.mockResolvedValue({ ok: true, status: 201, json: async () => { throw new Error('No body') } })
     mockAuth.onAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     })
@@ -73,13 +74,13 @@ describe('App routing', () => {
     })
   })
 
-  it('calls auth-store-tokens when provider_refresh_token is present', async () => {
+  it('calls sync when provider_refresh_token is present', async () => {
     window.location.pathname = '/dashboard'
     mockAuth.getSession.mockResolvedValue({ data: { session: mockSession }, error: null })
     render(<App />)
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('auth-store-tokens'),
+        expect.stringContaining('/sync'),
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('provider_refresh_token'),
@@ -88,7 +89,7 @@ describe('App routing', () => {
     })
   })
 
-  it('does not call auth-store-tokens when provider_refresh_token is absent', async () => {
+  it('does not call sync when provider_refresh_token is absent', async () => {
     window.location.pathname = '/dashboard'
     mockAuth.getSession.mockResolvedValue({
       data: { session: mockSessionNoProviderToken },
