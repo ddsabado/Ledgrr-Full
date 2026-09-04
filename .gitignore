@@ -1,3 +1,6 @@
+# Kiro IDE config — local only
+.kiro/
+
 # Dependencies
 node_modules/
 
