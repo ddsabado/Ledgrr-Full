@@ -1,8 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useLiveQuery } from '@tanstack/react-db'
 
-import { getCurrencies } from '@/services/api'
-import { QUERY_KEYS } from '@/constants/queryKeys'
-import { CURRENCIES_STALE_TIME, CURRENCIES_GC_TIME } from '@/constants/ttl'
+import { currenciesCollection } from '@/collections/currencies'
 import { useAuth } from '@/context/AuthContext'
 import type { CurrencyData } from '@/types/accounts'
 
@@ -17,19 +15,20 @@ export function useCurrencies(): {
   const { session } = useAuth()
   const isAuthenticated = session !== null
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey:             [QUERY_KEYS.currencies],
-    queryFn:              getCurrencies,
-    staleTime:            CURRENCIES_STALE_TIME,
-    gcTime:               CURRENCIES_GC_TIME,
-    enabled:              isAuthenticated,
-    refetchOnWindowFocus: false,   // FX rates don't change on every focus
-    refetchOnReconnect:   true,
-  })
+  const { data: rows, isLoading, isError } = useLiveQuery(
+    (q) => isAuthenticated
+      ? q.from({ currency: currenciesCollection })
+      : null
+  )
 
-  return {
-    data:      data ?? PHP_ONLY,
-    isLoading,
-    isError,
+  // Reconstruct the map from collection rows: [{ code, rate }] → { PHP: 1, USD: 56.2 }
+  const data: CurrencyData = rows?.length
+    ? Object.fromEntries(rows.map(({ code, rate }) => [code, rate]))
+    : PHP_ONLY
+
+  if (import.meta.env.DEV) {
+    console.log('[TanStack DB] currenciesCollection.toArray:', currenciesCollection.toArray)
   }
+
+  return { data, isLoading, isError }
 }
