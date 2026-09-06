@@ -1,0 +1,145 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
+const ACCOUNTS_COLUMNS = Object.freeze({
+  NAME:            'Account',
+  CATEGORY:        'Account Category',
+  CREDIT_LIMIT:    'Credit Limit',
+  INITIAL_BALANCE: 'Init Balance',
+  CURRENCY:        'Account Currency',
+  BALANCE_PHP:     'Balance (PHP)',
+  STATEMENT_DAY:   'Statement Day',
+  DUE_DAY:         'Due Day',
+  CURRENT_BALANCE: 'Current Balance',
+  METADATA:        'Metadata',
+} as const)
+
+/**
+ * Raw account row as returned by this function.
+ * phpEquivalent is NOT computed here — the frontend derives it
+ * by combining this data with the /functions/v1/currencies response.
+ */
+interface RawAccountBalance {
+  name:           string
+  category:       string
+  currency:       string   // ISO code: "PHP", "USD", "TWD", etc.
+  currentBalance: number   // Native currency amount — sheet column J
+  initialBalance: number   // Sheet column D
+  metadata:       string
+}
+
+export function buildHeaderMap(headers: string[]): Record<string, number> {
+  return headers.reduce((map, header, index) => {
+    map[header.trim()] = index
+    return map
+  }, {} as Record<string, number>)
+}
+
+export function mapRowToAccount(
+  row:       string[],
+  headerMap: Record<string, number>
+): RawAccountBalance | null {
+  const get    = (col: string): string => row[headerMap[col] ?? -1] ?? ''
+  const getNum = (col: string): number => parseFloat(get(col).replace(/,/g, '')) || 0
+
+  const name = get(ACCOUNTS_COLUMNS.NAME)
+  if (!name) return null
+
+  return {
+    name,
+    category:       get(ACCOUNTS_COLUMNS.CATEGORY),
+    currency:       get(ACCOUNTS_COLUMNS.CURRENCY) || 'PHP',
+    currentBalance: getNum(ACCOUNTS_COLUMNS.CURRENT_BALANCE),
+    initialBalance: getNum(ACCOUNTS_COLUMNS.INITIAL_BALANCE),
+    metadata:       get(ACCOUNTS_COLUMNS.METADATA),
+  }
+}
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS })
+
+  const cors = { 'Access-Control-Allow-Origin': '*' }
+
+  try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
+
+    const supabaseUrl         = Deno.env.get('SUPABASE_URL')!
+    const supabaseAnon        = Deno.env.get('SUPABASE_ANON_KEY')!
+    const supabaseServiceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    const supabaseUser = createClient(supabaseUrl, supabaseAnon, {
+      global: { headers: { Authorization: authHeader } },
+    })
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
+    if (userError || !user) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
+      auth: { persistSession: false },
+    })
+
+    const { data: userSheet } = await supabaseAdmin
+      .from('user_sheets')
+      .select('sheet_id, refresh_token_secret_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!userSheet) {
+      return Response.json({ error: 'No sheet connected for this user' }, { status: 404, headers: cors })
+    }
+
+    const { data: refreshToken, error: vaultError } = await supabaseAdmin.rpc(
+      'decrypt_vault_secret', { p_id: userSheet.refresh_token_secret_id }
+    )
+    if (vaultError || !refreshToken) {
+      return Response.json({ error: 'Failed to retrieve credentials' }, { status: 500, headers: cors })
+    }
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        client_id:     Deno.env.get('GOOGLE_CLIENT_ID')!,
+        client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
+        refresh_token: refreshToken,
+        grant_type:    'refresh_token',
+      }),
+    })
+    if (!tokenRes.ok) {
+      return Response.json({ error: 'Failed to exchange token' }, { status: 502, headers: cors })
+    }
+    const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
+
+    const accountsRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/Accounts!A:K`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+    if (!accountsRes.ok) {
+      return Response.json({ error: 'Failed to read sheet' }, { status: 502, headers: cors })
+    }
+
+    const accountValues = ((await accountsRes.json()) as { values?: string[][] }).values ?? []
+
+    if (accountValues.length === 0) return Response.json([], { status: 200, headers: cors })
+
+    const headerMap = buildHeaderMap(accountValues[0])
+
+    const accounts: RawAccountBalance[] = accountValues
+      .slice(1)
+      .map((row) => mapRowToAccount(row, headerMap))
+      .filter((acc): acc is RawAccountBalance => acc !== null && acc.category !== 'Credit Cards')
+
+    return Response.json(accounts, { status: 200, headers: cors })
+
+  } catch (err) {
+    console.error('Unexpected error:', err)
+    return Response.json(
+      { error: 'Unexpected server error' },
+      { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
+    )
+  }
+})

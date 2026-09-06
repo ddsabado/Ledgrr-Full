@@ -3,25 +3,30 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { mockAuth, mockSession, mockSessionNoProviderToken } from '@/test/mocks/supabase'
 import App from '@/App'
 
-// Mock window.location.replace
 const mockReplace = vi.fn()
 Object.defineProperty(window, 'location', {
   value: { ...window.location, replace: mockReplace, pathname: '/' },
   writable: true,
 })
 
-// Mock fetch for auth-store-tokens call
-const mockFetch = vi.fn().mockResolvedValue({
-  ok:     true,
-  status: 201,
-  json:   async () => { throw new Error('No body') },
+const mockFetch = vi.fn((url: unknown) => {
+  if (typeof url === 'string' && url.includes('accounts-balances')) {
+    return Promise.resolve({ ok: true, status: 200, json: async () => [] })
+  }
+  return Promise.resolve({ ok: true, status: 201, json: async () => { throw new Error('No body') } })
 })
 vi.stubGlobal('fetch', mockFetch)
+
+vi.mock('@/hooks/useAccountBalances', () => ({
+  useAccountBalances: () => ({ data: [], isLoading: false, isError: false }),
+}))
+
+const isSyncCall = (args: unknown[]) =>
+  typeof args[0] === 'string' && (args[0] as string).includes('/sync')
 
 describe('App routing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockFetch.mockResolvedValue({ ok: true, status: 201, json: async () => { throw new Error('No body') } })
     mockAuth.onAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     })
@@ -32,7 +37,7 @@ describe('App routing', () => {
   })
 
   it('shows full-screen spinner while session is loading', () => {
-    mockAuth.getSession.mockReturnValue(new Promise(() => {})) // never resolves
+    mockAuth.getSession.mockReturnValue(new Promise(() => {}))
     render(<App />)
     expect(screen.getByRole('status', { name: /loading/i })).toBeInTheDocument()
   })
@@ -61,7 +66,8 @@ describe('App routing', () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: mockSession }, error: null })
     render(<App />)
     await waitFor(() => {
-      expect(screen.getByText(/dashboard coming soon/i)).toBeInTheDocument()
+      expect(screen.getByRole('navigation')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /ledgrr/i })).toBeInTheDocument()
     })
   })
 
@@ -79,13 +85,12 @@ describe('App routing', () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: mockSession }, error: null })
     render(<App />)
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/sync'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('provider_refresh_token'),
-        })
-      )
+      const syncCall = mockFetch.mock.calls.find(isSyncCall)
+      expect(syncCall).toBeDefined()
+      expect((syncCall as unknown[])[1]).toMatchObject({
+        method: 'POST',
+        body: expect.stringContaining('provider_refresh_token'),
+      })
     })
   })
 
@@ -97,18 +102,19 @@ describe('App routing', () => {
     })
     render(<App />)
     await waitFor(() => {
-      expect(screen.getByText(/dashboard coming soon/i)).toBeInTheDocument()
+      expect(screen.getByRole('navigation')).toBeInTheDocument()
     })
-    expect(mockFetch).not.toHaveBeenCalled()
+    expect(mockFetch.mock.calls.find(isSyncCall)).toBeUndefined()
   })
 
-  it('only calls auth-store-tokens once per session', async () => {
+  it('only calls sync once per session', async () => {
     window.location.pathname = '/dashboard'
     mockAuth.getSession.mockResolvedValue({ data: { session: mockSession }, error: null })
     const { rerender } = render(<App />)
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.filter(isSyncCall)).toHaveLength(1)
+    })
     rerender(<App />)
-    // Still only called once
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockFetch.mock.calls.filter(isSyncCall)).toHaveLength(1)
   })
 })
