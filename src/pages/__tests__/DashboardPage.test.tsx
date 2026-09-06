@@ -1,15 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { mockAuth, mockSession, mockUser } from '@/test/mocks/supabase'
 import { AuthProvider } from '@/context/AuthContext'
 import DashboardPage from '@/pages/DashboardPage'
 
+// Mock useAccountBalances so DashboardPage tests don't depend on the fetch pipeline
+vi.mock('@/hooks/useAccountBalances', () => ({
+  useAccountBalances: () => ({ data: [], isLoading: false, isError: false }),
+}))
+
 function renderDashboard() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <AuthProvider>
-      <DashboardPage />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <DashboardPage />
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }
 
@@ -27,14 +36,13 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: /ledgrr/i })).toBeInTheDocument()
   })
 
-  it('renders the placeholder text', () => {
+  it('renders AccountBalances card (empty state)', () => {
     renderDashboard()
-    expect(screen.getByText(/dashboard coming soon/i)).toBeInTheDocument()
+    expect(screen.getByText(/no accounts found/i)).toBeInTheDocument()
   })
 
   it('renders the user email in nav', async () => {
     renderDashboard()
-    // Email appears after session resolves
     const emails = await screen.findAllByText(mockUser.email!)
     expect(emails.length).toBeGreaterThan(0)
   })
@@ -49,6 +57,11 @@ describe('DashboardPage', () => {
     renderDashboard()
     await user.click(screen.getByRole('button', { name: /sign out/i }))
     expect(mockAuth.signOut).toHaveBeenCalled()
+  })
+
+  it('renders privacy mode toggle button', () => {
+    renderDashboard()
+    expect(screen.getByRole('button', { name: /hide amounts/i })).toBeInTheDocument()
   })
 
   it('has a fixed nav with correct structure', () => {

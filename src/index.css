@@ -10,5 +10,38 @@ html, body {
   background-color: #000;
   color: #fff;
   font-family: var(--font-sans);
-  scrollbar-gutter: stable;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Scrollbar — matches Ledgrr-SPA */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(75, 85, 99, 0.3) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.3);
+}
+
+*:hover::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(75, 85, 99, 0.5);
 }
