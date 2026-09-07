@@ -5,6 +5,7 @@ import ThemeSwitcher from '@/components/ThemeSwitcher'
 import AccountBalances from '@/features/AccountBalances'
 import CreditCardUtilization from '@/features/CreditCardUtilization'
 import Transactions from '@/features/Transactions'
+import InstallmentsRecurring from '@/features/InstallmentsRecurring'
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
@@ -41,13 +42,14 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main content — three-panel grid; each panel scrolls its own content.
+      {/* Main content — panel grid; each panel scrolls its own content.
           On < lg screens the panels stack in a single column. */}
       <main className="flex-1 lg:overflow-hidden overflow-y-auto px-4 sm:px-6 py-6">
-        <div className="lg:h-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-1 gap-6">
+        <div className="lg:h-full max-w-[110rem] mx-auto grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 lg:grid-rows-1 gap-6">
           <AccountBalances privacyMode={privacyMode} />
           <CreditCardUtilization privacyMode={privacyMode} />
           <Transactions privacyMode={privacyMode} />
+          <InstallmentsRecurring privacyMode={privacyMode} />
         </div>
       </main>
     </div>
