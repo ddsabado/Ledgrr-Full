@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import AccountBalances from '@/features/AccountBalances'
 import CreditCardUtilization from '@/features/CreditCardUtilization'
+import Transactions from '@/features/Transactions'
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
@@ -37,12 +38,13 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main content — two-panel grid; each panel scrolls its own content.
+      {/* Main content — three-panel grid; each panel scrolls its own content.
           On < lg screens the panels stack in a single column. */}
       <main className="flex-1 lg:overflow-hidden overflow-y-auto px-4 sm:px-6 py-6">
-        <div className="lg:h-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-1 gap-6">
+        <div className="lg:h-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-1 gap-6">
           <AccountBalances privacyMode={privacyMode} />
           <CreditCardUtilization privacyMode={privacyMode} />
+          <Transactions privacyMode={privacyMode} />
         </div>
       </main>
     </div>
