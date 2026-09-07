@@ -18,6 +18,12 @@ export default function CreditCardUtilization({
   const [cycleIndex, setCycleIndex] = useState<Record<string, number>>({})
   const [cycleView, setCycleView] = useState<'statement' | 'all'>('statement')
 
+  // Guard: selecting the already-active view is a no-op (R6.6) — prevents a
+  // spurious pill transition when the current option is re-clicked.
+  const handleCycleViewChange = (view: 'statement' | 'all') => {
+    setCycleView((prev) => (prev === view ? prev : view))
+  }
+
   const { session } = useAuth()
 
   const {
@@ -46,10 +52,10 @@ export default function CreditCardUtilization({
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="rounded-xl bg-gray-900 border border-gray-800 p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full">
-        <div className="h-3 w-32 bg-gray-800 rounded animate-pulse" />
+      <div className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full">
+        <div className="h-3 w-32 bg-surface2 rounded animate-pulse" />
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-20 bg-gray-800 rounded-lg animate-pulse" />
+          <div key={i} className="h-20 bg-surface2 rounded-lg animate-pulse" />
         ))}
       </div>
     )
@@ -58,8 +64,8 @@ export default function CreditCardUtilization({
   // ─── Error ───────────────────────────────────────────────────────────────
   if (isError) {
     return (
-      <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
-        <p className="text-sm text-gray-500 text-center">
+      <div className="rounded-xl bg-surface border border-border p-5">
+        <p className="text-sm text-muted text-center">
           Could not load credit card data. Please try again later.
         </p>
       </div>
@@ -69,8 +75,8 @@ export default function CreditCardUtilization({
   // ─── Empty ───────────────────────────────────────────────────────────────
   if (ccAccounts.length === 0) {
     return (
-      <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
-        <p className="text-sm text-gray-500 text-center">
+      <div className="rounded-xl bg-surface border border-border p-5">
+        <p className="text-sm text-muted text-center">
           No credit cards found.
         </p>
       </div>
@@ -103,10 +109,10 @@ export default function CreditCardUtilization({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: 'easeInOut' }}
-      className="rounded-xl bg-gray-900 border border-gray-800 p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full"
+      className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full"
     >
       {/* Heading */}
-      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-gray-500">
+      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
         Credit Cards
       </p>
 
@@ -126,7 +132,7 @@ export default function CreditCardUtilization({
               )
             }
             cycleView={cycleView}
-            onCycleViewChange={setCycleView}
+            onCycleViewChange={handleCycleViewChange}
             cycleIndex={cycleIndex[account.name] ?? 0}
             onCycleIndexChange={(i) =>
               setCycleIndex((prev) => ({ ...prev, [account.name]: i }))

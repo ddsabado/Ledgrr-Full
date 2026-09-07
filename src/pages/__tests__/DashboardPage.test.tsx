@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { mockAuth, mockSession, mockUser } from '@/test/mocks/supabase'
 import { AuthProvider } from '@/context/AuthContext'
+import { ThemeProvider } from '@/context/ThemeContext'
 import DashboardPage from '@/pages/DashboardPage'
 
 // Mock useAccountBalances so DashboardPage tests don't depend on the fetch pipeline
@@ -38,7 +39,9 @@ function renderDashboard() {
   return render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <DashboardPage />
+        <ThemeProvider>
+          <DashboardPage />
+        </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

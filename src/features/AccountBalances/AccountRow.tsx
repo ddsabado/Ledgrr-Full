@@ -31,20 +31,20 @@ export default function AccountRow({ account, percentage, color, privacyMode }: 
           style={{ backgroundColor: color }}
           aria-hidden="true"
         />
-        <span className="text-sm text-gray-300 truncate">{account.name}</span>
+        <span className="text-sm text-text truncate">{account.name}</span>
       </div>
 
       {/* Right: percentage + balances */}
       <div className="flex items-center gap-3 shrink-0 text-right">
-        <span className="text-xs text-gray-600 font-mono w-10 text-right">
+        <span className="text-xs text-muted font-mono w-10 text-right">
           {percentage}%
         </span>
         <div className="flex flex-col items-end">
-          <span className="text-sm text-white font-medium tabular-nums">
+          <span className="text-sm text-text font-medium tabular-nums">
             {phpDisplay}
           </span>
           {showNative && (
-            <span className="text-xs text-gray-500 tabular-nums mt-0.5">
+            <span className="text-xs text-muted tabular-nums mt-0.5">
               {nativeDisplay}
             </span>
           )}

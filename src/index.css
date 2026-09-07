@@ -6,9 +6,52 @@
   --font-mono: 'IBM Plex Mono', monospace;
 }
 
+/* ─── Theme tokens (ported verbatim from Ledgrr-SPA) ──────────────────────
+   Four modes: light (:root, no class), .dark, .high-contrast, .semi-light.
+   Each defines all 11 semantic tokens so no mode can leave a token unset. */
+:root {                 /* light — default, no class */
+  --bg: #f8fafc;  --surface: #ffffff;  --surface2: #f1f5f9;  --border: #e2e8f0;
+  --accent: #6366f1;  --accent2: #4f46e5;  --text: #0f172a;   --muted: #64748b;
+  --danger: #f43f5e;  --success: #16a34a; --warn: #d97706;
+}
+.dark {
+  --bg: #0f172a;  --surface: #1e293b;  --surface2: #263348;  --border: #334155;
+  --accent: #6366f1;  --accent2: #818cf8;  --text: #f1f5f9;   --muted: #94a3b8;
+  --danger: #f43f5e;  --success: #22c55e; --warn: #f59e0b;
+}
+.high-contrast {
+  --bg: #000000;  --surface: #0a0a0a;  --surface2: #141414;  --border: #262626;
+  --accent: #4f46e5;  --accent2: #6366f1;  --text: #ffffff;   --muted: #a1a1aa;
+  --danger: #fb7185;  --success: #4ade80; --warn: #fbbf24;
+}
+.semi-light {
+  --bg: #f0ede8;  --surface: #f7f5f2;  --surface2: #e8e4df;  --border: #d6d0c8;
+  --accent: #6366f1;  --accent2: #4f46e5;  --text: #1c1917;   --muted: #78716c;
+  --danger: #e11d48;  --success: #16a34a; --warn: #d97706;
+}
+
+/* ─── Token → Tailwind color utility mapping ──────────────────────────────
+   `inline` makes each utility resolve to the live token value, so switching
+   the active theme class recolors every utility in a single style recalc.
+   Each var() carries a literal light-value fallback (R2.7) so an unset token
+   never resolves to transparent/unset. */
+@theme inline {
+  --color-bg:       var(--bg, #f8fafc);
+  --color-surface:  var(--surface, #ffffff);
+  --color-surface2: var(--surface2, #f1f5f9);
+  --color-border:   var(--border, #e2e8f0);
+  --color-accent:   var(--accent, #6366f1);
+  --color-accent2:  var(--accent2, #4f46e5);
+  --color-text:     var(--text, #0f172a);
+  --color-muted:    var(--muted, #64748b);
+  --color-danger:   var(--danger, #f43f5e);
+  --color-success:  var(--success, #16a34a);
+  --color-warn:     var(--warn, #d97706);
+}
+
 html, body {
-  background-color: #000;
-  color: #fff;
+  background-color: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans);
   height: 100%;
   overflow: hidden;

@@ -22,19 +22,19 @@ export default function CycleNavigator({
         onClick={canGoPrevious ? onPrevious : undefined}
         disabled={!canGoPrevious}
         aria-label="Previous cycle"
-        className="text-gray-400 hover:text-white transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-400"
+        className="text-muted hover:text-text transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-muted"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
 
-      <span className="text-sm text-gray-300 text-center truncate">{label}</span>
+      <span className="text-sm text-text text-center truncate">{label}</span>
 
       <button
         type="button"
         onClick={canGoNext ? onNext : undefined}
         disabled={!canGoNext}
         aria-label="Next cycle"
-        className="text-gray-400 hover:text-white transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-400"
+        className="text-muted hover:text-text transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-muted"
       >
         <ChevronRight className="w-4 h-4" />
       </button>

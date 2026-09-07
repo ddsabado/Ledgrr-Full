@@ -9,27 +9,27 @@ export default function LoginPage({ loading, error }: LoginPageProps) {
   const { signInWithGoogle } = useAuth()
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-black">
-      <div className="w-full max-w-sm rounded-2xl p-8 flex flex-col items-center gap-6 bg-gray-950 border border-gray-800">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-bg">
+      <div className="w-full max-w-sm rounded-2xl p-8 flex flex-col items-center gap-6 bg-surface border border-border">
 
         {/* Heading */}
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl font-bold tracking-tight text-text">
             Ledgrr
           </h1>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted">
             Sign in to access your dashboard
           </p>
         </div>
 
         {/* Divider */}
-        <div className="w-full h-px bg-gray-800" />
+        <div className="w-full h-px bg-border" />
 
         {/* Google sign-in button area */}
         <div className="flex flex-col items-center gap-3 w-full">
           {loading ? (
             <div
-              className="w-10 h-10 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"
+              className="w-10 h-10 rounded-full border-4 border-accent border-t-transparent animate-spin"
               role="status"
               aria-label="Signing in"
             />
@@ -37,7 +37,7 @@ export default function LoginPage({ loading, error }: LoginPageProps) {
             <button
               onClick={signInWithGoogle}
               aria-label="Sign in with Google"
-              className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors duration-150 shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+              className="w-12 h-12 rounded-full bg-white flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors duration-150 shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               {/* Google "G" mark */}
               <svg width="22" height="22" viewBox="0 0 18 18" aria-hidden="true">
@@ -50,7 +50,7 @@ export default function LoginPage({ loading, error }: LoginPageProps) {
           )}
 
           {error && (
-            <p className="text-sm text-red-400 text-center" role="alert">
+            <p className="text-sm text-danger text-center" role="alert">
               {error}
             </p>
           )}
