@@ -11,6 +11,15 @@ vi.mock('@/hooks/useAccountBalances', () => ({
   useAccountBalances: () => ({ data: [], isLoading: false, isError: false }),
 }))
 
+// Mock the CC hooks so the CreditCardUtilization panel renders its empty state
+// without touching the transactions fetch/collection pipeline
+vi.mock('@/hooks/useCCAccounts', () => ({
+  useCCAccounts: () => ({ data: [], isLoading: false, isError: false }),
+}))
+vi.mock('@/hooks/useCCTransactions', () => ({
+  useCCTransactions: () => ({ data: new Map(), isLoading: false, isError: false }),
+}))
+
 function renderDashboard() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(

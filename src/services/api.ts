@@ -1,5 +1,6 @@
 import { supabase, SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
 import type { RawAccountBalancesData, CurrencyData } from '@/types/accounts'
+import type { RawTransaction } from '@/types/transactions'
 
 export class AuthError extends Error {
   constructor(message = 'Unauthorized') {
@@ -51,4 +52,20 @@ export async function getCurrencies(): Promise<CurrencyData> {
   })
   assertOk(res, 'currencies')
   return res.json() as Promise<CurrencyData>
+}
+
+/**
+ * Fetches ALL raw transaction rows from the transactions Edge Function.
+ * The Edge Function performs no filtering — it returns every non-blank
+ * transaction row with phpValue computed server-side. All windowing and
+ * credit-card filtering happens on the frontend via TanStack DB live queries.
+ */
+export async function getTransactions(): Promise<RawTransaction[]> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/transactions`, {
+    method: 'GET',
+    headers,
+  })
+  assertOk(res, 'transactions')
+  return res.json() as Promise<RawTransaction[]>
 }

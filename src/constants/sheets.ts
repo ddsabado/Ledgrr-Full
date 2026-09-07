@@ -11,6 +11,7 @@ export const ACCOUNTS_COLUMNS = Object.freeze({
   INITIAL_BALANCE: 'Init Balance',
   CURRENCY:        'Account Currency',
   BALANCE_PHP:     'Balance (PHP)',
+  IMAGE:           'Image',
   STATEMENT_DAY:   'Statement Day',
   DUE_DAY:         'Due Day',
   CURRENT_BALANCE: 'Current Balance',
@@ -24,3 +25,22 @@ export const CURRENCY_COLUMNS = Object.freeze({
 
 export type AccountsColumnKey   = keyof typeof ACCOUNTS_COLUMNS
 export type AccountsColumnValue = (typeof ACCOUNTS_COLUMNS)[AccountsColumnKey]
+
+
+export const TRANSACTIONS_COLUMNS = Object.freeze({
+  TXN_ID:          'Txn ID',
+  DATE:            'Date',
+  ACCOUNT:         'Account',
+  AMOUNT:          'Amount',
+  RESOLVED_AMOUNT: 'Resolved Amount',
+  CURRENCY:        'Currency',
+  TARGET_ACCOUNT:  'Target Account',
+  TYPE:            'Transaction Type',
+  CATEGORY:        'Category',
+  SUBCATEGORY:     'Subcategory',
+  BUDGET:          'Budget',
+  NOTE:            'Note',
+} as const)
+
+export type TransactionsColumnKey   = keyof typeof TRANSACTIONS_COLUMNS
+export type TransactionsColumnValue = (typeof TRANSACTIONS_COLUMNS)[TransactionsColumnKey]

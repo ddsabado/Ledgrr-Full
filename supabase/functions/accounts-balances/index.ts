@@ -8,6 +8,7 @@ const ACCOUNTS_COLUMNS = Object.freeze({
   INITIAL_BALANCE: 'Init Balance',
   CURRENCY:        'Account Currency',
   BALANCE_PHP:     'Balance (PHP)',
+  IMAGE:           'Image',
   STATEMENT_DAY:   'Statement Day',
   DUE_DAY:         'Due Day',
   CURRENT_BALANCE: 'Current Balance',
@@ -22,10 +23,13 @@ const ACCOUNTS_COLUMNS = Object.freeze({
 interface RawAccountBalance {
   name:           string
   category:       string
-  currency:       string   // ISO code: "PHP", "USD", "TWD", etc.
-  currentBalance: number   // Native currency amount — sheet column J
-  initialBalance: number   // Sheet column D
-  metadata:       string
+  currency:       string        // ISO code: "PHP", "USD", "TWD", etc.
+  currentBalance: number        // Native currency amount — sheet column J
+  initialBalance: number        // Sheet column D
+  creditLimit:    number        // 0 when empty or non-numeric
+  statementDay:   number | null // null when empty or non-integer
+  dueDay:         number | null // null when empty or non-integer
+  image:          string        // filename in the account_images bucket; '' when unset
 }
 
 export function buildHeaderMap(headers: string[]): Record<string, number> {
@@ -41,6 +45,11 @@ export function mapRowToAccount(
 ): RawAccountBalance | null {
   const get    = (col: string): string => row[headerMap[col] ?? -1] ?? ''
   const getNum = (col: string): number => parseFloat(get(col).replace(/,/g, '')) || 0
+  const getNullableInt = (col: string): number | null => {
+    const raw = get(col).replace(/,/g, '')
+    const n   = parseInt(raw, 10)
+    return raw && !isNaN(n) ? n : null
+  }
 
   const name = get(ACCOUNTS_COLUMNS.NAME)
   if (!name) return null
@@ -51,7 +60,10 @@ export function mapRowToAccount(
     currency:       get(ACCOUNTS_COLUMNS.CURRENCY) || 'PHP',
     currentBalance: getNum(ACCOUNTS_COLUMNS.CURRENT_BALANCE),
     initialBalance: getNum(ACCOUNTS_COLUMNS.INITIAL_BALANCE),
-    metadata:       get(ACCOUNTS_COLUMNS.METADATA),
+    creditLimit:    getNum(ACCOUNTS_COLUMNS.CREDIT_LIMIT),
+    statementDay:   getNullableInt(ACCOUNTS_COLUMNS.STATEMENT_DAY),
+    dueDay:         getNullableInt(ACCOUNTS_COLUMNS.DUE_DAY),
+    image:          get(ACCOUNTS_COLUMNS.IMAGE).trim(),
   }
 }
 
@@ -131,7 +143,7 @@ Deno.serve(async (req: Request) => {
     const accounts: RawAccountBalance[] = accountValues
       .slice(1)
       .map((row) => mapRowToAccount(row, headerMap))
-      .filter((acc): acc is RawAccountBalance => acc !== null && acc.category !== 'Credit Cards')
+      .filter((acc): acc is RawAccountBalance => acc !== null)
 
     return Response.json(accounts, { status: 200, headers: cors })
 
