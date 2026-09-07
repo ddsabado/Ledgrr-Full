@@ -1,6 +1,7 @@
 import { supabase, SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
 import type { RawAccountBalancesData, CurrencyData } from '@/types/accounts'
 import type { RawTransaction } from '@/types/transactions'
+import type { RawInstallmentRow, RawRecurringRow } from '@/types/installments'
 
 export class AuthError extends Error {
   constructor(message = 'Unauthorized') {
@@ -68,4 +69,33 @@ export async function getTransactions(): Promise<RawTransaction[]> {
   })
   assertOk(res, 'transactions')
   return res.json() as Promise<RawTransaction[]>
+}
+
+/**
+ * Fetches ALL raw installment rows from the installments Edge Function.
+ * The Edge Function is a thin passthrough — no parsing, no filtering. All
+ * month evaluation happens on the frontend via buildInstallmentMonths.
+ */
+export async function getInstallments(): Promise<RawInstallmentRow[]> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/installments`, {
+    method: 'GET',
+    headers,
+  })
+  assertOk(res, 'installments')
+  return res.json() as Promise<RawInstallmentRow[]>
+}
+
+/**
+ * Fetches ALL raw recurring payment rows from the recurring Edge Function.
+ * Thin passthrough — no parsing, no filtering; frontend evaluates months.
+ */
+export async function getRecurring(): Promise<RawRecurringRow[]> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/recurring`, {
+    method: 'GET',
+    headers,
+  })
+  assertOk(res, 'recurring payments')
+  return res.json() as Promise<RawRecurringRow[]>
 }

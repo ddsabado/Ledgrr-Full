@@ -44,3 +44,42 @@ export const TRANSACTIONS_COLUMNS = Object.freeze({
 
 export type TransactionsColumnKey   = keyof typeof TRANSACTIONS_COLUMNS
 export type TransactionsColumnValue = (typeof TRANSACTIONS_COLUMNS)[TransactionsColumnKey]
+
+
+/**
+ * Installments sheet column header strings (tab "Installments", columns A–H).
+ * Must match the sheet header row exactly (case-sensitive). The Edge Function
+ * inlines a copy of these (Deno cannot import from src/); keep both in sync.
+ */
+export const INSTALLMENTS_COLUMNS = Object.freeze({
+  NAME:         'Installment',
+  ACCOUNT:      'Account',
+  TOTAL_AMOUNT: 'Total Amount',
+  TERMS:        'Terms (in mo.)',
+  TERM_PAYMENT: 'Term Payment',
+  START_DATE:   'Start Date',
+  BUDGET:       'Budget',
+  CURRENCY:     'Currency',
+} as const)
+
+export type InstallmentsColumnKey   = keyof typeof INSTALLMENTS_COLUMNS
+export type InstallmentsColumnValue = (typeof INSTALLMENTS_COLUMNS)[InstallmentsColumnKey]
+
+/**
+ * Recurring Payments sheet column header strings (tab "Recurring Payments",
+ * columns A–I). Must match the sheet header row exactly (case-sensitive).
+ */
+export const RECURRING_COLUMNS = Object.freeze({
+  NAME:        'Name',
+  ACCOUNT:     'Account',
+  AMOUNT:      'Amount',
+  FREQUENCY:   'Frequency',
+  START_DATE:  'Start Date',
+  END_DATE:    'End Date',
+  CATEGORY:    'Category',
+  SUBCATEGORY: 'Subcategory',
+  CURRENCY:    'Currency',
+} as const)
+
+export type RecurringColumnKey   = keyof typeof RECURRING_COLUMNS
+export type RecurringColumnValue = (typeof RECURRING_COLUMNS)[RecurringColumnKey]

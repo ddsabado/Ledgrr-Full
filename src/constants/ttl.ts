@@ -16,3 +16,15 @@ export const TRANSACTIONS_STALE_TIME = 5 * 60 * 1000
 
 /** 10 minutes — keep the transactions cache for ten minutes */
 export const TRANSACTIONS_GC_TIME = 10 * 60 * 1000
+
+/** 5 minutes — installments change infrequently but may be added */
+export const INSTALLMENTS_STALE_TIME = 5 * 60 * 1000
+
+/** 10 minutes — keep the installments cache for ten minutes */
+export const INSTALLMENTS_GC_TIME = 10 * 60 * 1000
+
+/** 5 minutes — recurring payments change infrequently but may be added */
+export const RECURRING_STALE_TIME = 5 * 60 * 1000
+
+/** 10 minutes — keep the recurring payments cache for ten minutes */
+export const RECURRING_GC_TIME = 10 * 60 * 1000
