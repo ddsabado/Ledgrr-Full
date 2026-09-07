@@ -5,14 +5,18 @@
  *
  * currentBalance — amount in the account's native currency (sheet column J)
  * initialBalance — sheet column D
+ * creditLimit, statementDay, dueDay — credit-card metadata fields.
  */
 export interface RawAccountBalance {
   name:           string
   category:       string
-  currency:       string   // ISO code: "PHP", "USD", "TWD", etc.
-  currentBalance: number   // Native currency amount
+  currency:       string        // ISO code: "PHP", "USD", "TWD", etc.
+  currentBalance: number        // Native currency amount
   initialBalance: number
-  metadata:       string
+  creditLimit:    number        // 0 when not set
+  statementDay:   number | null // null when not set
+  dueDay:         number | null // null when not set
+  image:          string        // filename in the account_images bucket; '' when unset
 }
 
 /**

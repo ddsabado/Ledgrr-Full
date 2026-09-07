@@ -17,7 +17,7 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="rounded-xl bg-gray-900 border border-gray-800 p-5 flex flex-col gap-4">
+      <div className="rounded-xl bg-gray-900 border border-gray-800 p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full">
         <div className="h-3 w-32 bg-gray-800 rounded animate-pulse" />
         <div className="h-48 bg-gray-800 rounded-lg animate-pulse" />
         {[1, 2, 3].map((i) => (
@@ -59,7 +59,7 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: 'easeInOut' }}
-      className="rounded-xl bg-gray-900 border border-gray-800 p-5 flex flex-col gap-4 h-full"
+      className="rounded-xl bg-gray-900 border border-gray-800 p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full"
     >
       {/* Heading */}
       <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-gray-500">
