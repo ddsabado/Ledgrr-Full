@@ -1,0 +1,191 @@
+import { ChevronRight } from 'lucide-react'
+
+import type { RawTransaction } from '@/types/transactions'
+import { type CategoryData, signedAmount } from './groupTransactions'
+
+type MaskFn = (amount: number) => string
+
+// ─── Categories ──────────────────────────────────────────────────────────────
+
+interface CategoriesListProps {
+  categories:      Array<[string, CategoryData]>
+  total:           number
+  mask:            MaskFn
+  onCategoryClick: (category: string) => void
+  /** Maps category name → hex color (aligned with the donut slices). */
+  colorOf:         (category: string) => string
+}
+
+export function CategoriesList({
+  categories,
+  total,
+  mask,
+  onCategoryClick,
+  colorOf,
+}: CategoriesListProps) {
+  if (categories.length === 0) {
+    return (
+      <p className="py-6 px-2 text-sm text-center text-gray-500">
+        No transactions for this period.
+      </p>
+    )
+  }
+
+  return (
+    <ul className="flex flex-col divide-y divide-gray-800">
+      {categories.map(([name, cat]) => {
+        const pct = total > 0 ? ((cat.total / total) * 100).toFixed(1) : '0.0'
+        return (
+          <li key={name}>
+            <button
+              type="button"
+              onClick={() => onCategoryClick(name)}
+              className="w-full flex items-center gap-2 py-2.5 px-1 text-left rounded-md hover:bg-gray-800/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset"
+            >
+              <span
+                className="text-xs font-semibold tabular-nums min-w-[3rem]"
+                style={{ color: colorOf(name) }}
+              >
+                {pct}%
+              </span>
+              <span className="flex-1 flex items-center gap-1.5 text-sm text-gray-300 truncate">
+                {name}
+                <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-gray-600 shrink-0" />
+              </span>
+              <span className="text-sm font-medium tabular-nums text-gray-300">
+                {mask(cat.total)}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+// ─── Subcategories ─────────────────────────────────────────────────────────
+
+interface SubcategoriesListProps {
+  category:           string
+  catData:            CategoryData
+  mask:               MaskFn
+  onSubcategoryClick: (subcategory: string) => void
+  /** The parent category's color — all subcategory percentages inherit it. */
+  color:              string
+}
+
+/** Sentinel label for transactions posted directly to a category. */
+export const directLabel = (category: string) => `${category} (direct)`
+
+export function SubcategoriesList({
+  category,
+  catData,
+  mask,
+  onSubcategoryClick,
+  color,
+}: SubcategoriesListProps) {
+  const subcats: Array<[string, { total: number; txs: RawTransaction[] }]> =
+    Object.entries(catData.subcats).sort((a, b) => b[1].total - a[1].total)
+
+  // Surface direct-to-category transactions as a synthetic group (SPA parity).
+  if (catData.txs.length > 0) {
+    const directTotal = catData.txs.reduce((sum, tx) => sum + signedAmount(tx), 0)
+    subcats.push([directLabel(category), { total: directTotal, txs: catData.txs }])
+  }
+
+  const catTotal = catData.total
+
+  return (
+    <ul className="flex flex-col divide-y divide-gray-800">
+      {subcats.map(([name, sub]) => {
+        const pct = catTotal > 0 ? ((sub.total / catTotal) * 100).toFixed(1) : '0.0'
+        return (
+          <li key={name}>
+            <button
+              type="button"
+              onClick={() => onSubcategoryClick(name)}
+              className="w-full flex items-center gap-2 py-2.5 px-1 text-left rounded-md hover:bg-gray-800/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset"
+            >
+              <span
+                className="text-xs font-semibold tabular-nums min-w-[3rem]"
+                style={{ color }}
+              >
+                {pct}%
+              </span>
+              <span className="flex-1 flex items-center gap-1.5 text-sm text-gray-300 truncate">
+                {name}
+                <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-gray-600 shrink-0" />
+              </span>
+              <span className="text-sm font-medium tabular-nums text-gray-300">
+                {mask(sub.total)}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+// ─── Transactions ──────────────────────────────────────────────────────────
+
+interface TransactionRowsProps {
+  transactions: RawTransaction[]
+  mask:         MaskFn
+  privacyMode:  boolean
+}
+
+const PRIVACY_MASK = '••••••'
+
+/**
+ * Leaf list of individual transactions, reusing the CC TransactionList visual
+ * language (date · account, optional note, PHP amount + native amount).
+ */
+export function TransactionRows({ transactions, mask, privacyMode }: TransactionRowsProps) {
+  if (transactions.length === 0) {
+    return (
+      <p className="py-6 px-2 text-sm text-center text-gray-500">No transactions.</p>
+    )
+  }
+
+  return (
+    <ul className="flex flex-col divide-y divide-gray-800">
+      {transactions.map((tx) => {
+        const showNative = tx.currency !== 'PHP'
+        const nativeDisplay = privacyMode
+          ? PRIVACY_MASK
+          : new Intl.NumberFormat('en-PH', {
+              style: 'currency',
+              currency: tx.currency,
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }).format(tx.amount)
+
+        return (
+          <li key={tx.key} className="flex items-start justify-between py-2 gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-gray-300 truncate">
+                <span className="text-gray-500">{tx.date}</span>
+                <span className="text-gray-600"> · </span>
+                {tx.account}
+              </p>
+              {tx.note && (
+                <p className="text-xs text-gray-500 truncate mt-0.5">{tx.note}</p>
+              )}
+            </div>
+            <div className="flex flex-col items-end shrink-0 text-right">
+              <span className="text-sm font-medium tabular-nums text-gray-300">
+                {mask(signedAmount(tx))}
+              </span>
+              {showNative && (
+                <span className="text-xs text-gray-500 tabular-nums mt-0.5">
+                  {nativeDisplay}
+                </span>
+              )}
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
