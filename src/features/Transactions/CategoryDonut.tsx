@@ -29,7 +29,7 @@ function CustomLegend({ payload }: { payload?: LegendPayloadItem[] }) {
             className="h-2 w-2 shrink-0 rounded-[2px]"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-xs text-gray-400 leading-none">{entry.value}</span>
+          <span className="text-xs text-muted leading-none">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -73,8 +73,8 @@ export default function CategoryDonut({ categories, privacyMode }: CategoryDonut
               hideLabel
               formatter={(value, name) => (
                 <div className="flex items-center gap-2 min-w-[10rem]">
-                  <span className="text-gray-400 truncate max-w-[7rem]">{String(name)}</span>
-                  <span className="ml-auto font-mono font-medium tabular-nums text-white">
+                  <span className="text-muted truncate max-w-[7rem]">{String(name)}</span>
+                  <span className="ml-auto font-mono font-medium tabular-nums text-text">
                     {privacyMode ? PRIVACY_MASK : formatCurrency(Number(value), 'PHP')}
                   </span>
                 </div>

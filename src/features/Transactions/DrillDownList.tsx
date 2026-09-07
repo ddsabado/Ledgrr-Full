@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 
 import type { RawTransaction } from '@/types/transactions'
+import { formatTransactionDate } from '@/utils/date'
 import { type CategoryData, signedAmount } from './groupTransactions'
 
 type MaskFn = (amount: number) => string
@@ -25,14 +26,14 @@ export function CategoriesList({
 }: CategoriesListProps) {
   if (categories.length === 0) {
     return (
-      <p className="py-6 px-2 text-sm text-center text-gray-500">
+      <p className="py-6 px-2 text-sm text-center text-muted">
         No transactions for this period.
       </p>
     )
   }
 
   return (
-    <ul className="flex flex-col divide-y divide-gray-800">
+    <ul className="flex flex-col divide-y divide-border">
       {categories.map(([name, cat]) => {
         const pct = total > 0 ? ((cat.total / total) * 100).toFixed(1) : '0.0'
         return (
@@ -40,7 +41,7 @@ export function CategoriesList({
             <button
               type="button"
               onClick={() => onCategoryClick(name)}
-              className="w-full flex items-center gap-2 py-2.5 px-1 text-left rounded-md hover:bg-gray-800/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset"
+              className="w-full flex items-center gap-2 py-2.5 px-1 text-left rounded-md hover:bg-surface2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
             >
               <span
                 className="text-xs font-semibold tabular-nums min-w-[3rem]"
@@ -48,11 +49,11 @@ export function CategoriesList({
               >
                 {pct}%
               </span>
-              <span className="flex-1 flex items-center gap-1.5 text-sm text-gray-300 truncate">
+              <span className="flex-1 flex items-center gap-1.5 text-sm text-text truncate">
                 {name}
-                <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-gray-600 shrink-0" />
+                <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-muted shrink-0" />
               </span>
-              <span className="text-sm font-medium tabular-nums text-gray-300">
+              <span className="text-sm font-medium tabular-nums text-text">
                 {mask(cat.total)}
               </span>
             </button>
@@ -96,7 +97,7 @@ export function SubcategoriesList({
   const catTotal = catData.total
 
   return (
-    <ul className="flex flex-col divide-y divide-gray-800">
+    <ul className="flex flex-col divide-y divide-border">
       {subcats.map(([name, sub]) => {
         const pct = catTotal > 0 ? ((sub.total / catTotal) * 100).toFixed(1) : '0.0'
         return (
@@ -104,7 +105,7 @@ export function SubcategoriesList({
             <button
               type="button"
               onClick={() => onSubcategoryClick(name)}
-              className="w-full flex items-center gap-2 py-2.5 px-1 text-left rounded-md hover:bg-gray-800/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset"
+              className="w-full flex items-center gap-2 py-2.5 px-1 text-left rounded-md hover:bg-surface2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
             >
               <span
                 className="text-xs font-semibold tabular-nums min-w-[3rem]"
@@ -112,11 +113,11 @@ export function SubcategoriesList({
               >
                 {pct}%
               </span>
-              <span className="flex-1 flex items-center gap-1.5 text-sm text-gray-300 truncate">
+              <span className="flex-1 flex items-center gap-1.5 text-sm text-text truncate">
                 {name}
-                <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-gray-600 shrink-0" />
+                <ChevronRight aria-hidden="true" className="w-3.5 h-3.5 text-muted shrink-0" />
               </span>
-              <span className="text-sm font-medium tabular-nums text-gray-300">
+              <span className="text-sm font-medium tabular-nums text-text">
                 {mask(sub.total)}
               </span>
             </button>
@@ -144,12 +145,12 @@ const PRIVACY_MASK = '••••••'
 export function TransactionRows({ transactions, mask, privacyMode }: TransactionRowsProps) {
   if (transactions.length === 0) {
     return (
-      <p className="py-6 px-2 text-sm text-center text-gray-500">No transactions.</p>
+      <p className="py-6 px-2 text-sm text-center text-muted">No transactions.</p>
     )
   }
 
   return (
-    <ul className="flex flex-col divide-y divide-gray-800">
+    <ul className="flex flex-col divide-y divide-border">
       {transactions.map((tx) => {
         const showNative = tx.currency !== 'PHP'
         const nativeDisplay = privacyMode
@@ -164,21 +165,21 @@ export function TransactionRows({ transactions, mask, privacyMode }: Transaction
         return (
           <li key={tx.key} className="flex items-start justify-between py-2 gap-3">
             <div className="min-w-0">
-              <p className="text-sm text-gray-300 truncate">
-                <span className="text-gray-500">{tx.date}</span>
-                <span className="text-gray-600"> · </span>
+              <p className="text-sm text-text truncate">
+                <span className="text-muted">{formatTransactionDate(tx.date)}</span>
+                <span className="text-muted"> · </span>
                 {tx.account}
               </p>
               {tx.note && (
-                <p className="text-xs text-gray-500 truncate mt-0.5">{tx.note}</p>
+                <p className="text-xs text-muted truncate mt-0.5">{tx.note}</p>
               )}
             </div>
             <div className="flex flex-col items-end shrink-0 text-right">
-              <span className="text-sm font-medium tabular-nums text-gray-300">
+              <span className="text-sm font-medium tabular-nums text-text">
                 {mask(signedAmount(tx))}
               </span>
               {showNative && (
-                <span className="text-xs text-gray-500 tabular-nums mt-0.5">
+                <span className="text-xs text-muted tabular-nums mt-0.5">
                   {nativeDisplay}
                 </span>
               )}

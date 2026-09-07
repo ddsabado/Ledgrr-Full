@@ -152,18 +152,18 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
   if (session === null) return null
 
   const cardShell =
-    'rounded-xl bg-gray-900 border border-gray-800 p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full'
+    'rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full'
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className={cardShell}>
-        <div className="h-3 w-40 bg-gray-800 rounded animate-pulse" />
-        <div className="h-9 bg-gray-800 rounded-lg animate-pulse" />
+        <div className="h-3 w-40 bg-surface2 rounded animate-pulse" />
+        <div className="h-9 bg-surface2 rounded-lg animate-pulse" />
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="flex justify-between items-center gap-3">
-            <div className="h-3 w-28 bg-gray-800 rounded animate-pulse" />
-            <div className="h-3 w-16 bg-gray-800 rounded animate-pulse" />
+            <div className="h-3 w-28 bg-surface2 rounded animate-pulse" />
+            <div className="h-3 w-16 bg-surface2 rounded animate-pulse" />
           </div>
         ))}
       </div>
@@ -173,8 +173,8 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
   // ─── Error ───────────────────────────────────────────────────────────────
   if (isError) {
     return (
-      <div className="rounded-xl bg-gray-900 border border-gray-800 p-5">
-        <p className="text-sm text-gray-500 text-center">
+      <div className="rounded-xl bg-surface border border-border p-5">
+        <p className="text-sm text-muted text-center">
           Could not load transactions. Please try again later.
         </p>
       </div>
@@ -194,7 +194,7 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       className={cardShell}
     >
       {/* Heading */}
-      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-gray-500">
+      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
         Transactions by Period
       </p>
 
@@ -203,7 +203,7 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
         <div
           role="tablist"
           aria-label="Time window"
-          className="shrink-0 flex items-center gap-1 rounded-lg bg-gray-800/60 p-1"
+          className="shrink-0 flex items-center gap-1 rounded-lg bg-surface2 p-1"
         >
           {PERIOD_TABS.map((tab) => {
             const isSelected = periodMode === tab.id
@@ -214,14 +214,14 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => handlePeriodModeChange(tab.id)}
-                className={`relative flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                  isSelected ? 'text-white' : 'text-gray-400 hover:text-gray-200'
+                className={`relative flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  isSelected ? 'text-text' : 'text-muted hover:text-text'
                 }`}
               >
                 {isSelected && (
                   <motion.span
                     layoutId="tx-period-pill"
-                    className="absolute inset-0 rounded-md bg-gray-700"
+                    className="absolute inset-0 rounded-md bg-accent"
                     transition={{ type: 'spring', stiffness: 300, damping: 28 }}
                   />
                 )}
@@ -246,7 +246,7 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
         <div
           role="tablist"
           aria-label="Flow type"
-          className="shrink-0 mx-auto flex items-center gap-1 rounded-lg bg-gray-800/60 p-1"
+          className="shrink-0 mx-auto flex items-center gap-1 rounded-lg bg-surface2 p-1"
         >
           {FLOW_TABS.map((tab) => {
             const isSelected = flow === tab.id
@@ -257,14 +257,14 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => handleFlowChange(tab.id)}
-                className={`relative rounded-md px-5 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                  isSelected ? 'text-white' : 'text-gray-400 hover:text-gray-200'
+                className={`relative rounded-md px-5 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  isSelected ? 'text-text' : 'text-muted hover:text-text'
                 }`}
               >
                 {isSelected && (
                   <motion.span
                     layoutId="tx-flow-pill"
-                    className="absolute inset-0 rounded-md bg-gray-700"
+                    className="absolute inset-0 rounded-md bg-accent"
                     transition={{ type: 'spring', stiffness: 300, damping: 28 }}
                   />
                 )}
@@ -287,20 +287,20 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       )}
 
       {/* Back + Total row */}
-      <div className="shrink-0 flex items-center justify-between border-t border-gray-800 pt-3 min-h-[1.75rem]">
+      <div className="shrink-0 flex items-center justify-between border-t border-border pt-3 min-h-[1.75rem]">
         {view.type !== 'categories' ? (
           <button
             type="button"
             onClick={back}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-md"
+            className="flex items-center gap-1.5 text-sm text-muted hover:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md"
           >
             <ChevronLeft className="w-4 h-4" />
             {detailLabel}
           </button>
         ) : (
-          <span className="text-sm font-medium text-gray-300">Total</span>
+          <span className="text-sm font-medium text-text">Total</span>
         )}
-        <span className="text-sm font-semibold text-white tabular-nums">
+        <span className="text-sm font-semibold text-text tabular-nums">
           {mask(view.type === 'categories' ? periodTotal : detailTotal)}
         </span>
       </div>

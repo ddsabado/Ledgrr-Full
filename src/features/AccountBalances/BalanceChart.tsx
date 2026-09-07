@@ -8,6 +8,8 @@ import {
 import { formatCurrency } from '@/utils/currency'
 import type { AccountBalance } from '@/types/accounts'
 
+const PRIVACY_MASK = '••••••'
+
 export const CHART_COLORS = [
   '#6366f1', // indigo-500
   '#8b5cf6', // violet-500
@@ -40,7 +42,7 @@ function CustomLegend({ payload }: { payload?: LegendPayloadItem[] }) {
             className="h-2 w-2 shrink-0 rounded-[2px]"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-xs text-gray-400 leading-none">{entry.value}</span>
+          <span className="text-xs text-muted leading-none">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -48,10 +50,11 @@ function CustomLegend({ payload }: { payload?: LegendPayloadItem[] }) {
 }
 
 interface BalanceChartProps {
-  accounts: AccountBalance[]
+  accounts:    AccountBalance[]
+  privacyMode: boolean
 }
 
-export default function BalanceChart({ accounts }: BalanceChartProps) {
+export default function BalanceChart({ accounts, privacyMode }: BalanceChartProps) {
   const chartData = accounts.map((a, i) => ({
     name:  a.name,
     value: a.phpEquivalent,
@@ -75,9 +78,9 @@ export default function BalanceChart({ accounts }: BalanceChartProps) {
               hideLabel
               formatter={(value, name) => (
                 <div className="flex items-center gap-2 min-w-[10rem]">
-                  <span className="text-gray-400 truncate max-w-[7rem]">{String(name)}</span>
-                  <span className="ml-auto font-mono font-medium tabular-nums text-white">
-                    {formatCurrency(Number(value), 'PHP')}
+                  <span className="text-muted truncate max-w-[7rem]">{String(name)}</span>
+                  <span className="ml-auto font-mono font-medium tabular-nums text-text">
+                    {privacyMode ? PRIVACY_MASK : formatCurrency(Number(value), 'PHP')}
                   </span>
                 </div>
               )}

@@ -28,18 +28,19 @@ export function getAccountImageUrl(image: string): string | null {
 
 /**
  * Returns the Tailwind background color class for the utilization progress bar
- * based on the utilization percentage.
+ * based on the utilization percentage. Colors are semantic status tokens so
+ * they follow the active theme.
  *
- * - `< 30`      → green  (`bg-green-500`)
- * - `30`–`69`   → yellow (`bg-yellow-500`)  (>= 30 and < 70)
- * - `>= 70`     → red    (`bg-red-500`)
+ * - `< 30`      → success token (`bg-success`)
+ * - `30`–`69`   → warn token    (`bg-warn`)  (>= 30 and < 70)
+ * - `>= 70`     → danger token  (`bg-danger`)
  *
- * Requirements: 8.6
+ * Requirements: 8.6, 2.5
  */
 export function getUtilizationBarColor(utilization: number): string {
-  if (utilization < 30) return 'bg-green-500'
-  if (utilization < 70) return 'bg-yellow-500'
-  return 'bg-red-500'
+  if (utilization < 30) return 'bg-success'
+  if (utilization < 70) return 'bg-warn'
+  return 'bg-danger'
 }
 
 /**
@@ -59,16 +60,17 @@ export function getDueBadgeText(daysUntilDue: number): string {
 
 /**
  * Returns a Tailwind class string combining background + text color for the
- * due badge, based on how many days remain until the due date.
+ * due badge, based on how many days remain until the due date. Colors are
+ * semantic status tokens so they follow the active theme.
  *
- * - `<= 3` → red    (`bg-red-500/10 text-red-400`)
- * - `4`–`7` → yellow (`bg-yellow-500/10 text-yellow-400`)
- * - `> 7`  → green  (`bg-green-500/10 text-green-400`)
+ * - `<= 3` → danger  (`bg-danger/10 text-danger`)
+ * - `4`–`7` → warn    (`bg-warn/10 text-warn`)
+ * - `> 7`  → success (`bg-success/10 text-success`)
  *
- * Requirements: 8.9
+ * Requirements: 8.9, 2.5
  */
 export function getDueBadgeColor(daysUntilDue: number): string {
-  if (daysUntilDue <= 3) return 'bg-red-500/10 text-red-400'
-  if (daysUntilDue <= 7) return 'bg-yellow-500/10 text-yellow-400'
-  return 'bg-green-500/10 text-green-400'
+  if (daysUntilDue <= 3) return 'bg-danger/10 text-danger'
+  if (daysUntilDue <= 7) return 'bg-warn/10 text-warn'
+  return 'bg-success/10 text-success'
 }

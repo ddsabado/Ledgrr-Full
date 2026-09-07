@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { ThemeProvider } from '@/context/ThemeContext'
 import { SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
 
 import LoginPage     from '@/pages/LoginPage'
@@ -43,9 +44,9 @@ function Router() {
   // Full-screen spinner while session state is unknown
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="min-h-screen flex items-center justify-center bg-bg">
         <div
-          className="w-10 h-10 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"
+          className="w-10 h-10 rounded-full border-4 border-accent border-t-transparent animate-spin"
           role="status"
           aria-label="Loading"
         />
@@ -74,7 +75,9 @@ function Router() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router />
+      <ThemeProvider>
+        <Router />
+      </ThemeProvider>
     </AuthProvider>
   )
 }

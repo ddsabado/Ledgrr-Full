@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { motion, AnimatePresence, LayoutGroup } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 
 import type { CCAccount, CCTransactionData } from '@/types/transactions'
 import { formatCurrency } from '@/utils/currency'
@@ -43,6 +43,9 @@ export default function CCCard({
   onCycleIndexChange,
 }: CCCardProps) {
   const showNative = account.currency !== 'PHP'
+
+  // Pill selector index: statement = left cell (0), all = right cell (1).
+  const selectedIndex = cycleView === 'statement' ? 0 : 1
 
   // Public URL for the card art stored in the account_images bucket.
   // null when the account has no image filename set.
@@ -93,18 +96,18 @@ export default function CCCard({
   const canGoNext = cycleIndex > 0 // newer
 
   return (
-    <div className="shrink-0 rounded-lg border border-gray-800 bg-gray-900/50 overflow-hidden">
+    <div className="shrink-0 rounded-lg border border-border bg-surface overflow-hidden">
       {/* ─── Collapsed / header (clickable) ─────────────────────────────── */}
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isExpanded}
-        className="w-full text-left px-4 py-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-inset transition-colors hover:bg-gray-800/40"
+        className="w-full text-left px-4 py-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
       >
         {/* Name + due badge + chevron */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted truncate">
               {account.name}
             </span>
             {account.daysUntilDue !== null && (
@@ -119,7 +122,7 @@ export default function CCCard({
           </div>
           <ChevronDown
             aria-hidden="true"
-            className={`shrink-0 w-4 h-4 text-gray-500 transition-transform duration-200 ${
+            className={`shrink-0 w-4 h-4 text-muted transition-transform duration-200 ${
               isExpanded ? 'rotate-180' : ''
             }`}
           />
@@ -141,18 +144,18 @@ export default function CCCard({
 
         {/* Balance (large) */}
         <div className="flex flex-col">
-          <span className="text-2xl font-bold text-white tabular-nums leading-tight">
+          <span className="text-2xl font-bold text-text tabular-nums leading-tight">
             {phpDisplay}
           </span>
           {showNative && (
-            <span className="text-xs text-gray-500 tabular-nums mt-0.5">
+            <span className="text-xs text-muted tabular-nums mt-0.5">
               {nativeDisplay}
             </span>
           )}
         </div>
 
         {/* Utilization progress bar */}
-        <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+        <div className="h-1.5 rounded-full bg-surface2 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor}`}
             style={{ width: `${barWidth}%` }}
@@ -160,20 +163,20 @@ export default function CCCard({
         </div>
 
         {/* Utilization % + available credit */}
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between text-xs text-muted">
           <span className="tabular-nums">{utilizationPct}% used</span>
           <span className="tabular-nums">{availableDisplay} limit left</span>
         </div>
 
         {/* Statement / due day + amount due */}
-        <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-gray-500">
+        <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted">
           <span>
-            Statement <b className="text-gray-300 font-semibold">{statementDayDisplay}</b> · Due{' '}
-            <b className="text-gray-300 font-semibold">{dueDayDisplay}</b>
+            Statement <b className="text-text font-semibold">{statementDayDisplay}</b> · Due{' '}
+            <b className="text-text font-semibold">{dueDayDisplay}</b>
           </span>
           <span className="tabular-nums">
-            <span className="text-gray-600">Amount due </span>
-            <span className="text-gray-300 font-semibold">{amountDueDisplay}</span>
+            <span className="text-muted">Amount due </span>
+            <span className="text-text font-semibold">{amountDueDisplay}</span>
           </span>
         </div>
       </button>
@@ -188,46 +191,44 @@ export default function CCCard({
             transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-gray-800">
-              {/* View mode tabs */}
-              <LayoutGroup>
-                <div
-                  role="tablist"
-                  aria-label="Transaction view mode"
-                  className="flex items-center gap-1 rounded-lg bg-gray-800/60 p-1"
-                >
-                  {VIEW_TABS.map((tab) => {
-                    const isSelected = cycleView === tab.id
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={isSelected}
-                        onClick={() => onCycleViewChange(tab.id)}
-                        className={`relative flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                          isSelected
-                            ? 'text-white'
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                      >
-                        {isSelected && (
-                          <motion.span
-                            layoutId={`cc-view-pill-${account.name}`}
-                            className="absolute inset-0 rounded-md bg-gray-700"
-                            transition={{
-                              type: 'spring',
-                              stiffness: 300,
-                              damping: 28,
-                            }}
-                          />
-                        )}
-                        <span className="relative z-10">{tab.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </LayoutGroup>
+            <div className="px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-border">
+              {/* View mode tabs — single persistent highlight that slides
+                  horizontally between the two equal-width cells (R6). */}
+              <div
+                role="tablist"
+                aria-label="Transaction view mode"
+                className="relative grid grid-cols-2 gap-1 rounded-lg bg-surface2 p-1"
+              >
+                {/* One always-mounted highlight; only `x` animates (strictly
+                    horizontal, no mount/unmount, no opacity fade). Positioned
+                    over the left cell and shifted one cell-width right for
+                    'all'. */}
+                <motion.div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-1 left-1 rounded-md bg-accent"
+                  style={{ width: 'calc(50% - 0.375rem)' }}
+                  initial={false}
+                  animate={{ x: `${selectedIndex * 100}%` }}
+                  transition={{ type: 'tween', duration: 0.22, ease: 'easeInOut' }}
+                />
+                {VIEW_TABS.map((tab) => {
+                  const isSelected = cycleView === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      onClick={() => onCycleViewChange(tab.id)}
+                      className={`relative z-10 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                        isSelected ? 'text-text' : 'text-muted hover:text-text'
+                      }`}
+                    >
+                      <span className="relative z-10">{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
 
               {/* Content */}
               {cycleView === 'statement' ? (
