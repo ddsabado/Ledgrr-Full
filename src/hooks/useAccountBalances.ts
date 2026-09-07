@@ -2,8 +2,9 @@
  * useAccountBalances
  *
  * Reads from two TanStack DB collections (accountBalancesCollection,
- * currenciesCollection) via useLiveQuery, then derives phpEquivalent
- * on the frontend:
+ * currenciesCollection) via useLiveQuery, filtered to non-Credit-Card
+ * accounts only (Credit Cards are surfaced separately by useCCAccounts),
+ * then derives phpEquivalent on the frontend:
  *   phpEquivalent = currentBalance * fxRate
  *
  * Both collections are backed by queryCollectionOptions, which wires
@@ -14,7 +15,7 @@
  * Returning null from the useLiveQuery callback when unauthenticated
  * disables the query (status='disabled', data=undefined, isLoading=false).
  */
-import { useLiveQuery } from '@tanstack/react-db'
+import { eq, not, useLiveQuery } from '@tanstack/react-db'
 
 import { accountBalancesCollection } from '@/collections/accountBalances'
 import { useCurrencies } from '@/hooks/useCurrencies'
@@ -36,6 +37,7 @@ export function useAccountBalances(): {
   } = useLiveQuery(
     (q) => isAuthenticated
       ? q.from({ account: accountBalancesCollection })
+          .where(({ account }) => not(eq(account.category, 'Credit Cards')))
       : null
   )
 
@@ -56,7 +58,10 @@ export function useAccountBalances(): {
     currency:       row.currency,
     currentBalance: row.currentBalance,
     initialBalance: row.initialBalance,
-    metadata:       row.metadata,
+    creditLimit:    row.creditLimit,
+    statementDay:   row.statementDay,
+    dueDay:         row.dueDay,
+    image:          row.image,
     phpEquivalent:  row.currentBalance * (fxMap[row.currency] ?? 1),
   }))
 
