@@ -1,7 +1,14 @@
+import { motion, AnimatePresence } from 'motion/react'
 import { Moon, SunMedium, Sun, Contrast, type LucideIcon } from 'lucide-react'
 
 import { useThemeContext } from '@/context/ThemeContext'
 import { next, type Theme } from '@/hooks/useTheme'
+import {
+  NAV_TOGGLE_CLASS,
+  NAV_TOGGLE_HOVER,
+  NAV_TOGGLE_TAP,
+  NAV_ICON_SWAP,
+} from '@/components/navToggle'
 
 const MODE_META: Record<Theme, { Icon: LucideIcon; label: string }> = {
   dark:            { Icon: Moon,      label: 'Dark' },
@@ -16,14 +23,21 @@ export default function ThemeSwitcher() {
   const nextLabel = MODE_META[next(theme)].label
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={cycleTheme}
       aria-label={`Theme: ${label}. Activate to switch to ${nextLabel}.`}
       title={`Theme: ${label}`}
-      className="text-muted hover:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md p-1"
+      whileHover={NAV_TOGGLE_HOVER}
+      whileTap={NAV_TOGGLE_TAP}
+      className={NAV_TOGGLE_CLASS}
     >
-      <Icon aria-hidden="true" className="w-[18px] h-[18px]" />
-    </button>
+      {/* Rotating icon swap on theme change (SPA-matched) */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span key={theme} {...NAV_ICON_SWAP} className="block">
+          <Icon aria-hidden="true" className="w-[18px] h-[18px]" />
+        </motion.span>
+      </AnimatePresence>
+    </motion.button>
   )
 }

@@ -160,4 +160,21 @@ describe('Transactions panel', () => {
     expect(screen.getAllByText('Food').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Transport').length).toBeGreaterThanOrEqual(1)
   })
+
+  it('renders the chart placeholder (not a donut) when the period has no categories (R1.1, R1.2)', () => {
+    // Empty grouped data -> zero categories -> reserved placeholder slot.
+    hookState.value = { grouped: emptyGrouped(), isLoading: false, isError: false }
+    render(<Transactions privacyMode={false} />)
+    // Placeholder present at the reserved chart height
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('No data to display')
+    expect(status.className).toMatch(/h-56/)
+    // Total row still renders (layout below the chart is intact)
+    expect(screen.getByText('Total')).toBeInTheDocument()
+  })
+
+  it('shows the donut and no placeholder when categories exist (R1.4)', () => {
+    render(<Transactions privacyMode={false} />)
+    expect(screen.queryByText('No data to display')).not.toBeInTheDocument()
+  })
 })

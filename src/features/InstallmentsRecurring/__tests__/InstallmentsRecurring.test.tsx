@@ -86,6 +86,23 @@ describe('InstallmentsRecurring panel', () => {
     expect(screen.getByText(/Monthly total/i)).toBeInTheDocument()
   })
 
+  it('renders the chart placeholder (not a donut) when the month has no items, keeping layout in place (R1.1, R1.2)', () => {
+    render(<InstallmentsRecurring privacyMode={false} />)
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('No data to display')
+    expect(status.className).toMatch(/h-56/)
+    // total + navigator still present below the reserved chart slot
+    expect(screen.getByText(/Monthly total/i)).toBeInTheDocument()
+  })
+
+  it('shows the donut and no placeholder when the month has items (R1.4)', () => {
+    hookState.value.installments = [inst({ startDate: '6/1/2026', terms: '3', termPayment: '1000' })]
+    vi.setSystemTime(new Date(2026, 5, 15))
+    render(<InstallmentsRecurring privacyMode={false} />)
+    expect(screen.queryByText('No data to display')).not.toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
   it('masks every amount and the total when privacy mode is on (R10.1, R10.2)', () => {
     hookState.value.installments = [inst({ startDate: '6/1/2026', terms: '3', termPayment: '1000' })]
     render(<InstallmentsRecurring privacyMode={true} />)

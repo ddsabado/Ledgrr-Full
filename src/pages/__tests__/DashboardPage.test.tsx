@@ -125,4 +125,26 @@ describe('DashboardPage', () => {
     await user.click(screen.getByRole('button', { name: /hide amounts/i }))
     expect(screen.getAllByText('••••••').length).toBeGreaterThan(0)
   })
+
+  it('nav icon toggles carry the boxed hover affordance and preserve focus + labels (R2.4, R2.5, R2.6)', () => {
+    renderDashboard()
+    const privacy = screen.getByRole('button', { name: /hide amounts/i })
+    const signOut = screen.getByRole('button', { name: /sign out/i })
+    // Theme switcher button — has an aria-label starting with "Theme:"
+    const theme = screen.getByRole('button', { name: /^Theme:/ })
+
+    // Icon toggles: boxed style (surface2 + border), hover accent, focus ring.
+    // Scale on hover/press is motion-driven (whileHover/whileTap) and not a class.
+    for (const btn of [privacy, theme]) {
+      expect(btn.className).toMatch(/bg-surface2/)
+      expect(btn.className).toMatch(/border-border/)
+      expect(btn.className).toMatch(/hover:border-accent/)
+      expect(btn.className).toMatch(/transition-colors/)
+      expect(btn.className).toMatch(/duration-150/)
+      expect(btn.className).toMatch(/focus-visible:ring-2/)
+    }
+    // Sign out is the text-button variant: hover background + focus ring.
+    expect(signOut.className).toMatch(/hover:bg-surface2/)
+    expect(signOut.className).toMatch(/focus-visible:ring-2/)
+  })
 })

@@ -9,6 +9,7 @@ import { useCurrencies } from '@/hooks/useCurrencies'
 import { findPeriodIndexForSwitch, signedAmount, type PeriodMode } from './groupTransactions'
 import PeriodNavigator from './PeriodNavigator'
 import CategoryDonut from './CategoryDonut'
+import ChartPlaceholder from '@/components/ChartPlaceholder'
 import { CHART_COLORS } from '@/features/AccountBalances/BalanceChart'
 import {
   CategoriesList,
@@ -278,15 +279,19 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       </LayoutGroup>
 
       {/* Category donut — reflects the active period + flow breakdown. Fixed
-          (non-scrolling); hidden when there are no categories. */}
-      {categories.length > 0 && (
-        <div className="shrink-0">
+          (non-scrolling). The slot is ALWAYS rendered at the chart's height so
+          switching to an empty period/flow does not snap the layout: the donut
+          shows when there are categories, else a same-height placeholder. */}
+      <div className="shrink-0">
+        {categories.length > 0 ? (
           <CategoryDonut
             categories={categories.map(([name, cat]) => [name, cat.total])}
             privacyMode={privacyMode}
           />
-        </div>
-      )}
+        ) : (
+          <ChartPlaceholder height="h-56" />
+        )}
+      </div>
 
       {/* Back + Total row */}
       <div className="shrink-0 flex items-center justify-between border-t border-border pt-3 min-h-[1.75rem]">
