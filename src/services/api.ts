@@ -3,6 +3,7 @@ import type { RawAccountBalancesData, CurrencyData } from '@/types/accounts'
 import type { RawTransaction } from '@/types/transactions'
 import type { RawInstallmentRow, RawRecurringRow } from '@/types/installments'
 import type { RawBudgetRow } from '@/types/budgets'
+import type { RawDebtReceivableRow } from '@/types/debtsReceivables'
 
 export class AuthError extends Error {
   constructor(message = 'Unauthorized') {
@@ -114,4 +115,19 @@ export async function getBudgets(): Promise<RawBudgetRow[]> {
   })
   assertOk(res, 'budgets')
   return res.json() as Promise<RawBudgetRow[]>
+}
+
+/**
+ * Fetches ALL raw Debts & Receivables rows from the debtsandreceivables Edge
+ * Function. Thin passthrough — no computation, no filtering; the frontend
+ * parses, resolves PHP, and derives status via computeDebtsReceivables.
+ */
+export async function getDebtsReceivables(): Promise<RawDebtReceivableRow[]> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/debtsandreceivables`, {
+    method: 'GET',
+    headers,
+  })
+  assertOk(res, 'debts & receivables')
+  return res.json() as Promise<RawDebtReceivableRow[]>
 }

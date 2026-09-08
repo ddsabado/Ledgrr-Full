@@ -1,0 +1,292 @@
+/**
+ * Debts & Receivables dashboard panel — display-only.
+ *
+ * Lists every D&R record in both directions (Receivable + Payable), sorted
+ * chronologically by date (records with no parseable date sort last, keeping
+ * their relative sheet order). Each record shows the transaction name,
+ * "Mmm dd" date, account, a PHP-resolved total (native secondary for foreign
+ * currency), and an overall Settled/Pending badge. Participants are hidden
+ * until the record is expanded. All amounts honor privacyMode. Derivation
+ * lives entirely in computeDebtsReceivables; this component only renders the
+ * view models.
+ */
+import { useMemo, useState } from 'react'
+import { Check, AlertTriangle, ChevronDown } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
+
+import { formatCurrency } from '@/utils/currency'
+import {
+  computeDebtsReceivables,
+  type DebtReceivableView,
+  type ParticipantView,
+} from './computeDebtsReceivables'
+import { useDebtsReceivables } from './useDebtsReceivables'
+
+const PRIVACY_MASK = '••••••'
+
+interface DebtsReceivablesProps {
+  privacyMode: boolean
+}
+
+export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps) {
+  const { rows, fxMap, isLoading, isError } = useDebtsReceivables()
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  const views = useMemo(() => {
+    const computed = computeDebtsReceivables(rows, fxMap)
+    // Chronological (oldest → newest). Undated records sort last while keeping
+    // their original relative order (stable sort via original index tiebreak).
+    return computed
+      .map((view, index) => ({ view, index }))
+      .sort((a, b) => {
+        const ta = a.view.sortTs
+        const tb = b.view.sortTs
+        if (ta === null && tb === null) return a.index - b.index
+        if (ta === null) return 1
+        if (tb === null) return -1
+        return ta - tb || a.index - b.index
+      })
+      .map(({ view }) => view)
+  }, [rows, fxMap])
+
+  const mask = (amount: number, currency = 'PHP') =>
+    privacyMode ? PRIVACY_MASK : formatCurrency(amount, currency)
+
+  const cardShell =
+    'rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full'
+
+  // ─── Loading ────────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className={cardShell}>
+        <div className="h-3 w-32 bg-surface2 rounded animate-pulse" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex flex-col gap-2">
+            <div className="h-3 w-40 bg-surface2 rounded animate-pulse" />
+            <div className="h-3 w-full bg-surface2 rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ─── Error ───────────────────────────────────────────────────────────────
+  if (isError) {
+    return (
+      <div className={cardShell}>
+        <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+          Debts &amp; Receivables
+        </p>
+        <p className="text-sm text-danger text-center" role="alert">
+          Failed to load debts &amp; receivables data.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15, ease: 'easeInOut' }}
+      className={cardShell}
+    >
+      {/* Heading */}
+      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+        Debts &amp; Receivables
+      </p>
+
+      {views.length === 0 ? (
+        <p className="flex-1 py-6 px-2 text-sm text-center text-muted">
+          No records.
+        </p>
+      ) : (
+        <div className="flex-1 overflow-y-auto min-h-0 scrollbar-gutter-stable">
+          <div
+            data-testid="debts-receivables-list"
+            className="flex flex-col gap-4"
+          >
+            {views.map((view) => (
+              <RecordView
+                key={view.key}
+                view={view}
+                mask={mask}
+                isExpanded={expanded === view.key}
+                onToggle={() =>
+                  setExpanded((prev) => (prev === view.key ? null : view.key))
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+interface RecordViewProps {
+  view:       DebtReceivableView
+  mask:       (amount: number, currency?: string) => string
+  isExpanded: boolean
+  onToggle:   () => void
+}
+
+function RecordView({ view, mask, isExpanded, onToggle }: RecordViewProps) {
+  const {
+    name, account, dateLabel, direction, currency,
+    totalPhp, totalNative, totalEstimated, participants, overallStatus, rawStatus,
+  } = view
+
+  const meta = [dateLabel, account].filter((s) => s !== '').join(' · ')
+  const isSettled = overallStatus === 'Settled'
+  const isForeign = currency !== 'PHP'
+
+  return (
+    <div data-testid="dr-record" className="flex flex-col gap-2 pb-4 border-b border-border last:border-b-0 last:pb-0">
+      {/* Record header — click to expand/collapse participants */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isExpanded}
+        className="w-full text-left flex flex-col gap-2 rounded-lg p-1 -m-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-1.5 min-w-0">
+            <ChevronDown
+              aria-hidden="true"
+              className={`shrink-0 w-3.5 h-3.5 mt-0.5 text-muted transition-transform duration-200 ${
+                isExpanded ? 'rotate-180' : ''
+              }`}
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text truncate">{name}</p>
+              {meta !== '' && (
+                <p className="text-xs text-muted truncate mt-0.5">{meta}</p>
+              )}
+              <p className="text-[11px] uppercase tracking-widest text-muted mt-0.5">{direction}</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-end shrink-0 text-right">
+            <div className="flex items-center gap-1">
+              {totalEstimated && (
+                <span
+                  className="text-amber-500"
+                  title="FX-estimated — pending resolution"
+                  aria-label="FX-estimated total, pending resolution"
+                >
+                  <AlertTriangle aria-hidden="true" className="w-3 h-3" />
+                </span>
+              )}
+              <span className="text-sm font-medium tabular-nums text-text">
+                {mask(totalPhp, 'PHP')}
+              </span>
+            </div>
+            {isForeign && (
+              <span className="text-xs text-muted tabular-nums mt-0.5">
+                {mask(totalNative, currency)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Overall status badge + raw status */}
+        <div className="flex items-center gap-2 pl-5">
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+              isSettled ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'
+            }`}
+          >
+            {isSettled && <Check aria-hidden="true" className="w-3 h-3" />}
+            {overallStatus}
+          </span>
+          {rawStatus !== '' && rawStatus !== overallStatus && (
+            <span className="text-[11px] text-muted">{rawStatus}</span>
+          )}
+        </div>
+      </button>
+
+      {/* Participant rows — revealed only when expanded */}
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="flex flex-col gap-1.5 pl-5 pt-1">
+              {participants.map((p, i) => (
+                <ParticipantRow key={`${p.name}#${i}`} p={p} currency={currency} mask={mask} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+interface ParticipantRowProps {
+  p:        ParticipantView
+  currency: string
+  mask:     (amount: number, currency?: string) => string
+}
+
+function ParticipantRow({ p, currency, mask }: ParticipantRowProps) {
+  const { name, isOwner, sharePhp, shareNative, shareEstimated, paidPhp, status, hasUnresolvedPayment } = p
+  const isForeign = currency !== 'PHP'
+
+  const statusClass =
+    status === 'Paid' ? 'text-green-500'
+    : status === 'Partial' ? 'text-amber-500'
+    : 'text-muted'
+
+  return (
+    <div data-testid="dr-participant" className="flex items-start justify-between gap-3 text-xs">
+      <div className="flex items-center gap-1 min-w-0">
+        <span className="text-text truncate">
+          {name}{isOwner ? ' (me)' : ''}
+        </span>
+        {hasUnresolvedPayment && (
+          <span
+            className="text-amber-500 shrink-0"
+            title="Payment currency has no available FX rate"
+            aria-label="Unresolved payment — missing FX rate"
+          >
+            <AlertTriangle aria-hidden="true" className="w-3 h-3" />
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col items-end shrink-0 text-right">
+        <div className="flex items-center gap-1">
+          {shareEstimated && (
+            <span
+              className="text-amber-500"
+              title="FX-estimated — pending resolution"
+              aria-label="FX-estimated share, pending resolution"
+            >
+              <AlertTriangle aria-hidden="true" className="w-3 h-3" />
+            </span>
+          )}
+          <span className={`tabular-nums ${statusClass}`}>
+            {status === 'Paid' && (
+              <Check aria-hidden="true" className="inline w-3 h-3 mr-0.5 align-[-1px]" />
+            )}
+            {mask(sharePhp, 'PHP')}
+          </span>
+        </div>
+        {isForeign && (
+          <span className="text-muted tabular-nums mt-0.5">
+            {mask(shareNative, currency)}
+          </span>
+        )}
+        {status === 'Partial' && (
+          <span className="text-amber-500 tabular-nums mt-0.5">
+            ({mask(paidPhp, 'PHP')} of {mask(sharePhp, 'PHP')})
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}

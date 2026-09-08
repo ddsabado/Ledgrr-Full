@@ -23,6 +23,24 @@ vi.mock('@/hooks/useCCTransactions', () => ({
 
 // Mock the Transactions panel hook so DashboardPage tests don't touch the
 // transactions live-query pipeline
+// Mock the Debts & Receivables hook so DashboardPage tests render the panel
+// with a deterministic record (no live-query/fetch pipeline)
+vi.mock('@/features/DebtsReceivables/useDebtsReceivables', () => ({
+  useDebtsReceivables: () => ({
+    rows: [
+      {
+        name: 'Dinner', account: 'Cash', date: '6/2/2026', totalAmount: '1000',
+        participants: 'Me;Tw8', splitBy: 'Amount', amounts: '500;500', category: 'Food',
+        subcategory: '', paidParticipants: '', status: 'Pending', direction: 'Receivable',
+        currency: 'PHP', resolvedAmount: '',
+      },
+    ],
+    fxMap: { PHP: 1 },
+    isLoading: false,
+    isError: false,
+  }),
+}))
+
 vi.mock('@/features/Transactions/useTransactionsByPeriod', () => {
   const empty = { periods: [], currentIndex: 0 }
   return {
@@ -92,5 +110,19 @@ describe('DashboardPage', () => {
   it('has a fixed nav with correct structure', () => {
     renderDashboard()
     expect(screen.getByRole('navigation')).toBeInTheDocument()
+  })
+  it('renders the Debts & Receivables panel', () => {
+    renderDashboard()
+    expect(screen.getByText('Debts & Receivables')).toBeInTheDocument()
+    expect(screen.getByTestId('debts-receivables-list')).toBeInTheDocument()
+  })
+
+  it('toggling privacy masks the Debts & Receivables amounts', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+    // amounts visible initially
+    expect(screen.queryByText('••••••')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /hide amounts/i }))
+    expect(screen.getAllByText('••••••').length).toBeGreaterThan(0)
   })
 })
