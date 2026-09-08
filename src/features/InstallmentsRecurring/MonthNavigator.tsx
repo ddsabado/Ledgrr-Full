@@ -18,7 +18,7 @@ export default function MonthNavigator({ label, onPrevious, onNext }: MonthNavig
         type="button"
         onClick={onPrevious}
         aria-label="Previous month"
-        className="text-muted hover:text-text transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-text hover:bg-surface2 active:bg-accent active:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -31,7 +31,7 @@ export default function MonthNavigator({ label, onPrevious, onNext }: MonthNavig
         type="button"
         onClick={onNext}
         aria-label="Next month"
-        className="text-muted hover:text-text transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-text hover:bg-surface2 active:bg-accent active:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <ChevronRight className="w-4 h-4" />
       </button>

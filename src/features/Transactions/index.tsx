@@ -10,7 +10,7 @@ import { findPeriodIndexForSwitch, signedAmount, type PeriodMode } from './group
 import PeriodNavigator from './PeriodNavigator'
 import CategoryDonut from './CategoryDonut'
 import ChartPlaceholder from '@/components/ChartPlaceholder'
-import { CHART_COLORS } from '@/features/AccountBalances/BalanceChart'
+import { chartColor } from '@/features/AccountBalances/BalanceChart'
 import {
   CategoriesList,
   SubcategoriesList,
@@ -74,16 +74,16 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
   const periodTotal = categories.reduce((sum, [, cat]) => sum + cat.total, 0)
 
   // Stable category → colour map, aligned with the donut slice order (sorted
-  // category index → CHART_COLORS). Subcategory percentages inherit their
+  // category index → chartColor). Subcategory percentages inherit their
   // parent category's colour when drilled in.
   const colorByCategory = useMemo(() => {
     const map = new Map<string, string>()
     categories.forEach(([name], i) => {
-      map.set(name, CHART_COLORS[i % CHART_COLORS.length])
+      map.set(name, chartColor(i, categories.length))
     })
     return map
   }, [categories])
-  const colorOf = (name: string) => colorByCategory.get(name) ?? CHART_COLORS[0]
+  const colorOf = (name: string) => colorByCategory.get(name) ?? chartColor(0, 1)
 
   const mask = (amount: number) => (privacyMode ? PRIVACY_MASK : formatCurrency(amount, 'PHP'))
 
@@ -197,7 +197,7 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       className={cardShell}
     >
       {/* Heading */}
-      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
         Transactions by Period
       </p>
 

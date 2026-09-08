@@ -18,6 +18,7 @@ vi.mock('@/lib/supabase', () => ({
 const account: CCAccount = {
   name:           'Test Card',
   category:       'Credit Card',
+  accountType:    'Credit',
   currency:       'PHP',
   currentBalance: 1000,
   initialBalance: 0,

@@ -30,6 +30,7 @@ interface RawAccountBalance {
   statementDay:   number | null // null when empty or non-integer
   dueDay:         number | null // null when empty or non-integer
   image:          string        // filename in the account_images bucket; '' when unset
+  accountType:    string        // looked up from Account Categories sheet; '' when unmapped
 }
 
 export function buildHeaderMap(headers: string[]): Record<string, number> {
@@ -40,8 +41,9 @@ export function buildHeaderMap(headers: string[]): Record<string, number> {
 }
 
 export function mapRowToAccount(
-  row:       string[],
-  headerMap: Record<string, number>
+  row:            string[],
+  headerMap:      Record<string, number>,
+  categoryToType: Record<string, string> = {}
 ): RawAccountBalance | null {
   const get    = (col: string): string => row[headerMap[col] ?? -1] ?? ''
   const getNum = (col: string): number => parseFloat(get(col).replace(/,/g, '')) || 0
@@ -64,7 +66,22 @@ export function mapRowToAccount(
     statementDay:   getNullableInt(ACCOUNTS_COLUMNS.STATEMENT_DAY),
     dueDay:         getNullableInt(ACCOUNTS_COLUMNS.DUE_DAY),
     image:          get(ACCOUNTS_COLUMNS.IMAGE).trim(),
+    accountType:    categoryToType[get(ACCOUNTS_COLUMNS.CATEGORY).trim()] ?? '',
   }
+}
+
+/** Builds a category -> Account Type map from the Account Categories sheet. */
+export function buildCategoryTypeMap(values: string[][]): Record<string, string> {
+  if (!values || values.length === 0) return {}
+  const headerMap = buildHeaderMap(values[0])
+  const catIdx  = headerMap['Account Category'] ?? headerMap['Category'] ?? 0
+  const typeIdx = headerMap['Account Type'] ?? headerMap['Type'] ?? 1
+  const map: Record<string, string> = {}
+  for (const row of values.slice(1)) {
+    const cat = (row[catIdx] ?? '').trim()
+    if (cat) map[cat] = (row[typeIdx] ?? '').trim()
+  }
+  return map
 }
 
 const CORS_HEADERS = {
@@ -138,11 +155,28 @@ Deno.serve(async (req: Request) => {
 
     if (accountValues.length === 0) return Response.json([], { status: 200, headers: cors })
 
+    // Read the Account Categories lookup to enrich each account with its type.
+    // A failure/empty result yields an empty map (blank accountType) — never
+    // fails the function or drops accounts.
+    let categoryToType: Record<string, string> = {}
+    try {
+      const catRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Account Categories!A:B')}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+      if (catRes.ok) {
+        const catValues = ((await catRes.json()) as { values?: string[][] }).values ?? []
+        categoryToType = buildCategoryTypeMap(catValues)
+      }
+    } catch (_e) {
+      categoryToType = {}
+    }
+
     const headerMap = buildHeaderMap(accountValues[0])
 
     const accounts: RawAccountBalance[] = accountValues
       .slice(1)
-      .map((row) => mapRowToAccount(row, headerMap))
+      .map((row) => mapRowToAccount(row, headerMap, categoryToType))
       .filter((acc): acc is RawAccountBalance => acc !== null)
 
     return Response.json(accounts, { status: 200, headers: cors })

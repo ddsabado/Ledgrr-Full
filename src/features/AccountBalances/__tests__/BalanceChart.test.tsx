@@ -8,7 +8,7 @@ function acct(o: Partial<AccountBalance> = {}): AccountBalance {
   return {
     name: o.name ?? 'Cash', category: 'Cash', currency: o.currency ?? 'PHP',
     currentBalance: o.currentBalance ?? 1000, initialBalance: 0, creditLimit: 0,
-    statementDay: null, dueDay: null, image: '', phpEquivalent: o.phpEquivalent ?? 1000,
+    statementDay: null, dueDay: null, image: '', accountType: o.accountType ?? 'Debit', phpEquivalent: o.phpEquivalent ?? 1000,
   }
 }
 

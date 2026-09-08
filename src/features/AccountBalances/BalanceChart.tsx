@@ -11,18 +11,32 @@ import ChartPlaceholder from '@/components/ChartPlaceholder'
 
 const PRIVACY_MASK = '••••••'
 
-export const CHART_COLORS = [
-  '#6366f1', // indigo-500
-  '#8b5cf6', // violet-500
-  '#3b82f6', // blue-500
-  '#06b6d4', // cyan-500
-  '#14b8a6', // teal-500
-  '#10b981', // emerald-500
-  '#f59e0b', // amber-500
-  '#f43f5e', // rose-500
-  '#ec4899', // pink-500
-  '#a3e635', // lime-400
-]
+/**
+ * Categorical chart color generator: evenly-spaced HSL hues around the wheel,
+ * so N items always get N distinct colors with no reuse (unlike a fixed
+ * palette that would cycle when items exceed its length).
+ *
+ *   H = (START_HUE + index / total * 360) mod 360,  S/L fixed.
+ *
+ * Start hue 210° (brand blue, matching the #DCEAF2 base); each subsequent slice
+ * steps by the golden angle (≈137.508°) so neighbouring slices are always well
+ * separated regardless of item count — and the sequence never needs the total
+ * up front. S 65% / L 60% is vivid-but-legible on both light and dark surfaces.
+ */
+const CHART_START_HUE = 210
+const GOLDEN_ANGLE = 137.508
+const CHART_SATURATION = 65
+const CHART_LIGHTNESS = 60
+
+/**
+ * Categorical colour for slice `index`. `total` is accepted for call-site
+ * compatibility but no longer affects the hue (golden-angle spacing is
+ * independent of the item count).
+ */
+export function chartColor(index: number, _total?: number): string {
+  const hue = (CHART_START_HUE + index * GOLDEN_ANGLE) % 360
+  return `hsl(${hue.toFixed(1)}, ${CHART_SATURATION}%, ${CHART_LIGHTNESS}%)`
+}
 
 function sanitizeKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '_')
@@ -62,13 +76,13 @@ export default function BalanceChart({ accounts, privacyMode }: BalanceChartProp
   const chartData = accounts.map((a, i) => ({
     name:  a.name,
     value: a.phpEquivalent,
-    fill:  CHART_COLORS[i % CHART_COLORS.length],
+    fill:  chartColor(i, accounts.length),
   }))
 
   const chartConfig: ChartConfig = Object.fromEntries(
     accounts.map((a, i) => [
       sanitizeKey(a.name),
-      { label: a.name, color: CHART_COLORS[i % CHART_COLORS.length] },
+      { label: a.name, color: chartColor(i, accounts.length) },
     ])
   )
 
@@ -83,7 +97,7 @@ export default function BalanceChart({ accounts, privacyMode }: BalanceChartProp
               formatter={(value, name) => (
                 <div className="flex items-center gap-2 min-w-[10rem]">
                   <span className="text-muted truncate max-w-[7rem]">{String(name)}</span>
-                  <span className="ml-auto font-mono font-medium tabular-nums text-text">
+                  <span className="ml-auto font-medium tabular-nums text-text">
                     {privacyMode ? PRIVACY_MASK : formatCurrency(Number(value), 'PHP')}
                   </span>
                 </div>
@@ -101,7 +115,7 @@ export default function BalanceChart({ accounts, privacyMode }: BalanceChartProp
           stroke="transparent"
         >
           {chartData.map((_, i) => (
-            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            <Cell key={i} fill={chartColor(i, chartData.length)} />
           ))}
         </Pie>
         <Legend content={<CustomLegend />} />

@@ -37,12 +37,14 @@ function row(o: Partial<RawDebtReceivableRow> = {}): RawDebtReceivableRow {
   }
 }
 
-/** Expand the first (or named) record so its participants render. */
+/** Expand the first (or named) record so its participants render. Targets the
+ *  record's own toggle button (not the panel filter button). */
 async function expandRecord(name?: string) {
   const user = userEvent.setup()
-  const btn = name
-    ? screen.getByRole('button', { name: new RegExp(name) })
-    : screen.getAllByRole('button')[0]
+  const record = name
+    ? screen.getAllByTestId('dr-record').find((r) => r.textContent?.includes(name))!
+    : screen.getAllByTestId('dr-record')[0]
+  const btn = within(record).getByRole('button')
   await user.click(btn)
   return user
 }
@@ -71,7 +73,7 @@ describe('DebtsReceivables panel', () => {
     expect(screen.getAllByTestId('dr-record')).toHaveLength(2)
   })
 
-  it('sorts records chronologically (oldest first); undated last', () => {
+  it('sorts records newest first; undated last', () => {
     hookState.value.rows = [
       row({ name: 'Later', date: '8/31/2026' }),
       row({ name: 'Undated', date: 'not-a-date' }),
@@ -81,7 +83,7 @@ describe('DebtsReceivables panel', () => {
     render(<DebtsReceivables privacyMode={false} />)
     const recs = screen.getAllByTestId('dr-record')
     const names = recs.map((r) => within(r).getByText(/Later|Undated|Earlier|Middle/).textContent)
-    expect(names).toEqual(['Earlier', 'Middle', 'Later', 'Undated'])
+    expect(names).toEqual(['Later', 'Middle', 'Earlier', 'Undated'])
   })
 
   it('collapses participants by default; expands on click; collapses again on second click', async () => {
@@ -89,7 +91,7 @@ describe('DebtsReceivables panel', () => {
     render(<DebtsReceivables privacyMode={false} />)
     // collapsed by default
     expect(screen.queryAllByTestId('dr-participant')).toHaveLength(0)
-    const btn = screen.getAllByRole('button')[0]
+    const btn = within(screen.getAllByTestId('dr-record')[0]).getByRole('button')
     expect(btn).toHaveAttribute('aria-expanded', 'false')
 
     const user = userEvent.setup()
@@ -213,5 +215,101 @@ describe('DebtsReceivables panel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/Failed to load debts & receivables data/)
     expect(screen.queryByTestId('debts-receivables-list')).not.toBeInTheDocument()
     expect(screen.queryByText('No records.')).not.toBeInTheDocument()
+  })
+})
+describe('DebtsReceivables filters (R6)', () => {
+  beforeEach(() => {
+    hookState.value = { rows: [], fxMap: FX, isLoading: false, isError: false }
+  })
+
+  it('shows a filter button and opens the popover with controls (R6.1, R6.2, R6.3)', async () => {
+    hookState.value.rows = [row({ name: 'A' })]
+    render(<DebtsReceivables privacyMode={false} />)
+    const user = userEvent.setup()
+    const filterBtn = screen.getByRole('button', { name: /filter debts & receivables/i })
+    await user.click(filterBtn)
+    expect(screen.getByText('Name')).toBeInTheDocument()
+    expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(screen.getByText('Account')).toBeInTheDocument()
+    expect(screen.getByText('Date range')).toBeInTheDocument()
+  })
+
+  it('filters by name (case-insensitive substring) and shows active indicator (R6.7, R6.11)', async () => {
+    hookState.value.rows = [
+      row({ name: 'Dinner', date: '6/2/2026' }),
+      row({ name: 'Groceries', date: '6/3/2026' }),
+    ]
+    render(<DebtsReceivables privacyMode={false} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /filter debts & receivables/i }))
+    await user.type(screen.getByPlaceholderText(/search name/i), 'grocer')
+    const list = within(screen.getByTestId('debts-receivables-list'))
+    expect(list.getByText('Groceries')).toBeInTheDocument()
+    expect(list.queryByText('Dinner')).not.toBeInTheDocument()
+    expect(screen.getByTestId('dr-filter-active')).toBeInTheDocument()
+  })
+
+  it('filters by status (R6.8)', async () => {
+    hookState.value.rows = [
+      row({ name: 'PendingOne', status: 'Pending', paidParticipants: '' }),
+      row({ name: 'SettledOne', status: 'Settled', participants: 'Me;Tw8', amounts: '500;500', paidParticipants: 'Tw8:500' }),
+    ]
+    render(<DebtsReceivables privacyMode={false} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /filter debts & receivables/i }))
+    // Status is the first select, Account the second
+    const selects = screen.getAllByRole('combobox')
+    await user.selectOptions(selects[0], 'Settled')
+    const list = within(screen.getByTestId('debts-receivables-list'))
+    expect(list.getByText('SettledOne')).toBeInTheDocument()
+    expect(list.queryByText('PendingOne')).not.toBeInTheDocument()
+  })
+
+  it('filters by account (R6.9)', async () => {
+    hookState.value.rows = [
+      row({ name: 'CashRec', account: 'Cash' }),
+      row({ name: 'BankRec', account: 'Bank' }),
+    ]
+    render(<DebtsReceivables privacyMode={false} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /filter debts & receivables/i }))
+    const selects = screen.getAllByRole('combobox')
+    // Account is the second select
+    await user.selectOptions(selects[1], 'Bank')
+    const list = within(screen.getByTestId('debts-receivables-list'))
+    expect(list.getByText('BankRec')).toBeInTheDocument()
+    expect(list.queryByText('CashRec')).not.toBeInTheDocument()
+  })
+
+  it('combines filters with AND (R6.5)', async () => {
+    hookState.value.rows = [
+      row({ name: 'Match', account: 'Cash', status: 'Pending' }),
+      row({ name: 'WrongName', account: 'Cash', status: 'Pending' }),
+      row({ name: 'Match', account: 'Bank', status: 'Pending' }),
+    ]
+    render(<DebtsReceivables privacyMode={false} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /filter debts & receivables/i }))
+    await user.type(screen.getByPlaceholderText(/search name/i), 'Match')
+    const selects = screen.getAllByRole('combobox')
+    await user.selectOptions(selects[1], 'Cash')
+    // Only the record that is BOTH name~Match AND account=Cash
+    const recs = screen.getAllByTestId('dr-record')
+    expect(recs).toHaveLength(1)
+    expect(within(recs[0]).getByText('Match')).toBeInTheDocument()
+  })
+
+  it('shows "No matching records." when filters exclude everything, then clears (R6.12, R6.15)', async () => {
+    hookState.value.rows = [row({ name: 'Dinner' })]
+    render(<DebtsReceivables privacyMode={false} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /filter debts & receivables/i }))
+    await user.type(screen.getByPlaceholderText(/search name/i), 'zzz-nomatch')
+    expect(screen.getByText('No matching records.')).toBeInTheDocument()
+    expect(screen.queryByTestId('debts-receivables-list')).not.toBeInTheDocument()
+    // Clear resets to full list
+    await user.click(screen.getByRole('button', { name: /clear/i }))
+    expect(within(screen.getByTestId('debts-receivables-list')).getByText('Dinner')).toBeInTheDocument()
+    expect(screen.queryByTestId('dr-filter-active')).not.toBeInTheDocument()
   })
 })
