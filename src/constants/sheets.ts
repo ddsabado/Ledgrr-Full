@@ -83,3 +83,18 @@ export const RECURRING_COLUMNS = Object.freeze({
 
 export type RecurringColumnKey   = keyof typeof RECURRING_COLUMNS
 export type RecurringColumnValue = (typeof RECURRING_COLUMNS)[RecurringColumnKey]
+
+
+/**
+ * Budget sheet column header strings (tab "Budget", columns A–C).
+ * Must match the sheet header row exactly (case-sensitive). The Edge Function
+ * inlines a copy of these (Deno cannot import from src/); keep both in sync.
+ */
+export const BUDGET_COLUMNS = Object.freeze({
+  BUDGET:   'Budget',
+  AMOUNT:   'Amount',
+  CURRENCY: 'Currency',
+} as const)
+
+export type BudgetColumnKey   = keyof typeof BUDGET_COLUMNS
+export type BudgetColumnValue = (typeof BUDGET_COLUMNS)[BudgetColumnKey]
