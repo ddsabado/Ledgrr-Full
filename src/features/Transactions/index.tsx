@@ -5,6 +5,7 @@ import { motion, LayoutGroup } from 'motion/react'
 import { useAuth } from '@/context/AuthContext'
 import { formatCurrency } from '@/utils/currency'
 import { useTransactionsByPeriod } from './useTransactionsByPeriod'
+import { useCurrencies } from '@/hooks/useCurrencies'
 import { findPeriodIndexForSwitch, signedAmount, type PeriodMode } from './groupTransactions'
 import PeriodNavigator from './PeriodNavigator'
 import CategoryDonut from './CategoryDonut'
@@ -44,6 +45,7 @@ interface TransactionsProps {
 
 export default function Transactions({ privacyMode }: TransactionsProps) {
   const { session } = useAuth()
+  const { data: fxMap } = useCurrencies()
   const { grouped, isLoading, isError } = useTransactionsByPeriod()
 
   const [periodMode, setPeriodMode] = useState<PeriodMode>('month')
@@ -137,7 +139,7 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       if (view.subcategory) {
         if (view.subcategory === directLabel(view.category)) {
           const txs = cat.txs
-          return { detailTotal: txs.reduce((s, t) => s + signedAmount(t), 0), detailTxs: txs }
+          return { detailTotal: txs.reduce((s, t) => s + signedAmount(t, fxMap), 0), detailTxs: txs }
         }
         const sub = cat.subcats[view.subcategory]
         return { detailTotal: sub?.total ?? 0, detailTxs: sub?.txs ?? [] }

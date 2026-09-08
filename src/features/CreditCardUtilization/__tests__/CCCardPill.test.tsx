@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event'
 import CCCard from '@/features/CreditCardUtilization/CCCard'
 import ccSource from '@/features/CreditCardUtilization/CCCard.tsx?raw'
 import type { CCAccount, CCTransactionData } from '@/types/transactions'
+vi.mock('@/hooks/useCurrencies', () => ({ useCurrencies: () => ({ data: { PHP: 1 }, isLoading: false, isError: false }) }))
+
 
 // Avoid the supabase storage call (image is '' so it early-returns null anyway).
 vi.mock('@/lib/supabase', () => ({

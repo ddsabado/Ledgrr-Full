@@ -1,6 +1,8 @@
 import type { RawTransaction } from '@/types/transactions'
 import { formatCurrency } from '@/utils/currency'
 import { formatTransactionDate } from '@/utils/date'
+import { resolvePhp } from '@/utils/resolvePhp'
+import { useCurrencies } from '@/hooks/useCurrencies'
 
 const PRIVACY_MASK = '••••••'
 
@@ -10,6 +12,7 @@ interface TransactionListProps {
 }
 
 export default function TransactionList({ transactions, privacyMode }: TransactionListProps) {
+  const { data: fxMap } = useCurrencies()
   return (
     <ul className="flex flex-col divide-y divide-border">
       {transactions.map((tx) => {
@@ -25,7 +28,7 @@ export default function TransactionList({ transactions, privacyMode }: Transacti
 
         const phpDisplay = privacyMode
           ? PRIVACY_MASK
-          : formatCurrency(tx.phpValue, 'PHP')
+          : formatCurrency(resolvePhp(tx, fxMap), 'PHP')
 
         const nativeDisplay = privacyMode
           ? PRIVACY_MASK

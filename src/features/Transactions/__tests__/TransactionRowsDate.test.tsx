@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 import { TransactionRows } from '@/features/Transactions/DrillDownList'
 import type { RawTransaction } from '@/types/transactions'
+vi.mock('@/hooks/useCurrencies', () => ({ useCurrencies: () => ({ data: { PHP: 1 }, isLoading: false, isError: false }) }))
+
 
 let seq = 0
 function tx(overrides: Partial<RawTransaction> = {}): RawTransaction {
@@ -18,9 +20,8 @@ function tx(overrides: Partial<RawTransaction> = {}): RawTransaction {
     type:           overrides.type ?? 'Expense',
     category:       overrides.category ?? 'Food',
     subcategory:    overrides.subcategory ?? '',
+    budget:         overrides.budget ?? '',
     note:           overrides.note ?? '',
-    determined:     overrides.determined ?? false,
-    phpValue:       overrides.phpValue ?? 100,
   }
 }
 

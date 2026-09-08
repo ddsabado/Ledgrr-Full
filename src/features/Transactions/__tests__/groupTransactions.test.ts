@@ -9,9 +9,11 @@ import {
   type PeriodBucket,
 } from '@/features/Transactions/groupTransactions'
 import type { RawTransaction } from '@/types/transactions'
+import type { CurrencyData } from '@/types/accounts'
 
 // ─── Fixture factory ─────────────────────────────────────────────────────────
 
+const FX: CurrencyData = { PHP: 1 }
 let seq = 0
 function tx(overrides: Partial<RawTransaction> = {}): RawTransaction {
   seq += 1
@@ -26,9 +28,8 @@ function tx(overrides: Partial<RawTransaction> = {}): RawTransaction {
     type:           overrides.type ?? 'Expense',
     category:       overrides.category ?? 'Food',
     subcategory:    overrides.subcategory ?? '',
+    budget:         overrides.budget ?? '',
     note:           overrides.note ?? '',
-    determined:     overrides.determined ?? false,
-    phpValue:       overrides.phpValue ?? 100,
   }
 }
 
@@ -85,10 +86,10 @@ describe('classifyFlow', () => {
 describe('groupTransactions — Split Offset offsets Expense totals', () => {
   it('nets a negative Split Offset down against its category (subcategory case)', () => {
     const rows = [
-      tx({ type: 'Expense', category: 'Food', subcategory: 'Eating out', phpValue: 1000 }),
-      tx({ type: 'Split Offset', category: 'Food', subcategory: 'Eating out', phpValue: -300 }),
+      tx({ type: 'Expense', category: 'Food', subcategory: 'Eating out', amount: 1000 }),
+      tx({ type: 'Split Offset', category: 'Food', subcategory: 'Eating out', amount: -300 }),
     ]
-    const { periods } = groupTransactions(rows, 'month')
+    const { periods } = groupTransactions(rows, 'month', FX)
     const food = byKey(periods, 'Jun 2026')!.Expense.Food
     expect(food.total).toBe(700)
     expect(food.subcats['Eating out'].total).toBe(700)
@@ -96,10 +97,10 @@ describe('groupTransactions — Split Offset offsets Expense totals', () => {
 
   it('nets a negative direct Split Offset against the category total', () => {
     const rows = [
-      tx({ type: 'Expense', category: 'Travel', phpValue: 5000 }),
-      tx({ type: 'Split Offset', category: 'Travel', subcategory: '', phpValue: -2000 }),
+      tx({ type: 'Expense', category: 'Travel', amount: 5000 }),
+      tx({ type: 'Split Offset', category: 'Travel', subcategory: '', amount: -2000 }),
     ]
-    const { periods } = groupTransactions(rows, 'month')
+    const { periods } = groupTransactions(rows, 'month', FX)
     const travel = byKey(periods, 'Jun 2026')!.Expense.Travel
     expect(travel.total).toBe(3000)
     // Both direct txs (expense + offset) live under txs.
@@ -108,8 +109,9 @@ describe('groupTransactions — Split Offset offsets Expense totals', () => {
 
   it('classifies Split Offset under Expense, never Income', () => {
     const { periods } = groupTransactions(
-      [tx({ type: 'Split Offset', category: 'Food', phpValue: -100 })],
+      [tx({ type: 'Split Offset', category: 'Food', amount: -100 })],
       'month',
+      FX,
     )
     const bucket = byKey(periods, 'Jun 2026')!
     expect(bucket.Income.Food).toBeUndefined()
@@ -119,9 +121,9 @@ describe('groupTransactions — Split Offset offsets Expense totals', () => {
 
 describe('signedAmount', () => {
   it('returns the signed value for Split Offset and abs otherwise', () => {
-    expect(signedAmount(tx({ type: 'Split Offset', phpValue: -300 }))).toBe(-300)
-    expect(signedAmount(tx({ type: 'Expense', phpValue: 250 }))).toBe(250)
-    expect(signedAmount(tx({ type: 'Expense', phpValue: -250 }))).toBe(250)
+    expect(signedAmount(tx({ type: 'Split Offset', amount: -300 }), FX)).toBe(-300)
+    expect(signedAmount(tx({ type: 'Expense', amount: 250 }), FX)).toBe(250)
+    expect(signedAmount(tx({ type: 'Expense', amount: -250 }), FX)).toBe(250)
   })
 })
 
@@ -130,22 +132,22 @@ describe('signedAmount', () => {
 describe('groupTransactions — exclusions and aggregation', () => {
   it('excludes Transfer/Adjustment/Receivables from the breakdown', () => {
     const rows = [
-      tx({ type: 'Expense', category: 'Food', phpValue: 100 }),
-      tx({ type: 'Transfer', category: 'Food', phpValue: 999 }),
-      tx({ type: 'Adjustment', category: 'Food', phpValue: 999 }),
-      tx({ type: 'Receivables', category: 'Food', phpValue: 999 }),
+      tx({ type: 'Expense', category: 'Food', amount: 100 }),
+      tx({ type: 'Transfer', category: 'Food', amount: 999 }),
+      tx({ type: 'Adjustment', category: 'Food', amount: 999 }),
+      tx({ type: 'Receivables', category: 'Food', amount: 999 }),
     ]
-    const { periods } = groupTransactions(rows, 'month')
+    const { periods } = groupTransactions(rows, 'month', FX)
     const bucket = byKey(periods, 'Jun 2026')!
     expect(bucket.Expense.Food.total).toBe(100)
   })
 
   it('uses absolute phpValue so totals are positive magnitudes', () => {
     const rows = [
-      tx({ type: 'Expense', category: 'Food', phpValue: -250 }),
-      tx({ type: 'Income', category: 'Salary', phpValue: 5000 }),
+      tx({ type: 'Expense', category: 'Food', amount: -250 }),
+      tx({ type: 'Income', category: 'Salary', amount: 5000 }),
     ]
-    const { periods } = groupTransactions(rows, 'month')
+    const { periods } = groupTransactions(rows, 'month', FX)
     const b = byKey(periods, 'Jun 2026')!
     expect(b.Expense.Food.total).toBe(250)
     expect(b.Income.Salary.total).toBe(5000)
@@ -153,12 +155,12 @@ describe('groupTransactions — exclusions and aggregation', () => {
 
   it('splits direct vs subcategory transactions and sums category total across both', () => {
     const rows = [
-      tx({ category: 'Food', subcategory: '', phpValue: 40 }),           // direct
-      tx({ category: 'Food', subcategory: 'Groceries', phpValue: 60 }),
-      tx({ category: 'Food', subcategory: 'Groceries', phpValue: 30 }),
-      tx({ category: 'Food', subcategory: 'Dining', phpValue: 20 }),
+      tx({ category: 'Food', subcategory: '', amount: 40 }),           // direct
+      tx({ category: 'Food', subcategory: 'Groceries', amount: 60 }),
+      tx({ category: 'Food', subcategory: 'Groceries', amount: 30 }),
+      tx({ category: 'Food', subcategory: 'Dining', amount: 20 }),
     ]
-    const { periods } = groupTransactions(rows, 'month')
+    const { periods } = groupTransactions(rows, 'month', FX)
     const food = byKey(periods, 'Jun 2026')!.Expense.Food
     expect(food.total).toBe(150)
     expect(food.txs).toHaveLength(1)          // 1 direct
@@ -168,17 +170,17 @@ describe('groupTransactions — exclusions and aggregation', () => {
   })
 
   it('maps blank category to "Uncategorized"', () => {
-    const { periods } = groupTransactions([tx({ category: '', phpValue: 10 })], 'month')
+    const { periods } = groupTransactions([tx({ category: '', amount: 10 })], 'month', FX)
     expect(byKey(periods, 'Jun 2026')!.Expense.Uncategorized.total).toBe(10)
   })
 
   it('drops rows with empty/unparseable dates', () => {
     const rows = [
-      tx({ date: '', phpValue: 100 }),
-      tx({ date: 'garbage', phpValue: 100 }),
-      tx({ date: '6/11/2026 0:00:00', phpValue: 100 }),
+      tx({ date: '', amount: 100 }),
+      tx({ date: 'garbage', amount: 100 }),
+      tx({ date: '6/11/2026 0:00:00', amount: 100 }),
     ]
-    const { periods } = groupTransactions(rows, 'month')
+    const { periods } = groupTransactions(rows, 'month', FX)
     expect(periods).toHaveLength(1)
     expect(byKey(periods, 'Jun 2026')!.Expense.Food.total).toBe(100)
   })
@@ -193,7 +195,7 @@ describe('groupTransactions — month mode', () => {
       tx({ date: '6/11/2026 0:00:00' }),
       tx({ date: '7/01/2026 0:00:00' }),
     ]
-    const { periods } = groupTransactions(rows, 'month')
+    const { periods } = groupTransactions(rows, 'month', FX)
     expect(periods.map((p) => p.key)).toEqual(['Jun 2026', 'Jul 2026', 'Aug 2026'])
   })
 })
@@ -203,7 +205,7 @@ describe('groupTransactions — month mode', () => {
 describe('groupTransactions — week mode', () => {
   it('buckets by ISO week with correct key and label', () => {
     // 2026-09-07 is a Monday → ISO week 37 of 2026; week Sep 7 – 13.
-    const { periods } = groupTransactions([tx({ date: '9/7/2026 0:00:00' })], 'week')
+    const { periods } = groupTransactions([tx({ date: '9/7/2026 0:00:00' })], 'week', FX)
     expect(periods).toHaveLength(1)
     expect(periods[0].key).toBe('2026-W37')
     expect(periods[0].label).toBe('Week 37 · Sep 7 – 13')
@@ -211,11 +213,11 @@ describe('groupTransactions — week mode', () => {
 
   it('groups Mon–Sun of the same ISO week together', () => {
     const rows = [
-      tx({ date: '9/7/2026 0:00:00', phpValue: 10 }),  // Mon
-      tx({ date: '9/13/2026 0:00:00', phpValue: 5 }),  // Sun (same week)
-      tx({ date: '9/14/2026 0:00:00', phpValue: 7 }),  // next Mon
+      tx({ date: '9/7/2026 0:00:00', amount: 10 }),  // Mon
+      tx({ date: '9/13/2026 0:00:00', amount: 5 }),  // Sun (same week)
+      tx({ date: '9/14/2026 0:00:00', amount: 7 }),  // next Mon
     ]
-    const { periods } = groupTransactions(rows, 'week')
+    const { periods } = groupTransactions(rows, 'week', FX)
     expect(periods.map((p) => p.key)).toEqual(['2026-W37', '2026-W38'])
     expect(periods[0].Expense.Food.total).toBe(15)
     expect(periods[1].Expense.Food.total).toBe(7)
@@ -230,7 +232,7 @@ describe('groupTransactions — day mode', () => {
       tx({ date: '9/7/2026 0:00:00' }),
       tx({ date: '9/10/2026 0:00:00' }),
     ]
-    const { periods } = groupTransactions(rows, 'day')
+    const { periods } = groupTransactions(rows, 'day', FX)
     expect(periods.map((p) => p.key)).toEqual([
       '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10',
     ])
@@ -253,7 +255,7 @@ describe('groupTransactions — currentIndex', () => {
       tx({ date: '7/02/2026 0:00:00' }),
       tx({ date: '8/01/2026 0:00:00' }),
     ]
-    const { periods, currentIndex } = groupTransactions(rows, 'month')
+    const { periods, currentIndex } = groupTransactions(rows, 'month', FX)
     expect(periods[currentIndex].key).toBe('Jul 2026')
   })
 
@@ -261,7 +263,7 @@ describe('groupTransactions — currentIndex', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2027, 0, 1)) // well after data
     const rows = [tx({ date: '6/11/2026 0:00:00' }), tx({ date: '7/02/2026 0:00:00' })]
-    const { periods, currentIndex } = groupTransactions(rows, 'month')
+    const { periods, currentIndex } = groupTransactions(rows, 'month', FX)
     expect(currentIndex).toBe(periods.length - 1)
     expect(periods[currentIndex].key).toBe('Jul 2026')
   })
@@ -278,8 +280,8 @@ describe('findPeriodIndexForSwitch', () => {
   ]
 
   it('maps finer→coarser to the period containing the viewed date (week→month)', () => {
-    const weeks = groupTransactions(rows, 'week').periods
-    const months = groupTransactions(rows, 'month').periods
+    const weeks = groupTransactions(rows, 'week', FX).periods
+    const months = groupTransactions(rows, 'month', FX).periods
     // Pick the week containing 7/20/2026.
     const wIdx = weeks.findIndex((w) => w.key === '2026-W30') // Jul 20 2026 is ISO W30
     expect(wIdx).toBeGreaterThanOrEqual(0)
@@ -288,8 +290,8 @@ describe('findPeriodIndexForSwitch', () => {
   })
 
   it('maps coarser→finer to the first finer period within the range (month→week)', () => {
-    const months = groupTransactions(rows, 'month').periods
-    const weeks = groupTransactions(rows, 'week').periods
+    const months = groupTransactions(rows, 'month', FX).periods
+    const weeks = groupTransactions(rows, 'week', FX).periods
     const mIdx = months.findIndex((m) => m.key === 'Jul 2026')
     const wIdx = findPeriodIndexForSwitch(months, mIdx, weeks, 'month', 'week')
     // First week bucket that falls inside July 2026.
@@ -300,7 +302,7 @@ describe('findPeriodIndexForSwitch', () => {
   })
 
   it('returns 0 when either period list is empty', () => {
-    const months = groupTransactions(rows, 'month').periods
+    const months = groupTransactions(rows, 'month', FX).periods
     expect(findPeriodIndexForSwitch(months, 0, [], 'month', 'week')).toBe(0)
     expect(findPeriodIndexForSwitch([], 0, months, 'week', 'month')).toBe(0)
   })

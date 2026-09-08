@@ -3,6 +3,7 @@ import { useLiveQuery } from '@tanstack/react-db'
 
 import { transactionsCollection } from '@/collections/transactions'
 import { useAuth } from '@/context/AuthContext'
+import { useCurrencies } from '@/hooks/useCurrencies'
 import type { RawTransaction } from '@/types/transactions'
 import { groupTransactions, type GroupedPeriods } from './groupTransactions'
 
@@ -23,9 +24,8 @@ function pickTransaction(row: RawTransaction): RawTransaction {
     type:           row.type,
     category:       row.category,
     subcategory:    row.subcategory,
+    budget:         row.budget,
     note:           row.note,
-    determined:     row.determined,
-    phpValue:       row.phpValue,
   }
 }
 
@@ -58,6 +58,8 @@ export function useTransactionsByPeriod(): TransactionsByPeriod {
   const { session } = useAuth()
   const isAuthenticated = session !== null
 
+  const { data: fxMap, isLoading: fxLoading, isError: fxError } = useCurrencies()
+
   const { data: rows, isLoading, isError } = useLiveQuery((q) =>
     isAuthenticated ? q.from({ tx: transactionsCollection }) : null,
   )
@@ -68,11 +70,11 @@ export function useTransactionsByPeriod(): TransactionsByPeriod {
     }
     const picked = rows.map(pickTransaction)
     return {
-      month: groupTransactions(picked, 'month'),
-      week:  groupTransactions(picked, 'week'),
-      day:   groupTransactions(picked, 'day'),
+      month: groupTransactions(picked, 'month', fxMap),
+      week:  groupTransactions(picked, 'week', fxMap),
+      day:   groupTransactions(picked, 'day', fxMap),
     }
-  }, [rows])
+  }, [rows, fxMap])
 
-  return { grouped, isLoading, isError }
+  return { grouped, isLoading: isLoading || fxLoading, isError: isError || fxError }
 }

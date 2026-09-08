@@ -1,4 +1,6 @@
 import type { RawTransaction } from '@/types/transactions'
+import type { CurrencyData } from '@/types/accounts'
+import { resolvePhp } from '@/utils/resolvePhp'
 
 // ─── Exported Types ─────────────────────────────────────────────────────────
 
@@ -221,10 +223,11 @@ export function classifyFlow(tx: RawTransaction): FlowType | null {
  * this anywhere direct-transaction totals are recomputed outside the engine so
  * they stay consistent with buildCategoryData.
  */
-export function signedAmount(tx: RawTransaction): number {
+export function signedAmount(tx: RawTransaction, fxMap: CurrencyData): number {
+  const php = resolvePhp(tx, fxMap)
   return tx.type.trim().toLowerCase() === 'split offset'
-    ? tx.phpValue
-    : Math.abs(tx.phpValue)
+    ? php
+    : Math.abs(php)
 }
 
 /**
@@ -236,7 +239,7 @@ export function signedAmount(tx: RawTransaction): number {
  * positive in the sheet). Split Offset uses the SIGNED `phpValue` (negative),
  * so it offsets — nets down — the expense category it shares.
  */
-function flattenTransactions(rows: RawTransaction[]): FlatTransaction[] {
+function flattenTransactions(rows: RawTransaction[], fxMap: CurrencyData): FlatTransaction[] {
   const out: FlatTransaction[] = []
   for (const tx of rows) {
     const flow = classifyFlow(tx)
@@ -247,7 +250,7 @@ function flattenTransactions(rows: RawTransaction[]): FlatTransaction[] {
       tx,
       flow,
       date,
-      amount: signedAmount(tx),
+      amount: signedAmount(tx, fxMap),
     })
   }
   return out
@@ -452,8 +455,9 @@ function findIndexForToday(periods: PeriodBucket[], mode: PeriodMode): number {
 export function groupTransactions(
   rows: RawTransaction[],
   mode: PeriodMode,
+  fxMap: CurrencyData,
 ): GroupedPeriods {
-  const flats = flattenTransactions(rows)
+  const flats = flattenTransactions(rows, fxMap)
   const periods =
     mode === 'month' ? groupByMonth(flats)
     : mode === 'week' ? groupByWeek(flats)
