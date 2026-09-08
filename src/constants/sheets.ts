@@ -98,3 +98,31 @@ export const BUDGET_COLUMNS = Object.freeze({
 
 export type BudgetColumnKey   = keyof typeof BUDGET_COLUMNS
 export type BudgetColumnValue = (typeof BUDGET_COLUMNS)[BudgetColumnKey]
+
+
+/**
+ * Debts and Receivables sheet column header strings (tab "Debts and
+ * Receivables", columns A–N). Must match the sheet header row exactly
+ * (case-sensitive). The Edge Function inlines a copy of these (Deno cannot
+ * import from src/); keep both in sync. Column N "Resolved Amount" is the
+ * schema addition introduced by the dashboard-debts-receivables feature.
+ */
+export const DEBTS_RECEIVABLES_COLUMNS = Object.freeze({
+  TRANSACTION_NAME:  'Transaction Name',
+  ACCOUNT:           'Account',
+  DATE:              'Date',
+  TOTAL_AMOUNT:      'Total Amount',
+  PARTICIPANTS:      'Participants',
+  SPLIT_BY:          'Split By',
+  AMOUNTS:           'Amounts',
+  CATEGORY:          'Category',
+  SUBCATEGORY:       'Subcategory',
+  PAID_PARTICIPANTS: 'Paid Participants',
+  STATUS:            'Status',
+  DIRECTION:         'Direction',
+  CURRENCY:          'Currency',
+  RESOLVED_AMOUNT:   'Resolved Amount',
+} as const)
+
+export type DebtsReceivablesColumnKey   = keyof typeof DEBTS_RECEIVABLES_COLUMNS
+export type DebtsReceivablesColumnValue = (typeof DEBTS_RECEIVABLES_COLUMNS)[DebtsReceivablesColumnKey]

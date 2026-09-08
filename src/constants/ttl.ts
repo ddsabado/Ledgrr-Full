@@ -34,3 +34,9 @@ export const BUDGETS_STALE_TIME = 5 * 60 * 1000
 
 /** 10 minutes — keep the budgets cache for ten minutes */
 export const BUDGETS_GC_TIME = 10 * 60 * 1000
+
+/** 5 minutes — debts & receivables change infrequently but may be edited */
+export const DEBTS_RECEIVABLES_STALE_TIME = 5 * 60 * 1000
+
+/** 10 minutes — keep the debts & receivables cache for ten minutes */
+export const DEBTS_RECEIVABLES_GC_TIME = 10 * 60 * 1000

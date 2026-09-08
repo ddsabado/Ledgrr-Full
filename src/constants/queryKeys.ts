@@ -5,4 +5,5 @@ export const QUERY_KEYS = Object.freeze({
   installments:    'installments',
   recurring:       'recurring',
   budgets:         'budgets',
+  debtsReceivables: 'debtsReceivables',
 } as const)

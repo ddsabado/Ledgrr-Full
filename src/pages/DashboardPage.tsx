@@ -7,6 +7,7 @@ import CreditCardUtilization from '@/features/CreditCardUtilization'
 import Transactions from '@/features/Transactions'
 import InstallmentsRecurring from '@/features/InstallmentsRecurring'
 import Budgets from '@/features/Budgets'
+import DebtsReceivables from '@/features/DebtsReceivables'
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
@@ -53,6 +54,7 @@ export default function DashboardPage() {
           <Transactions privacyMode={privacyMode} />
           <InstallmentsRecurring privacyMode={privacyMode} />
           <Budgets privacyMode={privacyMode} />
+          <DebtsReceivables privacyMode={privacyMode} />
         </div>
       </main>
     </div>
