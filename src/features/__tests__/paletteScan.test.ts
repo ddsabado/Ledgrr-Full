@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { CHART_COLORS } from '@/features/AccountBalances/BalanceChart'
+import { chartColor } from '@/features/AccountBalances/BalanceChart'
 
 // Load every source file under src as raw text so we can statically scan the
 // themed component files without needing node:fs / __dirname.
@@ -57,24 +57,27 @@ describe('palette scan — themed files are token-driven (R2.1, R2.2)', () => {
   }
 })
 
-describe('categorical chart palette retained (R2.6)', () => {
-  it('CHART_COLORS is the fixed 10-color categorical palette', () => {
-    expect(CHART_COLORS).toEqual([
-      '#6366f1',
-      '#8b5cf6',
-      '#3b82f6',
-      '#06b6d4',
-      '#14b8a6',
-      '#10b981',
-      '#f59e0b',
-      '#f43f5e',
-      '#ec4899',
-      '#a3e635',
-    ])
+describe('categorical chart palette — golden-angle HSL hues', () => {
+  it('chartColor steps hues by the golden angle (137.508deg) from 210deg', () => {
+    expect(chartColor(0)).toBe('hsl(210.0, 65%, 60%)')
+    expect(chartColor(1)).toBe('hsl(347.5, 65%, 60%)')   // 210 + 137.508
+    expect(chartColor(2)).toBe('hsl(125.0, 65%, 60%)')   // 210 + 275.016 -> % 360
+    expect(chartColor(3)).toBe('hsl(262.5, 65%, 60%)')   // 210 + 412.524 -> % 360
   })
 
-  it('BalanceChart draws slice fills from CHART_COLORS, not tokens', () => {
+  it('assigns distinct colors for every item (no reuse) when items exceed 10', () => {
+    const total = 14
+    const colors = Array.from({ length: total }, (_, i) => chartColor(i))
+    expect(new Set(colors).size).toBe(total)
+  })
+
+  it('is independent of the total argument', () => {
+    expect(chartColor(3, 4)).toBe(chartColor(3, 99))
+    expect(chartColor(0, 0)).toBe('hsl(210.0, 65%, 60%)')
+  })
+
+  it('BalanceChart draws slice fills from chartColor(), not tokens', () => {
     const src = RAW['/src/features/AccountBalances/BalanceChart.tsx']
-    expect(src).toContain('fill={CHART_COLORS[i % CHART_COLORS.length]}')
+    expect(src).toContain('fill={chartColor(i, chartData.length)}')
   })
 })

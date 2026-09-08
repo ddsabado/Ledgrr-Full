@@ -18,6 +18,7 @@
 import { eq, not, useLiveQuery } from '@tanstack/react-db'
 
 import { accountBalancesCollection } from '@/collections/accountBalances'
+import { CREDIT_ACCOUNT_TYPE } from '@/constants/accountTypes'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useAuth } from '@/context/AuthContext'
 import type { AccountBalance } from '@/types/accounts'
@@ -37,7 +38,7 @@ export function useAccountBalances(): {
   } = useLiveQuery(
     (q) => isAuthenticated
       ? q.from({ account: accountBalancesCollection })
-          .where(({ account }) => not(eq(account.category, 'Credit Cards')))
+          .where(({ account }) => not(eq(account.accountType, CREDIT_ACCOUNT_TYPE)))
       : null
   )
 
@@ -62,6 +63,7 @@ export function useAccountBalances(): {
     statementDay:   row.statementDay,
     dueDay:         row.dueDay,
     image:          row.image,
+    accountType:    row.accountType,
     phpEquivalent:  row.currentBalance * (fxMap[row.currency] ?? 1),
   }))
 

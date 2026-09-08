@@ -6,7 +6,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import { formatCurrency } from '@/utils/currency'
-import { CHART_COLORS } from '@/features/AccountBalances/BalanceChart'
+import { chartColor } from '@/features/AccountBalances/BalanceChart'
 
 const PRIVACY_MASK = '••••••'
 
@@ -44,7 +44,7 @@ interface CategoryDonutProps {
 
 /**
  * Donut chart of the active period + flow category breakdown. Colours align
- * with the category list order (shared CHART_COLORS palette). Amounts in the
+ * with the category list order (shared chartColor generator). Amounts in the
  * tooltip are masked in privacy mode.
  */
 export default function CategoryDonut({ categories, privacyMode }: CategoryDonutProps) {
@@ -53,13 +53,13 @@ export default function CategoryDonut({ categories, privacyMode }: CategoryDonut
   const chartData = categories.map(([name, value], i) => ({
     name,
     value,
-    fill: CHART_COLORS[i % CHART_COLORS.length],
+    fill: chartColor(i, categories.length),
   }))
 
   const chartConfig: ChartConfig = Object.fromEntries(
     categories.map(([name], i) => [
       sanitizeKey(name),
-      { label: name, color: CHART_COLORS[i % CHART_COLORS.length] },
+      { label: name, color: chartColor(i, categories.length) },
     ]),
   )
 
@@ -74,7 +74,7 @@ export default function CategoryDonut({ categories, privacyMode }: CategoryDonut
               formatter={(value, name) => (
                 <div className="flex items-center gap-2 min-w-[10rem]">
                   <span className="text-muted truncate max-w-[7rem]">{String(name)}</span>
-                  <span className="ml-auto font-mono font-medium tabular-nums text-text">
+                  <span className="ml-auto font-medium tabular-nums text-text">
                     {privacyMode ? PRIVACY_MASK : formatCurrency(Number(value), 'PHP')}
                   </span>
                 </div>
@@ -92,7 +92,7 @@ export default function CategoryDonut({ categories, privacyMode }: CategoryDonut
           stroke="transparent"
         >
           {chartData.map((_, i) => (
-            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            <Cell key={i} fill={chartColor(i, categories.length)} />
           ))}
         </Pie>
         <Legend content={<CustomLegend />} />

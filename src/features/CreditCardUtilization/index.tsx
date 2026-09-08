@@ -115,7 +115,7 @@ export default function CreditCardUtilization({
       className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full"
     >
       {/* Heading */}
-      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
         Credit Cards
       </p>
 

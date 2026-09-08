@@ -17,6 +17,7 @@ export interface RawAccountBalance {
   statementDay:   number | null // null when not set
   dueDay:         number | null // null when not set
   image:          string        // filename in the account_images bucket; '' when unset
+  accountType:    string        // classification from Account Categories sheet; '' when unmapped
 }
 
 /**

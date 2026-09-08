@@ -83,7 +83,7 @@ export default function Budgets({ privacyMode }: BudgetsProps) {
   if (isError) {
     return (
       <div className={cardShell}>
-        <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+        <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
           Budgets
         </p>
         <p className="text-sm text-danger text-center" role="alert">
@@ -101,7 +101,7 @@ export default function Budgets({ privacyMode }: BudgetsProps) {
       className={cardShell}
     >
       {/* Heading */}
-      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
         Budgets
       </p>
 

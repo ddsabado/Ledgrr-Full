@@ -22,19 +22,19 @@ export default function CycleNavigator({
         onClick={canGoPrevious ? onPrevious : undefined}
         disabled={!canGoPrevious}
         aria-label="Previous cycle"
-        className="text-muted hover:text-text transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-muted"
+        className="w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-text hover:bg-surface2 active:bg-accent active:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-muted disabled:hover:bg-transparent"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
 
-      <span className="text-sm text-text text-center truncate">{label}</span>
+      <span className="text-sm font-semibold text-text text-center truncate">{label}</span>
 
       <button
         type="button"
         onClick={canGoNext ? onNext : undefined}
         disabled={!canGoNext}
         aria-label="Next cycle"
-        className="text-muted hover:text-text transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-muted"
+        className="w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-text hover:bg-surface2 active:bg-accent active:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-muted disabled:hover:bg-transparent"
       >
         <ChevronRight className="w-4 h-4" />
       </button>

@@ -28,7 +28,7 @@ export default function DashboardPage() {
         role="navigation"
         className="shrink-0 bg-bg border-b border-border px-6 py-4 flex items-center justify-between"
       >
-        <h1 className="text-text font-bold tracking-tight">Ledgrr</h1>
+        <h1 className="font-display text-text font-bold tracking-tight">Ledgrr</h1>
         <div className="flex items-center gap-4">
           <span className="text-muted text-sm hidden sm:block">{user?.email}</span>
 

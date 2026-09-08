@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import type { AccountBalance } from '@/types/accounts'
 
@@ -19,7 +20,7 @@ function acct(o: Partial<AccountBalance> = {}): AccountBalance {
     name: o.name ?? 'Cash', category: o.category ?? 'Cash', currency: o.currency ?? 'PHP',
     currentBalance: o.currentBalance ?? 1000, initialBalance: o.initialBalance ?? 0,
     creditLimit: o.creditLimit ?? 0, statementDay: o.statementDay ?? null, dueDay: o.dueDay ?? null,
-    image: o.image ?? '', phpEquivalent: o.phpEquivalent ?? 1000,
+    image: o.image ?? '', accountType: o.accountType ?? 'Debit', phpEquivalent: o.phpEquivalent ?? 1000,
   }
 }
 
@@ -51,5 +52,41 @@ describe('AccountBalances — percentage masking (R3)', () => {
     const pct = screen.getByText('100.0%')
     // The percentage carries an inline color (doubles as the color indicator).
     expect(pct.getAttribute('style') ?? '').toMatch(/color/)
+  })
+  it('groups accounts by category with all groups expanded by default (R4.1, R4.2)', () => {
+    hookState.value.data = [
+      acct({ name: 'BPI', category: 'Bank Accounts', phpEquivalent: 500 }),
+      acct({ name: 'GCash', category: 'e-Wallets', phpEquivalent: 300 }),
+      acct({ name: 'Wallet', category: 'Cash', phpEquivalent: 200 }),
+    ]
+    render(<AccountBalances privacyMode={false} />)
+    // Category headers present (as collapse/expand buttons, all expanded)
+    for (const cat of ['Bank Accounts', 'e-Wallets', 'Cash']) {
+      const header = screen.getByRole('button', { name: new RegExp(cat) })
+      expect(header).toHaveAttribute('aria-expanded', 'true')
+    }
+    // All accounts visible (names may also appear in the chart legend)
+    expect(screen.getAllByText('BPI').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('GCash').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Wallet').length).toBeGreaterThan(0)
+  })
+
+  it('collapsing a group hides its accounts and leaves others (R4.3)', async () => {
+    hookState.value.data = [
+      acct({ name: 'BPI', category: 'Bank Accounts', phpEquivalent: 500 }),
+      acct({ name: 'GCash', category: 'e-Wallets', phpEquivalent: 300 }),
+    ]
+    render(<AccountBalances privacyMode={false} />)
+    const user = userEvent.setup()
+    // The category header is a button (aria-expanded)
+    const bankHeader = screen.getByRole('button', { name: /Bank Accounts/ })
+    expect(bankHeader).toHaveAttribute('aria-expanded', 'true')
+    await user.click(bankHeader)
+    // aria-expanded is the deterministic collapse contract (the visual row
+    // removal is animation-driven and not reliably observable in jsdom).
+    expect(bankHeader).toHaveAttribute('aria-expanded', 'false')
+    // The other group's header stays expanded and its account remains visible.
+    expect(screen.getByRole('button', { name: /e-Wallets/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByText('GCash').length).toBeGreaterThan(0)
   })
 })

@@ -61,7 +61,7 @@ export default function InstallmentsRecurring({ privacyMode }: InstallmentsRecur
       className={cardShell}
     >
       {/* Heading */}
-      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
         Installments &amp; Recurring
       </p>
 

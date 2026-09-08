@@ -21,6 +21,7 @@ import {
   type ParticipantView,
 } from './computeDebtsReceivables'
 import { useDebtsReceivables } from './useDebtsReceivables'
+import DebtsReceivablesFilter, { type DRFilters } from './DebtsReceivablesFilter'
 
 const PRIVACY_MASK = '••••••'
 
@@ -31,11 +32,12 @@ interface DebtsReceivablesProps {
 export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps) {
   const { rows, fxMap, isLoading, isError } = useDebtsReceivables()
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [filters, setFilters] = useState<DRFilters>({})
 
   const views = useMemo(() => {
     const computed = computeDebtsReceivables(rows, fxMap)
-    // Chronological (oldest → newest). Undated records sort last while keeping
-    // their original relative order (stable sort via original index tiebreak).
+    // Newest → oldest. Undated records sort last while keeping their original
+    // relative order (stable sort via original index tiebreak).
     return computed
       .map((view, index) => ({ view, index }))
       .sort((a, b) => {
@@ -44,10 +46,41 @@ export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps)
         if (ta === null && tb === null) return a.index - b.index
         if (ta === null) return 1
         if (tb === null) return -1
-        return ta - tb || a.index - b.index
+        return tb - ta || a.index - b.index
       })
       .map(({ view }) => view)
   }, [rows, fxMap])
+
+  // Distinct accounts present (for the account filter options).
+  const accountOptions = useMemo(
+    () => Array.from(new Set(views.map((v) => v.account).filter((a) => a !== ''))).sort(),
+    [views],
+  )
+
+  // Apply active filters with AND semantics. Date range compares the parsed
+  // sortTs; undated records are excluded while a date filter is active.
+  const filteredViews = useMemo(() => {
+    const name = filters.name?.trim().toLowerCase()
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime()
+    const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime()
+    const fromTs = filters.range?.from ? startOfDay(filters.range.from) : null
+    // No explicit `to` → treat as a single-day range on `from`.
+    const toTs = filters.range?.to
+      ? endOfDay(filters.range.to)
+      : (filters.range?.from ? endOfDay(filters.range.from) : null)
+    return views.filter((v) => {
+      if (name && !v.name.toLowerCase().includes(name)) return false
+      if (filters.status && v.overallStatus !== filters.status && v.rawStatus !== filters.status) return false
+      if (filters.account && v.account !== filters.account) return false
+      if (fromTs != null) {
+        if (v.sortTs == null) return false
+        if (v.sortTs < fromTs) return false
+        if (toTs != null && v.sortTs > toTs) return false
+      }
+      return true
+    })
+  }, [views, filters])
+
 
   const mask = (amount: number, currency = 'PHP') =>
     privacyMode ? PRIVACY_MASK : formatCurrency(amount, currency)
@@ -74,7 +107,7 @@ export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps)
   if (isError) {
     return (
       <div className={cardShell}>
-        <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
+        <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
           Debts &amp; Receivables
         </p>
         <p className="text-sm text-danger text-center" role="alert">
@@ -91,14 +124,25 @@ export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps)
       transition={{ duration: 0.15, ease: 'easeInOut' }}
       className={cardShell}
     >
-      {/* Heading */}
-      <p className="shrink-0 text-xs font-semibold tracking-widest uppercase text-muted">
-        Debts &amp; Receivables
-      </p>
+      {/* Heading + filter */}
+      <div className="shrink-0 flex items-center justify-between gap-2">
+        <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+          Debts &amp; Receivables
+        </p>
+        <DebtsReceivablesFilter
+          filters={filters}
+          onChange={setFilters}
+          accounts={accountOptions}
+        />
+      </div>
 
       {views.length === 0 ? (
         <p className="flex-1 py-6 px-2 text-sm text-center text-muted">
           No records.
+        </p>
+      ) : filteredViews.length === 0 ? (
+        <p className="flex-1 py-6 px-2 text-sm text-center text-muted">
+          No matching records.
         </p>
       ) : (
         <div className="flex-1 overflow-y-auto min-h-0 scrollbar-gutter-stable">
@@ -106,7 +150,7 @@ export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps)
             data-testid="debts-receivables-list"
             className="flex flex-col gap-4"
           >
-            {views.map((view) => (
+            {filteredViews.map((view) => (
               <RecordView
                 key={view.key}
                 view={view}

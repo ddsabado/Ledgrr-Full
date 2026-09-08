@@ -1,9 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans:    'Roboto', sans-serif;       /* body / text / numbers (default 300) */
+  --font-display: 'IBM Plex Mono', monospace; /* headings / card titles */
+  --font-mono:    'IBM Plex Mono', monospace; /* figures / metadata */
 }
 
 /* ─── Theme tokens (ported verbatim from Ledgrr-SPA) ──────────────────────
@@ -53,6 +54,7 @@ html, body {
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
+  font-weight: 300;              /* Roboto Light for body/text/numbers by default */
   height: 100%;
   overflow: hidden;
 }
@@ -87,4 +89,26 @@ html, body {
 
 *:hover::-webkit-scrollbar-thumb:hover {
   background-color: rgba(75, 85, 99, 0.5);
+}
+
+/* ─── Popover enter/exit animation ────────────────────────────────────────
+   Radix sets data-[state=open|closed] on the content; we animate a subtle
+   fade + scale from the trigger origin. (This project uses `motion` elsewhere,
+   but Radix content mounts/unmounts outside React's tree here, so CSS keyframes
+   keyed to the data-state are the reliable approach.) */
+@keyframes popover-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes popover-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.95) translateY(-4px); }
+}
+[data-slot='popover-content'][data-state='open'] {
+  transform-origin: var(--radix-popover-content-transform-origin);
+  animation: popover-in 0.15s ease-out;
+}
+[data-slot='popover-content'][data-state='closed'] {
+  transform-origin: var(--radix-popover-content-transform-origin);
+  animation: popover-out 0.12s ease-in;
 }
