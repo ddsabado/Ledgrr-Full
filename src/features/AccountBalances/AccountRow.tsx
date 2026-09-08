@@ -24,31 +24,28 @@ export default function AccountRow({ account, percentage, color, privacyMode }: 
 
   return (
     <div className="flex items-start justify-between py-2 gap-3">
-      {/* Left: swatch + name */}
+      {/* Left: color-coded percentage (doubles as the color indicator, like the
+          Transactions category list) + account name. */}
       <div className="flex items-center gap-2 min-w-0">
         <span
-          className="w-2.5 h-2.5 rounded-sm shrink-0"
-          style={{ backgroundColor: color }}
-          aria-hidden="true"
-        />
+          className="text-xs font-semibold tabular-nums min-w-[3rem] shrink-0"
+          style={{ color }}
+        >
+          {privacyMode ? PRIVACY_MASK : `${percentage}%`}
+        </span>
         <span className="text-sm text-text truncate">{account.name}</span>
       </div>
 
-      {/* Right: percentage + balances */}
-      <div className="flex items-center gap-3 shrink-0 text-right">
-        <span className="text-xs text-muted font-mono w-10 text-right">
-          {percentage}%
+      {/* Right: balances */}
+      <div className="flex flex-col items-end shrink-0 text-right">
+        <span className="text-sm text-text font-medium tabular-nums">
+          {phpDisplay}
         </span>
-        <div className="flex flex-col items-end">
-          <span className="text-sm text-text font-medium tabular-nums">
-            {phpDisplay}
+        {showNative && (
+          <span className="text-xs text-muted tabular-nums mt-0.5">
+            {nativeDisplay}
           </span>
-          {showNative && (
-            <span className="text-xs text-muted tabular-nums mt-0.5">
-              {nativeDisplay}
-            </span>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )

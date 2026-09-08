@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { formatCurrency } from '@/utils/currency'
 import MonthNavigator from './MonthNavigator'
 import InstallmentDonut from './InstallmentDonut'
+import ChartPlaceholder from '@/components/ChartPlaceholder'
 import { useInstallmentsRecurring } from './useInstallmentsRecurring'
 import {
   buildInstallmentMonths,
@@ -71,12 +72,16 @@ export default function InstallmentsRecurring({ privacyMode }: InstallmentsRecur
         </p>
       )}
 
-      {/* Chart */}
-      {result.items.length > 0 && (
-        <div className="shrink-0">
+      {/* Chart — the slot is ALWAYS rendered at the chart's height so a month
+          with no items does not snap the layout: the donut shows when there
+          are items, else a same-height placeholder. */}
+      <div className="shrink-0">
+        {result.items.length > 0 ? (
           <InstallmentDonut items={chartItems} privacyMode={privacyMode} />
-        </div>
-      )}
+        ) : (
+          <ChartPlaceholder height="h-56" />
+        )}
+      </div>
 
       {/* Month navigator */}
       <MonthNavigator

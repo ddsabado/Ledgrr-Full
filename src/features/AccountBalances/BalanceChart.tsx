@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/chart'
 import { formatCurrency } from '@/utils/currency'
 import type { AccountBalance } from '@/types/accounts'
+import ChartPlaceholder from '@/components/ChartPlaceholder'
 
 const PRIVACY_MASK = '••••••'
 
@@ -55,6 +56,9 @@ interface BalanceChartProps {
 }
 
 export default function BalanceChart({ accounts, privacyMode }: BalanceChartProps) {
+  // No data to chart -> reserve the same height with a placeholder (no misleading empty donut).
+  if (accounts.length === 0) return <ChartPlaceholder height="h-64" />
+
   const chartData = accounts.map((a, i) => ({
     name:  a.name,
     value: a.phpEquivalent,

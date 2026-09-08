@@ -1,7 +1,15 @@
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
+import {
+  NAV_TOGGLE_CLASS,
+  NAV_TOGGLE_TEXT_CLASS,
+  NAV_TOGGLE_HOVER,
+  NAV_TOGGLE_TAP,
+  NAV_ICON_SWAP,
+} from '@/components/navToggle'
 import AccountBalances from '@/features/AccountBalances'
 import CreditCardUtilization from '@/features/CreditCardUtilization'
 import Transactions from '@/features/Transactions'
@@ -26,21 +34,33 @@ export default function DashboardPage() {
 
           <ThemeSwitcher />
 
-          {/* Privacy mode toggle */}
-          <button
+          {/* Privacy mode toggle — hover/press scale + rotating icon swap (SPA-matched) */}
+          <motion.button
             onClick={() => setPrivacyMode((p) => !p)}
             aria-label={privacyMode ? 'Show amounts' : 'Hide amounts'}
-            className="text-muted hover:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md p-1"
+            whileHover={NAV_TOGGLE_HOVER}
+            whileTap={NAV_TOGGLE_TAP}
+            className={NAV_TOGGLE_CLASS}
           >
-            {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={privacyMode ? 'hidden' : 'visible'}
+                {...NAV_ICON_SWAP}
+                className="block"
+              >
+                {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
 
-          <button
+          <motion.button
             onClick={signOut}
-            className="text-sm text-muted hover:text-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md px-2 py-1"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={NAV_TOGGLE_TEXT_CLASS}
           >
             Sign out
-          </button>
+          </motion.button>
         </div>
       </nav>
 
