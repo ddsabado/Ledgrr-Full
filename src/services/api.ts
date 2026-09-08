@@ -2,6 +2,7 @@ import { supabase, SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
 import type { RawAccountBalancesData, CurrencyData } from '@/types/accounts'
 import type { RawTransaction } from '@/types/transactions'
 import type { RawInstallmentRow, RawRecurringRow } from '@/types/installments'
+import type { RawBudgetRow } from '@/types/budgets'
 
 export class AuthError extends Error {
   constructor(message = 'Unauthorized') {
@@ -98,4 +99,19 @@ export async function getRecurring(): Promise<RawRecurringRow[]> {
   })
   assertOk(res, 'recurring payments')
   return res.json() as Promise<RawRecurringRow[]>
+}
+
+/**
+ * Fetches ALL raw budget rows from the budgets Edge Function.
+ * Thin passthrough — no computation, no filtering; the frontend derives
+ * spent/remaining/percentage per month via computeBudgets.
+ */
+export async function getBudgets(): Promise<RawBudgetRow[]> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/budgets`, {
+    method: 'GET',
+    headers,
+  })
+  assertOk(res, 'budgets')
+  return res.json() as Promise<RawBudgetRow[]>
 }

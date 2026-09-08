@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import type { RawTransaction } from '@/types/transactions'
 import { formatTransactionDate } from '@/utils/date'
 import { type CategoryData, signedAmount } from './groupTransactions'
+import { useCurrencies } from '@/hooks/useCurrencies'
 
 type MaskFn = (amount: number) => string
 
@@ -88,9 +89,10 @@ export function SubcategoriesList({
   const subcats: Array<[string, { total: number; txs: RawTransaction[] }]> =
     Object.entries(catData.subcats).sort((a, b) => b[1].total - a[1].total)
 
+  const { data: fxMap } = useCurrencies()
   // Surface direct-to-category transactions as a synthetic group (SPA parity).
   if (catData.txs.length > 0) {
-    const directTotal = catData.txs.reduce((sum, tx) => sum + signedAmount(tx), 0)
+    const directTotal = catData.txs.reduce((sum, tx) => sum + signedAmount(tx, fxMap), 0)
     subcats.push([directLabel(category), { total: directTotal, txs: catData.txs }])
   }
 
@@ -143,6 +145,7 @@ const PRIVACY_MASK = '••••••'
  * language (date · account, optional note, PHP amount + native amount).
  */
 export function TransactionRows({ transactions, mask, privacyMode }: TransactionRowsProps) {
+  const { data: fxMap } = useCurrencies()
   if (transactions.length === 0) {
     return (
       <p className="py-6 px-2 text-sm text-center text-muted">No transactions.</p>
@@ -176,7 +179,7 @@ export function TransactionRows({ transactions, mask, privacyMode }: Transaction
             </div>
             <div className="flex flex-col items-end shrink-0 text-right">
               <span className="text-sm font-medium tabular-nums text-text">
-                {mask(signedAmount(tx))}
+                {mask(signedAmount(tx, fxMap))}
               </span>
               {showNative && (
                 <span className="text-xs text-muted tabular-nums mt-0.5">

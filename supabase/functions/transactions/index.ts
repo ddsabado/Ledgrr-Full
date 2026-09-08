@@ -4,7 +4,6 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 // --- Inlined sheet-column constants ---------------------------------------
 // Deno cannot import from `src/`, so these mirror src/constants/sheets.ts.
 // They MUST be kept in sync with that file (case-sensitive header strings).
-
 const TRANSACTIONS_COLUMNS = Object.freeze({
   TXN_ID:          'Txn ID',
   DATE:            'Date',
@@ -20,17 +19,12 @@ const TRANSACTIONS_COLUMNS = Object.freeze({
   NOTE:            'Note',
 } as const)
 
-const CURRENCY_COLUMNS = Object.freeze({
-  CODE: 'Currency',
-  RATE: 'Rate to PHP',
-} as const)
+/** Timeout budget for the Google Sheets read. */
+const READ_TIMEOUT_MS = 30_000
 
-// --- Pure helper functions (named exports for unit testing) ----------------
+// --- Pure helpers (named exports for unit testing) -------------------------
 
-/**
- * Builds a header-name → column-index map from a sheet's first row.
- * Same implementation as accounts-balances / currencies.
- */
+/** Builds a header-name → column-index map from a sheet's first row. */
 export function buildHeaderMap(headers: string[]): Record<string, number> {
   return headers.reduce((map, header, index) => {
     map[header.trim()] = index
@@ -39,90 +33,34 @@ export function buildHeaderMap(headers: string[]): Record<string, number> {
 }
 
 /**
- * Builds an FX map from Currency sheet rows.
- * Always includes PHP: 1 as the base, so an empty `rows` array yields { PHP: 1 }.
- * Returns { "USD": 56.2, "TWD": 1.7, "PHP": 1, ... }
+ * Raw transaction row — a passthrough of the sheet cells with only light,
+ * non-business parsing: numbers are parsed (thousands separators stripped) and
+ * blank strings normalized. NO FX resolution, NO phpValue, NO derived flags —
+ * the frontend resolves PHP via the currencies collection.
  */
-export function buildFxMap(
-  rows:      string[][],
-  headerMap: Record<string, number>
-): Record<string, number> {
-  const fxMap: Record<string, number> = { PHP: 1 }
-  for (const row of rows) {
-    const code = row[headerMap[CURRENCY_COLUMNS.CODE] ?? -1]?.trim()
-    const rate = parseFloat(row[headerMap[CURRENCY_COLUMNS.RATE] ?? -1]?.replace(/,/g, '') ?? '')
-    if (code && !isNaN(rate) && rate > 0) {
-      fxMap[code] = rate
-    }
-  }
-  return fxMap
-}
-
-/**
- * Resolves a transaction's PHP value (mirrors resolvePHP_ in Code.js).
- * - PHP passthrough: returns the raw amount.
- * - Determined path: returns resolvedAmount when it is a finite number.
- * - FX fallback: raw * fx[currency] (rate 1 when currency absent from map).
- *
- * This is per-row currency enrichment, not filtering — the frontend relies
- * on phpValue being present so it never needs per-transaction FX rates.
- */
-export function resolvePHP(
-  rawAmount:      number,
-  currency:       string,
-  resolvedAmount: unknown,
-  fx:             Record<string, number>
-): number {
-  const raw = Number(rawAmount) || 0
-  const ccy = currency || 'PHP'
-  if (ccy === 'PHP') return raw
-  const resolved = Number(resolvedAmount)
-  if (resolvedAmount !== '' && resolvedAmount != null && Number.isFinite(resolved)) {
-    return resolved
-  }
-  return raw * (fx[ccy] ?? 1)
-}
-
-/**
- * True when a transaction's PHP value is "determined" (mirrors isDetermined_ in Code.js):
- * the currency is non-PHP AND resolvedAmount is a finite number (not "" or null).
- */
-export function isDetermined(currency: string, resolvedAmount: unknown): boolean {
-  if ((currency || 'PHP') === 'PHP') return false
-  const resolved = Number(resolvedAmount)
-  return resolvedAmount !== '' && resolvedAmount != null && Number.isFinite(resolved)
-}
-
-/**
- * Raw transaction row as returned by this function.
- * `phpValue` is computed server-side via resolvePHP so the frontend never
- * needs per-transaction FX rates. Column letters refer to the Transactions sheet.
- */
-interface RawTransaction {
+export interface RawTransaction {
   key:            string        // col A — Txn ID
   date:           string        // col B — raw date string
   account:        string        // col C
   amount:         number        // col D — native currency
   resolvedAmount: number | null // col E — null when empty/non-numeric
   currency:       string        // col F
-  targetAccount:  string        // col G — empty string if blank
+  targetAccount:  string        // col G
   type:           string        // col H — Transaction Type
   category:       string        // col I
-  subcategory:    string        // col J — empty string if blank
-  note:           string        // col L — empty string if blank
-  determined:     boolean
-  phpValue:       number
+  subcategory:    string        // col J
+  budget:         string        // col K
+  note:           string        // col L
 }
 
 /**
- * Maps a Transactions sheet row to a RawTransaction.
- * Returns null when the Txn ID (col A) is empty or the date (col B) is empty,
- * so callers can filter out blank/incomplete rows.
+ * Maps a Transactions sheet row to a RawTransaction. Returns null when the
+ * Txn ID (col A) or Date (col B) is empty, so callers drop blank/incomplete
+ * rows. This is structural row-skipping, not business filtering.
  */
 export function mapRowToTransaction(
   row:       string[],
-  headerMap: Record<string, number>,
-  fxMap:     Record<string, number>
+  headerMap: Record<string, number>
 ): RawTransaction | null {
   const get = (col: string): string => (row[headerMap[col] ?? -1] ?? '').trim()
 
@@ -132,11 +70,9 @@ export function mapRowToTransaction(
 
   const amount = parseFloat(get(TRANSACTIONS_COLUMNS.AMOUNT).replace(/,/g, '')) || 0
 
-  const rawResolved      = get(TRANSACTIONS_COLUMNS.RESOLVED_AMOUNT)
-  const parsedResolved   = parseFloat(rawResolved.replace(/,/g, ''))
-  const resolvedAmount   = rawResolved !== '' && !isNaN(parsedResolved) ? parsedResolved : null
-
-  const currency = get(TRANSACTIONS_COLUMNS.CURRENCY) || 'PHP'
+  const rawResolved    = get(TRANSACTIONS_COLUMNS.RESOLVED_AMOUNT)
+  const parsedResolved = parseFloat(rawResolved.replace(/,/g, ''))
+  const resolvedAmount = rawResolved !== '' && !isNaN(parsedResolved) ? parsedResolved : null
 
   return {
     key,
@@ -144,14 +80,13 @@ export function mapRowToTransaction(
     account:        get(TRANSACTIONS_COLUMNS.ACCOUNT),
     amount,
     resolvedAmount,
-    currency,
+    currency:       get(TRANSACTIONS_COLUMNS.CURRENCY) || 'PHP',
     targetAccount:  get(TRANSACTIONS_COLUMNS.TARGET_ACCOUNT),
     type:           get(TRANSACTIONS_COLUMNS.TYPE),
     category:       get(TRANSACTIONS_COLUMNS.CATEGORY),
     subcategory:    get(TRANSACTIONS_COLUMNS.SUBCATEGORY),
+    budget:         get(TRANSACTIONS_COLUMNS.BUDGET),
     note:           get(TRANSACTIONS_COLUMNS.NOTE),
-    determined:     isDetermined(currency, resolvedAmount),
-    phpValue:       resolvePHP(amount, currency, resolvedAmount, fxMap),
   }
 }
 
@@ -166,7 +101,7 @@ Deno.serve(async (req: Request) => {
   const cors = { 'Access-Control-Allow-Origin': '*' }
 
   try {
-    // --- Authentication: verify Supabase JWT (same pattern as accounts-balances) ---
+    // --- Authentication: verify Supabase JWT ---
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
 
@@ -180,12 +115,11 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
     if (userError || !user) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
 
-    // Admin client for Vault decryption and user_sheets lookup.
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
       auth: { persistSession: false },
     })
 
-    // --- Look up the user's connected sheet (same pattern as accounts-balances) ---
+    // --- Look up the user's connected sheet ---
     const { data: userSheet } = await supabaseAdmin
       .from('user_sheets')
       .select('sheet_id, refresh_token_secret_id')
@@ -219,40 +153,35 @@ Deno.serve(async (req: Request) => {
     }
     const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
 
-    // --- Fetch ALL transactions and currency rates (no filtering) ---
+    // --- Read the Transactions tab (A:L) only; no Currency fetch, no FX ---
     const sheetId = userSheet.sheet_id
-    const fetchSheet = (range: string) =>
-      fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), READ_TIMEOUT_MS)
+    let transactionsRes: Response
+    try {
+      transactionsRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Transactions!A:L`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, signal: controller.signal }
       )
-
-    const [transactionsRes, currencyRes] = await Promise.all([
-      fetchSheet('Transactions!A:L'),
-      fetchSheet('Currency!A:B'),
-    ])
-    if (!transactionsRes.ok || !currencyRes.ok) {
+    } catch (_e) {
+      return Response.json({ error: 'Failed to read sheet' }, { status: 502, headers: cors })
+    } finally {
+      clearTimeout(timeout)
+    }
+    if (!transactionsRes.ok) {
       return Response.json({ error: 'Failed to read sheet' }, { status: 502, headers: cors })
     }
 
-    const transactionValues = ((await transactionsRes.json()) as { values?: string[][] }).values ?? []
-    const currencyValues     = ((await currencyRes.json()) as { values?: string[][] }).values ?? []
-
-    if (transactionValues.length === 0) {
+    const values = ((await transactionsRes.json()) as { values?: string[][] }).values ?? []
+    if (values.length === 0) {
       return Response.json([], { status: 200, headers: cors })
     }
 
-    // --- Build FX map from the Currency sheet (per-row enrichment, not filtering) ---
-    const fxMap = currencyValues.length > 0
-      ? buildFxMap(currencyValues.slice(1), buildHeaderMap(currencyValues[0]))
-      : { PHP: 1 }
-
-    // --- Map every transaction row; drop only blank/incomplete rows ---
-    const headerMap = buildHeaderMap(transactionValues[0])
-
-    const transactions: RawTransaction[] = transactionValues
+    // --- Map every row; drop only blank/incomplete rows (no filtering) ---
+    const headerMap = buildHeaderMap(values[0])
+    const transactions: RawTransaction[] = values
       .slice(1)
-      .map((row) => mapRowToTransaction(row, headerMap, fxMap))
+      .map((row) => mapRowToTransaction(row, headerMap))
       .filter((tx): tx is RawTransaction => tx !== null)
 
     return Response.json(transactions, { status: 200, headers: cors })

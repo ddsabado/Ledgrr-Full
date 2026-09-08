@@ -6,6 +6,7 @@ import AccountBalances from '@/features/AccountBalances'
 import CreditCardUtilization from '@/features/CreditCardUtilization'
 import Transactions from '@/features/Transactions'
 import InstallmentsRecurring from '@/features/InstallmentsRecurring'
+import Budgets from '@/features/Budgets'
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth()
@@ -42,14 +43,16 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main content — panel grid; each panel scrolls its own content.
-          On < lg screens the panels stack in a single column. */}
+      {/* Main content — panels keep a comfortable fixed width and the row
+          scrolls horizontally on lg+ (overflowing to the right) rather than
+          compressing. On < lg screens the panels stack in a single column. */}
       <main className="flex-1 lg:overflow-hidden overflow-y-auto px-4 sm:px-6 py-6">
-        <div className="lg:h-full max-w-[110rem] mx-auto grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 lg:grid-rows-1 gap-6">
+        <div className="lg:h-full mx-auto flex flex-col gap-6 lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable [&>*]:lg:w-[24rem] [&>*]:lg:shrink-0">
           <AccountBalances privacyMode={privacyMode} />
           <CreditCardUtilization privacyMode={privacyMode} />
           <Transactions privacyMode={privacyMode} />
           <InstallmentsRecurring privacyMode={privacyMode} />
+          <Budgets privacyMode={privacyMode} />
         </div>
       </main>
     </div>

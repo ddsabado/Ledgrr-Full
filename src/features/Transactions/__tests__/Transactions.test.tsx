@@ -36,8 +36,7 @@ function tx(o: Partial<RawTransaction> = {}): RawTransaction {
     key: o.key ?? `T${seq}`, date: o.date ?? '6/11/2026 0:00:00', account: o.account ?? 'Cash',
     amount: o.amount ?? 100, resolvedAmount: o.resolvedAmount ?? null, currency: o.currency ?? 'PHP',
     targetAccount: o.targetAccount ?? '', type: o.type ?? 'Expense', category: o.category ?? 'Food',
-    subcategory: o.subcategory ?? '', note: o.note ?? '', determined: o.determined ?? false,
-    phpValue: o.phpValue ?? 100,
+    subcategory: o.subcategory ?? '', budget: o.budget ?? '', note: o.note ?? '',
   }
 }
 
@@ -49,15 +48,15 @@ function monthBucket(): PeriodBucket {
     Expense: {
       Food: {
         total: 150,
-        txs: [tx({ key: 'd1', category: 'Food', phpValue: 50, note: 'snack' })],
+        txs: [tx({ key: 'd1', category: 'Food', amount: 50, note: 'snack' })],
         subcats: {
-          Groceries: { total: 100, txs: [tx({ key: 's1', category: 'Food', subcategory: 'Groceries', phpValue: 100 })] },
+          Groceries: { total: 100, txs: [tx({ key: 's1', category: 'Food', subcategory: 'Groceries', amount: 100 })] },
         },
       },
-      Transport: { total: 80, txs: [tx({ key: 't1', category: 'Transport', phpValue: 80 })], subcats: {} },
+      Transport: { total: 80, txs: [tx({ key: 't1', category: 'Transport', amount: 80 })], subcats: {} },
     },
     Income: {
-      Salary: { total: 5000, txs: [tx({ key: 'i1', category: 'Salary', type: 'Income', phpValue: 5000 })], subcats: {} },
+      Salary: { total: 5000, txs: [tx({ key: 'i1', category: 'Salary', type: 'Income', amount: 5000 })], subcats: {} },
     },
   }
 }

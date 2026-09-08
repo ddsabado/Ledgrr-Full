@@ -127,9 +127,8 @@ function pickTransaction(row: RawTransaction): RawTransaction {
     type:           row.type,
     category:       row.category,
     subcategory:    row.subcategory,
+    budget:         row.budget,
     note:           row.note,
-    determined:     row.determined,
-    phpValue:       row.phpValue,
   }
 }
 

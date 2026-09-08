@@ -2,8 +2,9 @@ import type { RawAccountBalance } from '@/types/accounts'
 
 /**
  * Raw transaction row as returned by the `transactions` Edge Function.
- * `phpValue` is computed server-side via FX resolution, so the frontend
- * never needs per-transaction FX rates. Column letters refer to the
+ * The Edge Function is a pure passthrough — it returns the raw sheet cells with
+ * no FX resolution. The frontend resolves the PHP value via resolvePhp() using
+ * the currencies collection. Column letters refer to the
  * Transactions sheet.
  */
 export interface RawTransaction {
@@ -17,9 +18,8 @@ export interface RawTransaction {
   type:           string        // col H — Transaction Type
   category:       string        // col I
   subcategory:    string        // col J — empty string if blank
+  budget:         string        // col K — empty string if blank
   note:           string        // col L — empty string if blank
-  determined:     boolean
-  phpValue:       number
 }
 
 /**

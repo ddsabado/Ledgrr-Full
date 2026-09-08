@@ -4,6 +4,8 @@ import { motion } from 'motion/react'
 import { useAuth } from '@/context/AuthContext'
 import { useCCAccounts } from '@/hooks/useCCAccounts'
 import { useCCTransactions } from '@/hooks/useCCTransactions'
+import { useCurrencies } from '@/hooks/useCurrencies'
+import { resolvePhp } from '@/utils/resolvePhp'
 import type { CCAccount } from '@/types/transactions'
 import CCCard from './CCCard'
 
@@ -25,6 +27,7 @@ export default function CreditCardUtilization({
   }
 
   const { session } = useAuth()
+  const { data: fxMap } = useCurrencies()
 
   const {
     data: ccAccounts,
@@ -91,7 +94,7 @@ export default function CreditCardUtilization({
     const amountDue =
       cycles[0]?.transactions
         .filter((t) => t.type !== 'Transfer')
-        .reduce((sum, t) => sum + t.phpValue, 0) ?? 0
+        .reduce((sum, t) => sum + resolvePhp(t, fxMap), 0) ?? 0
     return { ...account, amountDue }
   })
 

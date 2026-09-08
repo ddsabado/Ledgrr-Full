@@ -28,3 +28,9 @@ export const RECURRING_STALE_TIME = 5 * 60 * 1000
 
 /** 10 minutes — keep the recurring payments cache for ten minutes */
 export const RECURRING_GC_TIME = 10 * 60 * 1000
+
+/** 5 minutes — budgets change infrequently but may be edited */
+export const BUDGETS_STALE_TIME = 5 * 60 * 1000
+
+/** 10 minutes — keep the budgets cache for ten minutes */
+export const BUDGETS_GC_TIME = 10 * 60 * 1000
