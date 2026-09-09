@@ -1,29 +1,52 @@
-import type { AccountBalance } from '@/types/accounts'
-import { formatCurrency } from '@/utils/currency'
+import type { AccountBalance } from "@/types/accounts";
+import { formatCurrency } from "@/utils/currency";
 
-const PRIVACY_MASK = '••••••'
+const PRIVACY_MASK = "••••••";
 
 interface AccountRowProps {
-  account:     AccountBalance
-  percentage:  string
-  color:       string
-  privacyMode: boolean
+  account: AccountBalance;
+  percentage: string;
+  color: string;
+  privacyMode: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
-export default function AccountRow({ account, percentage, color, privacyMode }: AccountRowProps) {
+export default function AccountRow({
+  account,
+  percentage,
+  color,
+  privacyMode,
+  selected = false,
+  onSelect,
+}: AccountRowProps) {
   // PHP display (always shown)
   const phpDisplay = privacyMode
     ? PRIVACY_MASK
-    : formatCurrency(account.phpEquivalent, 'PHP')
+    : formatCurrency(account.phpEquivalent, "PHP");
 
   // Native currency display — only shown when account is not PHP
-  const showNative = account.currency !== 'PHP'
+  const showNative = account.currency !== "PHP";
   const nativeDisplay = privacyMode
     ? PRIVACY_MASK
-    : formatCurrency(account.currentBalance, account.currency)
+    : formatCurrency(account.currentBalance, account.currency);
 
   return (
-    <div className="flex items-start justify-between py-2 gap-3">
+    <div
+      role="option"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect?.();
+        }
+      }}
+      aria-selected={selected}
+      className={`flex w-full items-start justify-between gap-3 rounded-md px-2 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+        selected ? "bg-accent ring-1 ring-accent/60" : "hover:bg-surface2"
+      }`}
+    >
       {/* Left: color-coded percentage (doubles as the color indicator, like the
           Transactions category list) + account name. */}
       <div className="flex items-center gap-2 min-w-0">
@@ -48,5 +71,5 @@ export default function AccountRow({ account, percentage, color, privacyMode }: 
         )}
       </div>
     </div>
-  )
+  );
 }
