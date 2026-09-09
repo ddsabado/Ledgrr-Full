@@ -1,64 +1,100 @@
-import { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
-import { ChevronDown } from 'lucide-react'
+import { useMemo, useState } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { ChevronDown, PanelLeftOpen, PanelTopOpen } from "lucide-react";
 
-import { useAccountBalances } from '@/hooks/useAccountBalances'
-import { formatCurrency } from '@/utils/currency'
-import type { AccountBalance } from '@/types/accounts'
-import AccountRow from './AccountRow'
-import BalanceChart, { chartColor } from './BalanceChart'
-import AccountBalancesFilter, { type AccountBalanceFilters } from './AccountBalancesFilter'
+import { useAccountBalances } from "@/hooks/useAccountBalances";
+import { formatCurrency } from "@/utils/currency";
+import type { AccountBalance } from "@/types/accounts";
+import AccountRow from "./AccountRow";
+import BalanceChart, { chartColor } from "./BalanceChart";
+import AccountBalancesFilter, {
+  type AccountBalanceFilters,
+} from "./AccountBalancesFilter";
+import { NAV_TOGGLE_HOVER, NAV_TOGGLE_TAP } from "@/components/navToggle";
 
-const PRIVACY_MASK = '••••••'
+const PRIVACY_MASK = "••••••";
 
 interface AccountBalancesProps {
-  privacyMode: boolean
+  privacyMode: boolean;
+  viewerOpen?: boolean;
+  selectedAccount?: string | null;
+  onSelectAccount?: (name: string) => void;
+  onToggleViewer?: () => void;
 }
 
-export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
-  const { data, isLoading, isError } = useAccountBalances()
+export default function AccountBalances({
+  privacyMode,
+  viewerOpen = false,
+  selectedAccount = null,
+  onSelectAccount = () => {},
+  onToggleViewer = () => {},
+}: AccountBalancesProps) {
+  const { data, isLoading, isError } = useAccountBalances();
   // Collapsed category names; empty set = all groups expanded (default).
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
-  const [filters, setFilters] = useState<AccountBalanceFilters>({})
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [filters, setFilters] = useState<AccountBalanceFilters>({});
   const toggleGroup = (cat: string) =>
     setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(cat)) next.delete(cat)
-      else next.add(cat)
-      return next
-    })
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
 
   // Hooks must run unconditionally BEFORE any early return (Rules of Hooks).
   const currencyOptions = useMemo(
-    () => Array.from(new Set(data.map((account) => account.currency).filter(Boolean))).sort(),
+    () =>
+      Array.from(
+        new Set(data.map((account) => account.currency).filter(Boolean)),
+      ).sort(),
     [data],
-  )
+  );
   const categoryOptions = useMemo(
-    () => Array.from(new Set(data.map((account) => account.category.trim() || 'Uncategorized'))).sort(),
+    () =>
+      Array.from(
+        new Set(
+          data.map((account) => account.category.trim() || "Uncategorized"),
+        ),
+      ).sort(),
     [data],
-  )
+  );
   const filteredAccounts = useMemo(() => {
-    const name = filters.name?.trim().toLowerCase()
+    const name = filters.name?.trim().toLowerCase();
     return data.filter((account) => {
-      if (name && !account.name.toLowerCase().includes(name)) return false
-      if (filters.currency && account.currency !== filters.currency) return false
-      if (filters.category && (account.category.trim() || 'Uncategorized') !== filters.category) return false
-      return true
-    })
-  }, [data, filters])
-  const total = filteredAccounts.reduce((sum, account) => sum + account.phpEquivalent, 0)
+      if (name && !account.name.toLowerCase().includes(name)) return false;
+      if (filters.currency && account.currency !== filters.currency)
+        return false;
+      if (
+        filters.category &&
+        (account.category.trim() || "Uncategorized") !== filters.category
+      )
+        return false;
+      return true;
+    });
+  }, [data, filters]);
+  const total = filteredAccounts.reduce(
+    (sum, account) => sum + account.phpEquivalent,
+    0,
+  );
+  const reduceMotion = useReducedMotion();
   // Group accounts by category (first-appearance order), carrying each
   // account's GLOBAL index so colors and percentages stay stable across groups.
   const groups = useMemo(() => {
-    const order: string[] = []
-    const byCat = new Map<string, { account: AccountBalance; index: number }[]>()
+    const order: string[] = [];
+    const byCat = new Map<
+      string,
+      { account: AccountBalance; index: number }[]
+    >();
     filteredAccounts.forEach((account, index) => {
-      const cat = account.category?.trim() || 'Uncategorized'
-      if (!byCat.has(cat)) { byCat.set(cat, []); order.push(cat) }
-      byCat.get(cat)!.push({ account, index })
-    })
-    return order.map((cat) => [cat, byCat.get(cat)!] as const)
-  }, [filteredAccounts])
+      const cat = account.category?.trim() || "Uncategorized";
+      if (!byCat.has(cat)) {
+        byCat.set(cat, []);
+        order.push(cat);
+      }
+      byCat.get(cat)!.push({ account, index });
+    });
+    return order.map((cat) => [cat, byCat.get(cat)!] as const);
+  }, [filteredAccounts]);
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -73,7 +109,7 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
           </div>
         ))}
       </div>
-    )
+    );
   }
 
   // ─── Error ───────────────────────────────────────────────────────────────
@@ -84,7 +120,7 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
           Could not load account balances. Please try again later.
         </p>
       </div>
-    )
+    );
   }
 
   // ─── Empty ───────────────────────────────────────────────────────────────
@@ -93,34 +129,65 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
       <div className="rounded-xl bg-surface border border-border p-5">
         <p className="text-sm text-muted text-center">No accounts found.</p>
       </div>
-    )
+    );
   }
 
   // ─── Success ─────────────────────────────────────────────────────────────
-  const totalDisplay = privacyMode ? PRIVACY_MASK : formatCurrency(total, 'PHP')
+  const totalDisplay = privacyMode
+    ? PRIVACY_MASK
+    : formatCurrency(total, "PHP");
+  const toggleViewer = () => {
+    if (!viewerOpen && filteredAccounts[0])
+      onSelectAccount(filteredAccounts[0].name);
+    onToggleViewer();
+  };
 
   return (
     <motion.div
+      layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.15, ease: 'easeInOut' }}
-      className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full"
+      transition={{ duration: 0.15, ease: "easeInOut" }}
+      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
     >
       {/* Heading + filter */}
       <div className="shrink-0 flex items-center justify-between gap-2">
-        <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
-          Account Balances
-        </p>
-        <AccountBalancesFilter
-          filters={filters}
-          onChange={setFilters}
-          currencies={currencyOptions}
-          categories={categoryOptions}
-        />
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+            Account Balances
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <AccountBalancesFilter
+            filters={filters}
+            onChange={setFilters}
+            currencies={currencyOptions}
+            categories={categoryOptions}
+          />
+          <motion.button
+            type="button"
+            aria-label={
+              viewerOpen ? "Close account viewer" : "Open account viewer"
+            }
+            onClick={toggleViewer}
+            animate={{ rotate: viewerOpen ? 180 : 0 }}
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 260, damping: 30 }
+            }
+            whileHover={NAV_TOGGLE_HOVER}
+            whileTap={NAV_TOGGLE_TAP}
+            className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
+            <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+          </motion.button>
+        </div>
       </div>
 
       {/* Donut chart */}
-      <div className="shrink-0">
+      <div className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
         <BalanceChart accounts={filteredAccounts} privacyMode={privacyMode} />
       </div>
 
@@ -135,57 +202,76 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
       {/* Account groups — scrollable; grouped by category, expanded by default */}
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-2 scrollbar-gutter-stable">
         {groups.length === 0 ? (
-          <p className="flex-1 py-6 px-2 text-center text-sm text-muted">No matching accounts.</p>
-        ) : groups.map(([category, items]) => {
-          const isCollapsed = collapsed.has(category)
-          return (
-            <div key={category} className="flex flex-col">
-              <button
-                type="button"
-                onClick={() => toggleGroup(category)}
-                aria-expanded={!isCollapsed}
-                className="w-full flex items-center gap-1.5 py-1 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
-              >
-                <ChevronDown
-                  aria-hidden="true"
-                  className={`shrink-0 w-3.5 h-3.5 text-muted transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
-                />
-                <span className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
-                  {category}
-                </span>
-              </button>
-              <AnimatePresence initial={false}>
-                {!isCollapsed && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
-                    style={{ overflow: 'hidden' }}
-                  >
-                    <div className="flex flex-col divide-y divide-border">
-                      {items.map(({ account, index }) => {
-                        const pct = total > 0
-                          ? ((account.phpEquivalent / total) * 100).toFixed(1)
-                          : '0.0'
-                        return (
-                          <AccountRow
-                            key={account.name}
-                            account={account}
-                            percentage={pct}
-                            color={chartColor(index, filteredAccounts.length)}
-                            privacyMode={privacyMode}
-                          />
-                        )
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )
-        })}
+          <p className="flex-1 py-6 px-2 text-center text-sm text-muted">
+            No matching accounts.
+          </p>
+        ) : (
+          groups.map(([category, items]) => {
+            const isCollapsed = collapsed.has(category);
+            return (
+              <div key={category} className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(category)}
+                  aria-expanded={!isCollapsed}
+                  className="w-full flex items-center gap-1.5 py-1 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
+                >
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`shrink-0 w-3.5 h-3.5 text-muted transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+                  />
+                  <span className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+                    {category}
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {!isCollapsed && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{
+                        type: "tween",
+                        duration: 0.2,
+                        ease: "easeInOut",
+                      }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div
+                        role="listbox"
+                        aria-label="Account balances"
+                        className="flex flex-col divide-y divide-border"
+                      >
+                        {items.map(({ account, index }) => {
+                          const pct =
+                            total > 0
+                              ? ((account.phpEquivalent / total) * 100).toFixed(
+                                  1,
+                                )
+                              : "0.0";
+                          return (
+                            <AccountRow
+                              key={account.name}
+                              account={account}
+                              percentage={pct}
+                              color={chartColor(index, filteredAccounts.length)}
+                              privacyMode={privacyMode}
+                              selected={
+                                viewerOpen && selectedAccount === account.name
+                              }
+                              onSelect={() => onSelectAccount(account.name)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })
+        )}
       </div>
     </motion.div>
-  )
+  );
 }

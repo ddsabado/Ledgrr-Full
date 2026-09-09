@@ -10,15 +10,24 @@ const PRIVACY_MASK = '••••••'
 interface TransactionListProps {
   transactions: RawTransaction[]
   privacyMode:  boolean
+  /** When present, transfer direction is calculated relative to this account. */
+  accountName?: string
 }
 
-export default function TransactionList({ transactions, privacyMode }: TransactionListProps) {
+export default function TransactionList({ transactions, privacyMode, accountName }: TransactionListProps) {
   const { data: fxMap } = useCurrencies()
   return (
     <ul className="flex flex-col divide-y divide-border">
       {transactions.map((tx) => {
-        // A payment is a Transfer INTO the card.
-        const isPayment = tx.type === 'Transfer'
+        // The account viewer can show both ends of a transfer. Credit-card
+        // callers retain their existing payment treatment when no account is supplied.
+        const isTransferIn = tx.type === 'Transfer' && accountName !== undefined && tx.targetAccount === accountName
+        const isTransferOut = tx.type === 'Transfer' && accountName !== undefined && tx.account === accountName && !isTransferIn
+        const amountTone = isTransferIn || (accountName === undefined && tx.type === 'Transfer')
+          ? 'text-success'
+          : isTransferOut
+            ? 'text-danger'
+            : 'text-text'
 
         const showNative = tx.currency !== 'PHP'
 
@@ -46,13 +55,13 @@ export default function TransactionList({ transactions, privacyMode }: Transacti
             <div className="flex flex-col items-end shrink-0 text-right">
               <span
                 className={`text-sm font-medium tabular-nums ${
-                  isPayment ? 'text-success' : 'text-text'
+                  amountTone
                 }`}
               >
                 {phpDisplay}
               </span>
               {showNative && (
-                <span className="text-xs text-muted tabular-nums mt-0.5">
+                <span className={`text-xs tabular-nums mt-0.5 ${isTransferIn ? 'text-success' : isTransferOut ? 'text-danger' : 'text-muted'}`}>
                   {nativeDisplay}
                 </span>
               )}
