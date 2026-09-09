@@ -187,7 +187,7 @@ export default function AccountBalances({
       </div>
 
       {/* Donut chart */}
-      <div className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
+      <div key={viewerOpen ? 'balances-chart-compact' : 'balances-chart-full'} className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
         <BalanceChart accounts={filteredAccounts} privacyMode={privacyMode} />
       </div>
 
