@@ -90,3 +90,54 @@ describe('AccountBalances — percentage masking (R3)', () => {
     expect(screen.getAllByText('GCash').length).toBeGreaterThan(0)
   })
 })
+
+describe('AccountBalances filters', () => {
+  it('filters accounts by a case-insensitive account-name search', async () => {
+    hookState.value.data = [
+      acct({ name: 'BPI Savings', currency: 'PHP', phpEquivalent: 500 }),
+      acct({ name: 'GCash', currency: 'PHP', phpEquivalent: 300 }),
+    ]
+    const user = userEvent.setup()
+    render(<AccountBalances privacyMode={false} />)
+
+    await user.click(screen.getByRole('button', { name: /filter account balances/i }))
+    await user.type(screen.getByPlaceholderText(/search account/i), 'bpi')
+
+    expect(screen.getAllByText('BPI Savings').length).toBeGreaterThan(0)
+    expect(screen.queryByText('GCash')).not.toBeInTheDocument()
+    expect(screen.getByTestId('account-balances-filter-active')).toBeInTheDocument()
+  })
+
+  it('filters accounts by currency and can clear the active filters', async () => {
+    hookState.value.data = [
+      acct({ name: 'Peso Wallet', currency: 'PHP', phpEquivalent: 500 }),
+      acct({ name: 'Dollar Wallet', currency: 'USD', phpEquivalent: 300 }),
+    ]
+    const user = userEvent.setup()
+    render(<AccountBalances privacyMode={false} />)
+
+    await user.click(screen.getByRole('button', { name: /filter account balances/i }))
+    await user.selectOptions(screen.getByLabelText('Currency'), 'USD')
+    expect(screen.getAllByText('Dollar Wallet').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Peso Wallet')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /clear/i }))
+    expect(screen.getAllByText('Peso Wallet').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Dollar Wallet').length).toBeGreaterThan(0)
+  })
+
+  it('filters accounts by category', async () => {
+    hookState.value.data = [
+      acct({ name: 'BPI Savings', category: 'Bank Accounts', phpEquivalent: 500 }),
+      acct({ name: 'GCash', category: 'e-Wallets', phpEquivalent: 300 }),
+    ]
+    const user = userEvent.setup()
+    render(<AccountBalances privacyMode={false} />)
+
+    await user.click(screen.getByRole('button', { name: /filter account balances/i }))
+    await user.selectOptions(screen.getByLabelText('Account category'), 'e-Wallets')
+
+    expect(screen.getAllByText('GCash').length).toBeGreaterThan(0)
+    expect(screen.queryByText('BPI Savings')).not.toBeInTheDocument()
+  })
+})

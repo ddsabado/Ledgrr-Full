@@ -7,6 +7,7 @@ import { formatCurrency } from '@/utils/currency'
 import type { AccountBalance } from '@/types/accounts'
 import AccountRow from './AccountRow'
 import BalanceChart, { chartColor } from './BalanceChart'
+import AccountBalancesFilter, { type AccountBalanceFilters } from './AccountBalancesFilter'
 
 const PRIVACY_MASK = '••••••'
 
@@ -18,6 +19,7 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
   const { data, isLoading, isError } = useAccountBalances()
   // Collapsed category names; empty set = all groups expanded (default).
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  const [filters, setFilters] = useState<AccountBalanceFilters>({})
   const toggleGroup = (cat: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
@@ -27,19 +29,36 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
     })
 
   // Hooks must run unconditionally BEFORE any early return (Rules of Hooks).
-  const total = data.reduce((sum, a) => sum + a.phpEquivalent, 0)
+  const currencyOptions = useMemo(
+    () => Array.from(new Set(data.map((account) => account.currency).filter(Boolean))).sort(),
+    [data],
+  )
+  const categoryOptions = useMemo(
+    () => Array.from(new Set(data.map((account) => account.category.trim() || 'Uncategorized'))).sort(),
+    [data],
+  )
+  const filteredAccounts = useMemo(() => {
+    const name = filters.name?.trim().toLowerCase()
+    return data.filter((account) => {
+      if (name && !account.name.toLowerCase().includes(name)) return false
+      if (filters.currency && account.currency !== filters.currency) return false
+      if (filters.category && (account.category.trim() || 'Uncategorized') !== filters.category) return false
+      return true
+    })
+  }, [data, filters])
+  const total = filteredAccounts.reduce((sum, account) => sum + account.phpEquivalent, 0)
   // Group accounts by category (first-appearance order), carrying each
   // account's GLOBAL index so colors and percentages stay stable across groups.
   const groups = useMemo(() => {
     const order: string[] = []
     const byCat = new Map<string, { account: AccountBalance; index: number }[]>()
-    data.forEach((account, index) => {
+    filteredAccounts.forEach((account, index) => {
       const cat = account.category?.trim() || 'Uncategorized'
       if (!byCat.has(cat)) { byCat.set(cat, []); order.push(cat) }
       byCat.get(cat)!.push({ account, index })
     })
     return order.map((cat) => [cat, byCat.get(cat)!] as const)
-  }, [data])
+  }, [filteredAccounts])
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -87,14 +106,22 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
       transition={{ duration: 0.15, ease: 'easeInOut' }}
       className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full"
     >
-      {/* Heading */}
-      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
-        Account Balances
-      </p>
+      {/* Heading + filter */}
+      <div className="shrink-0 flex items-center justify-between gap-2">
+        <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+          Account Balances
+        </p>
+        <AccountBalancesFilter
+          filters={filters}
+          onChange={setFilters}
+          currencies={currencyOptions}
+          categories={categoryOptions}
+        />
+      </div>
 
       {/* Donut chart */}
       <div className="shrink-0">
-        <BalanceChart accounts={data} privacyMode={privacyMode} />
+        <BalanceChart accounts={filteredAccounts} privacyMode={privacyMode} />
       </div>
 
       {/* Total row */}
@@ -107,7 +134,9 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
 
       {/* Account groups — scrollable; grouped by category, expanded by default */}
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-2 scrollbar-gutter-stable">
-        {groups.map(([category, items]) => {
+        {groups.length === 0 ? (
+          <p className="flex-1 py-6 px-2 text-center text-sm text-muted">No matching accounts.</p>
+        ) : groups.map(([category, items]) => {
           const isCollapsed = collapsed.has(category)
           return (
             <div key={category} className="flex flex-col">
@@ -144,7 +173,7 @@ export default function AccountBalances({ privacyMode }: AccountBalancesProps) {
                             key={account.name}
                             account={account}
                             percentage={pct}
-                            color={chartColor(index, data.length)}
+                            color={chartColor(index, filteredAccounts.length)}
                             privacyMode={privacyMode}
                           />
                         )
