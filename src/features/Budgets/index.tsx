@@ -3,7 +3,8 @@ import { ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 
 import { formatCurrency } from '@/utils/currency'
-import { parseTxDate } from '@/features/Transactions/groupTransactions'
+import { formatCreditCardTransactionDate } from '@/utils/date'
+import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import MonthNavigator from '@/features/InstallmentsRecurring/MonthNavigator'
 import {
   currentYearMonth,
@@ -25,18 +26,6 @@ const TEXT_COLOR: Record<ProgressColor, string> = {
   green: 'text-green-500',
   amber: 'text-amber-500',
   red:   'text-red-500',
-}
-
-const MONTHS_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-] as const
-
-/** Short "Mmm DD" label for a transaction date, falling back to the raw string. */
-function shortDate(raw: string): string {
-  const d = parseTxDate(raw)
-  if (!d) return raw
-  return `${MONTHS_SHORT[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}`
 }
 
 interface BudgetsProps {
@@ -221,37 +210,41 @@ function BudgetRowView({ row, fxMap, isExpanded, onToggle, mask }: BudgetRowView
             transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="pl-5 pr-1 flex flex-col divide-y divide-border">
+            <div className="max-h-40 overflow-y-auto overflow-x-hidden pr-1 scrollbar-gutter-stable">
               {count === 0 ? (
                 <p className="py-3 text-xs text-center text-muted">
                   No transactions for this month.
                 </p>
               ) : (
-                transactions.map((tx) => (
-                  <div key={tx.key} className="flex items-start justify-between py-2 gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm text-text truncate">
-                        <span className="text-muted">{shortDate(tx.date)}</span>
-                        {'  '}
-                        {tx.note || 'No note'}
-                      </p>
-                      <p className="text-xs text-muted truncate mt-0.5">
-                        {tx.category}
-                        {tx.subcategory ? ` · ${tx.subcategory}` : ''} · {tx.account}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end shrink-0 text-right">
-                      <span className="text-sm font-medium tabular-nums text-text">
-                        {mask(resolvePhp(tx, fxMap), 'PHP')}
-                      </span>
-                      {tx.currency !== 'PHP' && (
-                        <span className="text-xs text-muted tabular-nums mt-0.5">
-                          {mask(tx.amount, tx.currency)}
+                <div className="flex flex-col divide-y divide-border">
+                  {transactions.map((tx) => (
+                    <div key={tx.key} className="flex items-start justify-between py-2 gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-text truncate">
+                          <span className="text-xs text-muted">
+                            {formatCreditCardTransactionDate(tx.date)}
+                          </span>
+                          <span className="text-muted"> · </span>
+                          {tx.category}
+                          {tx.subcategory ? ` · ${tx.subcategory}` : ''}
+                          <span className="text-muted"> · </span>
+                          {tx.account}
+                        </p>
+                        {tx.note && <TransactionNoteTooltip note={tx.note} />}
+                      </div>
+                      <div className="flex flex-col items-end shrink-0 text-right">
+                        <span className="text-sm font-medium tabular-nums text-text">
+                          {mask(resolvePhp(tx, fxMap), 'PHP')}
                         </span>
-                      )}
+                        {tx.currency !== 'PHP' && (
+                          <span className="text-xs text-muted tabular-nums mt-0.5">
+                            {mask(tx.amount, tx.currency)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           </motion.div>

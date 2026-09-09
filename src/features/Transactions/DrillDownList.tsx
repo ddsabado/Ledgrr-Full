@@ -1,7 +1,8 @@
 import { ChevronRight } from 'lucide-react'
 
 import type { RawTransaction } from '@/types/transactions'
-import { formatTransactionDate } from '@/utils/date'
+import { formatCreditCardTransactionDate } from '@/utils/date'
+import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import { type CategoryData, signedAmount } from './groupTransactions'
 import { useCurrencies } from '@/hooks/useCurrencies'
 
@@ -169,12 +170,12 @@ export function TransactionRows({ transactions, mask, privacyMode }: Transaction
           <li key={tx.key} className="flex items-start justify-between py-2 gap-3">
             <div className="min-w-0">
               <p className="text-sm text-text truncate">
-                <span className="text-muted">{formatTransactionDate(tx.date)}</span>
+                <span className="text-xs text-muted">{formatCreditCardTransactionDate(tx.date)}</span>
                 <span className="text-muted"> · </span>
                 {tx.account}
               </p>
               {tx.note && (
-                <p className="text-xs text-muted truncate mt-0.5">{tx.note}</p>
+                <TransactionNoteTooltip note={tx.note} />
               )}
             </div>
             <div className="flex flex-col items-end shrink-0 text-right">

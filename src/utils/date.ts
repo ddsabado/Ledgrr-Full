@@ -30,3 +30,8 @@ export function formatTransactionDate(source: string): string {
 
   return `${mmm} ${dd} | ${hh}:${mm} ${marker}`
 }
+
+/** Formats a credit-card transaction date as `Mmm dd hh:mm AM/PM`. */
+export function formatCreditCardTransactionDate(source: string): string {
+  return formatTransactionDate(source).replace(' | ', ' ')
+}
