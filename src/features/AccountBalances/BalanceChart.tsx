@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Legend } from 'recharts'
+import { PieChart, Pie, Cell } from 'recharts'
 import {
   ChartContainer,
   ChartTooltip,
@@ -87,39 +87,41 @@ export default function BalanceChart({ accounts, privacyMode }: BalanceChartProp
   )
 
   return (
-    <ChartContainer config={chartConfig} className="h-64 w-full">
-      <PieChart>
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              nameKey="name"
-              hideLabel
-              formatter={(value, name) => (
-                <div className="flex items-center gap-2 min-w-[10rem]">
-                  <span className="text-muted truncate max-w-[7rem]">{String(name)}</span>
-                  <span className="ml-auto font-medium tabular-nums text-text">
-                    {privacyMode ? PRIVACY_MASK : formatCurrency(Number(value), 'PHP')}
-                  </span>
-                </div>
-              )}
-            />
-          }
-        />
-        <Pie
-          data={chartData}
-          dataKey="value"
-          nameKey="name"
-          innerRadius={55}
-          outerRadius={80}
-          strokeWidth={2}
-          stroke="transparent"
-        >
-          {chartData.map((_, i) => (
-            <Cell key={i} fill={chartColor(i, chartData.length)} />
-          ))}
-        </Pie>
-        <Legend content={<CustomLegend />} />
-      </PieChart>
-    </ChartContainer>
+    <div className="flex w-full flex-col">
+      <ChartContainer config={chartConfig} className="h-48 w-full">
+        <PieChart>
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                nameKey="name"
+                hideLabel
+                formatter={(value, name) => (
+                  <div className="flex items-center gap-2 min-w-[10rem]">
+                    <span className="text-muted truncate max-w-[7rem]">{String(name)}</span>
+                    <span className="ml-auto font-medium tabular-nums text-text">
+                      {privacyMode ? PRIVACY_MASK : formatCurrency(Number(value), 'PHP')}
+                    </span>
+                  </div>
+                )}
+              />
+            }
+          />
+          <Pie
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={45}
+            outerRadius={70}
+            strokeWidth={2}
+            stroke="transparent"
+          >
+            {chartData.map((_, i) => (
+              <Cell key={i} fill={chartColor(i, chartData.length)} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      <CustomLegend payload={chartData.map(({ name, fill }) => ({ value: name, color: fill }))} />
+    </div>
   )
 }
