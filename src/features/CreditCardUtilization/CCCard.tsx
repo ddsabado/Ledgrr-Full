@@ -1,37 +1,37 @@
-import { ChevronDown } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
+import { ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
-import type { CCAccount, CCTransactionData } from '@/types/transactions'
-import { formatCurrency } from '@/utils/currency'
+import type { CCAccount, CCTransactionData } from "@/types/transactions";
+import { formatCurrency } from "@/utils/currency";
 import {
   getUtilizationBarColor,
   getDueBadgeText,
   getDueBadgeColor,
   getAccountImageUrl,
-} from './utils'
-import TransactionList from './TransactionList'
-import CycleNavigator from './CycleNavigator'
+} from "./utils";
+import TransactionList from "./TransactionList";
+import CycleNavigator from "./CycleNavigator";
 
-const PRIVACY_MASK = '••••••'
+const PRIVACY_MASK = "••••••";
 
 interface CCCardProps {
-  account:            CCAccount
-  txData:             CCTransactionData | undefined
-  privacyMode:        boolean
-  isExpanded:         boolean
-  onToggle:           () => void
-  cycleView:          'statement' | 'all'
-  onCycleViewChange:  (view: 'statement' | 'all') => void
-  cycleIndex:         number
-  onCycleIndexChange: (index: number) => void
-  viewerOpen?:        boolean
-  selected?:          boolean
+  account: CCAccount;
+  txData: CCTransactionData | undefined;
+  privacyMode: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  cycleView: "statement" | "all";
+  onCycleViewChange: (view: "statement" | "all") => void;
+  cycleIndex: number;
+  onCycleIndexChange: (index: number) => void;
+  viewerOpen?: boolean;
+  selected?: boolean;
 }
 
-const VIEW_TABS: ReadonlyArray<{ id: 'statement' | 'all'; label: string }> = [
-  { id: 'statement', label: 'By Statement' },
-  { id: 'all', label: 'All Transactions' },
-]
+const VIEW_TABS: ReadonlyArray<{ id: "statement" | "all"; label: string }> = [
+  { id: "statement", label: "By Statement" },
+  { id: "all", label: "All Transactions" },
+];
 
 export default function CCCard({
   account,
@@ -46,24 +46,24 @@ export default function CCCard({
   viewerOpen = false,
   selected = false,
 }: CCCardProps) {
-  const showNative = account.currency !== 'PHP'
+  const showNative = account.currency !== "PHP";
 
   // Pill selector index: statement = left cell (0), all = right cell (1).
-  const selectedIndex = cycleView === 'statement' ? 0 : 1
+  const selectedIndex = cycleView === "statement" ? 0 : 1;
 
   // Public URL for the card art stored in the account_images bucket.
   // null when the account has no image filename set.
-  const imageUrl = getAccountImageUrl(account.image)
+  const imageUrl = getAccountImageUrl(account.image);
 
   // PHP-equivalent balance (always shown).
   const phpDisplay = privacyMode
     ? PRIVACY_MASK
-    : formatCurrency(account.phpEquivalent, 'PHP')
+    : formatCurrency(account.phpEquivalent, "PHP");
 
   // Native-currency balance (shown only when not PHP).
   const nativeDisplay = privacyMode
     ? PRIVACY_MASK
-    : formatCurrency(account.currentBalance, account.currency)
+    : formatCurrency(account.currentBalance, account.currency);
 
   // Derive the FX rate from the account's own fields, then compute the
   // credit limit and available credit in PHP so the values stay consistent
@@ -71,36 +71,38 @@ export default function CCCard({
   const fxRate =
     account.currentBalance !== 0
       ? account.phpEquivalent / account.currentBalance
-      : 1
-  const creditLimitPHP = account.creditLimit * fxRate
-  const availablePHP = Math.max(0, creditLimitPHP - account.phpEquivalent)
+      : 1;
+  const creditLimitPHP = account.creditLimit * fxRate;
+  const availablePHP = Math.max(0, creditLimitPHP - account.phpEquivalent);
   const availableDisplay = privacyMode
     ? PRIVACY_MASK
-    : formatCurrency(availablePHP, 'PHP')
+    : formatCurrency(availablePHP, "PHP");
 
   // Utilization bar: rounded percentage label, width capped at 100%.
-  const utilizationPct = Math.round(account.utilization)
-  const barWidth = Math.min(100, account.utilization)
-  const barColor = getUtilizationBarColor(account.utilization)
+  const utilizationPct = Math.round(account.utilization);
+  const barWidth = Math.min(100, account.utilization);
+  const barColor = getUtilizationBarColor(account.utilization);
 
   // Statement / due day metadata.
   const statementDayDisplay =
-    account.statementDay !== null ? String(account.statementDay) : '—'
-  const dueDayDisplay = account.dueDay !== null ? String(account.dueDay) : '—'
+    account.statementDay !== null ? String(account.statementDay) : "—";
+  const dueDayDisplay = account.dueDay !== null ? String(account.dueDay) : "—";
 
   // Amount due (current cycle, PHP).
   const amountDueDisplay = privacyMode
     ? PRIVACY_MASK
-    : formatCurrency(account.amountDue, 'PHP')
+    : formatCurrency(account.amountDue, "PHP");
 
   // Cycle navigation state (index 0 = most recent).
-  const cycles = txData?.cycles ?? []
-  const activeCycle = cycles[cycleIndex]
-  const canGoPrevious = cycleIndex < cycles.length - 1 // older
-  const canGoNext = cycleIndex > 0 // newer
+  const cycles = txData?.cycles ?? [];
+  const activeCycle = cycles[cycleIndex];
+  const canGoPrevious = cycleIndex < cycles.length - 1; // older
+  const canGoNext = cycleIndex > 0; // newer
 
   return (
-    <div className={`shrink-0 rounded-lg border bg-surface overflow-hidden ${selected ? 'border-accent ring-1 ring-accent/60' : 'border-border'}`}>
+    <div
+      className={`shrink-0 rounded-lg border bg-surface overflow-hidden ${viewerOpen && selected ? "border-accent ring-1 ring-accent/60" : "border-border"}`}
+    >
       {/* ─── Collapsed / header (clickable) ─────────────────────────────── */}
       <button
         type="button"
@@ -125,12 +127,14 @@ export default function CCCard({
               </span>
             )}
           </div>
-          {!viewerOpen && <ChevronDown
-            aria-hidden="true"
-            className={`shrink-0 w-4 h-4 text-muted transition-transform duration-200 ${
-              isExpanded ? 'rotate-180' : ''
-            }`}
-          />}
+          {!viewerOpen && (
+            <ChevronDown
+              aria-hidden="true"
+              className={`shrink-0 w-4 h-4 text-muted transition-transform duration-200 ${
+                isExpanded ? "rotate-180" : ""
+              }`}
+            />
+          )}
         </div>
 
         {/* Card art */}
@@ -142,7 +146,7 @@ export default function CCCard({
             loading="lazy"
             className="h-12 w-20 rounded object-contain object-left"
             onError={(e) => {
-              e.currentTarget.style.display = 'none'
+              e.currentTarget.style.display = "none";
             }}
           />
         )}
@@ -176,8 +180,9 @@ export default function CCCard({
         {/* Statement / due day + amount due */}
         <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted">
           <span>
-            Statement <b className="text-text font-semibold">{statementDayDisplay}</b> · Due{' '}
-            <b className="text-text font-semibold">{dueDayDisplay}</b>
+            Statement{" "}
+            <b className="text-text font-semibold">{statementDayDisplay}</b> ·
+            Due <b className="text-text font-semibold">{dueDayDisplay}</b>
           </span>
           <span className="tabular-nums">
             <span className="text-muted">Amount due </span>
@@ -191,10 +196,10 @@ export default function CCCard({
         {!viewerOpen && isExpanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
+            transition={{ type: "tween", duration: 0.2, ease: "easeInOut" }}
+            style={{ overflow: "hidden" }}
           >
             <div className="px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-border">
               {/* View mode tabs — single persistent highlight that slides
@@ -211,13 +216,17 @@ export default function CCCard({
                 <motion.div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-y-1 left-1 rounded-md bg-accent"
-                  style={{ width: 'calc(50% - 0.375rem)' }}
+                  style={{ width: "calc(50% - 0.375rem)" }}
                   initial={false}
                   animate={{ x: `${selectedIndex * 100}%` }}
-                  transition={{ type: 'tween', duration: 0.22, ease: 'easeInOut' }}
+                  transition={{
+                    type: "tween",
+                    duration: 0.22,
+                    ease: "easeInOut",
+                  }}
                 />
                 {VIEW_TABS.map((tab) => {
-                  const isSelected = cycleView === tab.id
+                  const isSelected = cycleView === tab.id;
                   return (
                     <button
                       key={tab.id}
@@ -226,20 +235,20 @@ export default function CCCard({
                       aria-selected={isSelected}
                       onClick={() => onCycleViewChange(tab.id)}
                       className={`relative z-10 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                        isSelected ? 'text-text' : 'text-muted hover:text-text'
+                        isSelected ? "text-text" : "text-muted hover:text-text"
                       }`}
                     >
                       <span className="relative z-10">{tab.label}</span>
                     </button>
-                  )
+                  );
                 })}
               </div>
 
               {/* Content */}
-              {cycleView === 'statement' ? (
+              {cycleView === "statement" ? (
                 <div className="flex flex-col gap-2">
                   <CycleNavigator
-                    label={activeCycle?.label ?? '—'}
+                    label={activeCycle?.label ?? "—"}
                     onPrevious={() => onCycleIndexChange(cycleIndex + 1)}
                     onNext={() => onCycleIndexChange(cycleIndex - 1)}
                     canGoPrevious={canGoPrevious}
@@ -252,7 +261,7 @@ export default function CCCard({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15, ease: 'easeInOut' }}
+                      transition={{ duration: 0.15, ease: "easeInOut" }}
                     >
                       <TransactionList
                         transactions={activeCycle?.transactions ?? []}
@@ -269,7 +278,7 @@ export default function CCCard({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: 'easeInOut' }}
+                    transition={{ duration: 0.15, ease: "easeInOut" }}
                   >
                     <TransactionList
                       transactions={txData?.allTxs ?? []}
@@ -283,5 +292,5 @@ export default function CCCard({
         )}
       </AnimatePresence>
     </div>
-  )
+  );
 }
