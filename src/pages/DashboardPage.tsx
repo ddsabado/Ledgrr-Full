@@ -13,6 +13,7 @@ import {
 import AccountBalances from "@/features/AccountBalances";
 import AccountViewer from "@/features/AccountBalances/AccountViewer";
 import CreditCardUtilization from "@/features/CreditCardUtilization";
+import CreditCardViewer from "@/features/CreditCardUtilization/CreditCardViewer";
 import Transactions from "@/features/Transactions";
 import InstallmentsRecurring from "@/features/InstallmentsRecurring";
 import Budgets from "@/features/Budgets";
@@ -23,8 +24,25 @@ export default function DashboardPage() {
   const [privacyMode, setPrivacyMode] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+  const [creditCardViewerOpen, setCreditCardViewerOpen] = useState(false);
+  const [selectedCreditCard, setSelectedCreditCard] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
   const layoutTransition = reduceMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 260, damping: 30 };
+  const mobileViewerOpen = viewerOpen || creditCardViewerOpen;
+
+  const toggleAccountViewer = () => {
+    setViewerOpen((open) => {
+      if (!open) setCreditCardViewerOpen(false);
+      return !open;
+    });
+  };
+
+  const toggleCreditCardViewer = () => {
+    setCreditCardViewerOpen((open) => {
+      if (!open) setViewerOpen(false);
+      return !open;
+    });
+  };
 
   return (
     <div className="h-screen overflow-hidden bg-bg flex flex-col">
@@ -82,15 +100,15 @@ export default function DashboardPage() {
           compressing. On < lg screens the panels stack in a single column. */}
       <main className="flex-1 min-h-0 lg:overflow-hidden overflow-y-auto px-4 sm:px-6 py-6">
         <LayoutGroup id="dashboard-cards">
-          <div className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${viewerOpen ? 'h-full' : ''}`}>
+          <div className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? 'h-full' : ''}`}>
             <div className={viewerOpen ? "flex h-full shrink-0 flex-col gap-6 lg:contents" : "contents"}>
-              <motion.div layout transition={layoutTransition} className={viewerOpen ? "basis-1/3 shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
+              <motion.div layout transition={layoutTransition} className={viewerOpen ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
                 <AccountBalances
                   privacyMode={privacyMode}
                   viewerOpen={viewerOpen}
                   selectedAccount={selectedAccount}
                   onSelectAccount={setSelectedAccount}
-                  onToggleViewer={() => setViewerOpen((open) => !open)}
+                  onToggleViewer={toggleAccountViewer}
                 />
               </motion.div>
               <AnimatePresence initial={false} mode="popLayout">
@@ -109,8 +127,33 @@ export default function DashboardPage() {
                 )}
               </AnimatePresence>
             </div>
+            <div className={creditCardViewerOpen ? "flex h-full shrink-0 flex-col gap-6 lg:contents" : "contents"}>
+              <motion.div layout transition={layoutTransition} className={creditCardViewerOpen ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
+                <CreditCardUtilization
+                  privacyMode={privacyMode}
+                  viewerOpen={creditCardViewerOpen}
+                  selectedCard={selectedCreditCard}
+                  onSelectCard={setSelectedCreditCard}
+                  onToggleViewer={toggleCreditCardViewer}
+                />
+              </motion.div>
+              <AnimatePresence initial={false} mode="popLayout">
+                {creditCardViewerOpen && selectedCreditCard && (
+                  <motion.div
+                    key="credit-card-viewer"
+                    layout
+                    initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                    transition={layoutTransition}
+                    className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0"
+                  >
+                    <CreditCardViewer accountName={selectedCreditCard} privacyMode={privacyMode} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             {[
-              <CreditCardUtilization key="credit" privacyMode={privacyMode} />,
               <Transactions key="transactions" privacyMode={privacyMode} />,
               <Budgets key="budgets" privacyMode={privacyMode} />,
               <InstallmentsRecurring key="installments" privacyMode={privacyMode} />,

@@ -24,6 +24,8 @@ interface CCCardProps {
   onCycleViewChange:  (view: 'statement' | 'all') => void
   cycleIndex:         number
   onCycleIndexChange: (index: number) => void
+  viewerOpen?:        boolean
+  selected?:          boolean
 }
 
 const VIEW_TABS: ReadonlyArray<{ id: 'statement' | 'all'; label: string }> = [
@@ -41,6 +43,8 @@ export default function CCCard({
   onCycleViewChange,
   cycleIndex,
   onCycleIndexChange,
+  viewerOpen = false,
+  selected = false,
 }: CCCardProps) {
   const showNative = account.currency !== 'PHP'
 
@@ -96,12 +100,13 @@ export default function CCCard({
   const canGoNext = cycleIndex > 0 // newer
 
   return (
-    <div className="shrink-0 rounded-lg border border-border bg-surface overflow-hidden">
+    <div className={`shrink-0 rounded-lg border bg-surface overflow-hidden ${selected ? 'border-accent ring-1 ring-accent/60' : 'border-border'}`}>
       {/* ─── Collapsed / header (clickable) ─────────────────────────────── */}
       <button
         type="button"
         onClick={onToggle}
-        aria-expanded={isExpanded}
+        aria-expanded={viewerOpen ? undefined : isExpanded}
+        aria-pressed={viewerOpen ? selected : undefined}
         className="w-full text-left px-4 py-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
       >
         {/* Name + due badge + chevron */}
@@ -120,12 +125,12 @@ export default function CCCard({
               </span>
             )}
           </div>
-          <ChevronDown
+          {!viewerOpen && <ChevronDown
             aria-hidden="true"
             className={`shrink-0 w-4 h-4 text-muted transition-transform duration-200 ${
               isExpanded ? 'rotate-180' : ''
             }`}
-          />
+          />}
         </div>
 
         {/* Card art */}
@@ -183,7 +188,7 @@ export default function CCCard({
 
       {/* ─── Expanded panel ─────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>
-        {isExpanded && (
+        {!viewerOpen && isExpanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
+import { PanelLeftOpen, PanelTopOpen } from 'lucide-react'
 
 import { useAuth } from '@/context/AuthContext'
 import { useCCAccounts } from '@/hooks/useCCAccounts'
@@ -11,14 +12,23 @@ import CCCard from './CCCard'
 
 interface CreditCardUtilizationProps {
   privacyMode: boolean
+  viewerOpen?: boolean
+  selectedCard?: string | null
+  onSelectCard?: (name: string) => void
+  onToggleViewer?: () => void
 }
 
 export default function CreditCardUtilization({
   privacyMode,
+  viewerOpen = false,
+  selectedCard = null,
+  onSelectCard = () => {},
+  onToggleViewer = () => {},
 }: CreditCardUtilizationProps) {
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [cycleIndex, setCycleIndex] = useState<Record<string, number>>({})
   const [cycleView, setCycleView] = useState<'statement' | 'all'>('statement')
+  const reduceMotion = useReducedMotion()
 
   // Guard: selecting the already-active view is a no-op (R6.6) — prevents a
   // spurious pill transition when the current option is re-clicked.
@@ -106,18 +116,23 @@ export default function CreditCardUtilization({
     if (b.daysUntilDue === null) return -1
     return a.daysUntilDue - b.daysUntilDue
   })
+  const toggleViewer = () => {
+    if (!viewerOpen && sorted[0]) onSelectCard(sorted[0].name)
+    setExpandedCard(null)
+    onToggleViewer()
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: 'easeInOut' }}
-      className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full"
+      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
     >
-      {/* Heading */}
-      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
-        Credit Cards
-      </p>
+      <div className="shrink-0 flex items-center justify-between gap-2">
+        <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">Credit Cards</p>
+        <motion.button type="button" aria-label={viewerOpen ? 'Close credit card viewer' : 'Open credit card viewer'} onClick={toggleViewer} animate={{ rotate: viewerOpen ? 180 : 0 }} transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" /><PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" /></motion.button>
+      </div>
 
       {/* CC cards — scrollable list; cards keep natural height (shrink-0) so
           expanding one scrolls the list rather than compressing siblings. */}
@@ -130,10 +145,12 @@ export default function CreditCardUtilization({
             privacyMode={privacyMode}
             isExpanded={expandedCard === account.name}
             onToggle={() =>
-              setExpandedCard(
-                expandedCard === account.name ? null : account.name,
-              )
+              viewerOpen
+                ? onSelectCard(account.name)
+                : setExpandedCard(expandedCard === account.name ? null : account.name)
             }
+            viewerOpen={viewerOpen}
+            selected={selectedCard === account.name}
             cycleView={cycleView}
             onCycleViewChange={handleCycleViewChange}
             cycleIndex={cycleIndex[account.name] ?? 0}
