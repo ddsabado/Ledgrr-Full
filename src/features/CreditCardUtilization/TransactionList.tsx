@@ -1,6 +1,7 @@
 import type { RawTransaction } from '@/types/transactions'
+import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import { formatCurrency } from '@/utils/currency'
-import { formatTransactionDate } from '@/utils/date'
+import { formatCreditCardTransactionDate } from '@/utils/date'
 import { resolvePhp } from '@/utils/resolvePhp'
 import { useCurrencies } from '@/hooks/useCurrencies'
 
@@ -19,11 +20,6 @@ export default function TransactionList({ transactions, privacyMode }: Transacti
         // A payment is a Transfer INTO the card.
         const isPayment = tx.type === 'Transfer'
 
-        // Primary label line: date · category[· subcategory], or "Payment".
-        const label = isPayment
-          ? 'Payment'
-          : [tx.category, tx.subcategory].filter(Boolean).join(' · ')
-
         const showNative = tx.currency !== 'PHP'
 
         const phpDisplay = privacyMode
@@ -36,19 +32,13 @@ export default function TransactionList({ transactions, privacyMode }: Transacti
 
         return (
           <li key={tx.key} className="flex items-start justify-between py-2 gap-3">
-            {/* Left: date/category label + optional note */}
+            {/* Left: compact date/time + optional note */}
             <div className="min-w-0">
-              <p className="text-sm text-text truncate">
-                <span className="text-muted">{formatTransactionDate(tx.date)}</span>
-                {label && (
-                  <>
-                    <span className="text-muted"> · </span>
-                    {label}
-                  </>
-                )}
+              <p className="text-xs text-muted truncate">
+                {formatCreditCardTransactionDate(tx.date)}
               </p>
               {tx.note && (
-                <p className="text-xs text-muted truncate mt-0.5">{tx.note}</p>
+                <TransactionNoteTooltip note={tx.note} />
               )}
             </div>
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import type { RawBudgetRow } from '@/types/budgets'
 import type { RawTransaction } from '@/types/transactions'
@@ -83,7 +84,10 @@ describe('Budgets panel', () => {
     fireEvent.click(needsBtn)
     expect(needsBtn).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText(/Lunch order/)).toBeInTheDocument()
-    expect(screen.getByText(/Food · Grab Food · Chinabank CC/)).toBeInTheDocument()
+    expect(screen.getByText((_, element) =>
+      element?.tagName === 'P' && element.textContent?.includes('Food · Grab Food · Chinabank CC') === true,
+    )).toBeInTheDocument()
+    expect(screen.getByText('Jun 02 12:00 AM')).toBeInTheDocument()
 
     // expand Sink → Needs collapses (one-at-a-time, verified via aria-expanded)
     fireEvent.click(sinkBtn)
@@ -94,6 +98,20 @@ describe('Budgets panel', () => {
     // collapse Sink
     fireEvent.click(sinkBtn)
     expect(sinkBtn).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('shows the full note immediately on hover with a pointer cursor', async () => {
+    const note = 'A full budget transaction note shown in the tooltip.'
+    hookState.value.budgets = [budget({ name: 'Needs' })]
+    hookState.value.candidateTxs = [tx({ budget: 'Needs', note })]
+    render(<Budgets privacyMode={false} />)
+    fireEvent.click(screen.getByRole('button', { name: /Needs/ }))
+
+    const user = userEvent.setup()
+    const noteElement = screen.getByText(note)
+    expect(noteElement).toHaveClass('cursor-pointer')
+    await user.hover(noteElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent(note)
   })
 
   it('shows the native cross-currency amount for non-PHP transactions in the expander', () => {
