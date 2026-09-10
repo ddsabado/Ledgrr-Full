@@ -12,6 +12,17 @@ vi.mock('@/features/InstallmentsRecurring/useInstallmentsRecurring', () => ({
   useInstallmentsRecurring: () => hookState.value,
 }))
 
+vi.mock('@/features/InstallmentsRecurring/useInstallmentTransactions', async () => {
+  const { buildInstallmentMonths } = await import('@/features/InstallmentsRecurring/buildInstallmentMonths')
+  return {
+    useInstallmentTransactions: (installments: RawInstallmentRow[]) => ({
+      getMonthItems: (month: { year: number; month: number }) => buildInstallmentMonths(installments, [], month).items,
+      isLoading: false,
+      isError: false,
+    }),
+  }
+})
+
 import InstallmentsRecurring from '@/features/InstallmentsRecurring'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

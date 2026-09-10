@@ -7,6 +7,7 @@ import MonthNavigator from './MonthNavigator'
 import InstallmentDonut from './InstallmentDonut'
 import ChartPlaceholder from '@/components/ChartPlaceholder'
 import { useInstallmentsRecurring } from './useInstallmentsRecurring'
+import { useInstallmentTransactions } from './useInstallmentTransactions'
 import {
   buildInstallmentMonths,
   currentYearMonth,
@@ -29,13 +30,16 @@ export default function InstallmentsRecurring({
   onToggleViewer = () => {},
 }: InstallmentsRecurringProps) {
   const { installments, recurring, isLoading, isError } = useInstallmentsRecurring()
+  const { getMonthItems, isLoading: transactionsLoading, isError: transactionsError } = useInstallmentTransactions(installments)
   const [selectedMonth, setSelectedMonth] = useState<YearMonth>(() => currentYearMonth())
   const reduceMotion = useReducedMotion()
 
-  const result = useMemo(
-    () => buildInstallmentMonths(installments, recurring, selectedMonth),
-    [installments, recurring, selectedMonth],
-  )
+  const result = useMemo(() => {
+    const recurringResult = buildInstallmentMonths([], recurring, selectedMonth)
+    const items = [...getMonthItems(selectedMonth), ...recurringResult.items]
+      .sort((a, b) => b.amount - a.amount)
+    return { ...recurringResult, items, total: items.reduce((sum, item) => sum + item.amount, 0) }
+  }, [getMonthItems, recurring, selectedMonth])
 
   const mask = (amount: number, currency = 'PHP') =>
     privacyMode ? PRIVACY_MASK : formatCurrency(amount, currency)
@@ -43,7 +47,7 @@ export default function InstallmentsRecurring({
   const cardShell = `rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`
 
   // ─── Loading ────────────────────────────────────────────────────────────
-  if (isLoading) {
+  if (isLoading || transactionsLoading) {
     return (
       <div className={cardShell}>
         <div className="h-3 w-40 bg-surface2 rounded animate-pulse" />
@@ -87,7 +91,7 @@ export default function InstallmentsRecurring({
       </div>
 
       {/* Error line — retains whatever data is available (R9.5) */}
-      {isError && (
+      {(isError || transactionsError) && (
         <p className="shrink-0 text-xs text-danger" role="alert">
           Some data could not be loaded. Showing what is available.
         </p>
