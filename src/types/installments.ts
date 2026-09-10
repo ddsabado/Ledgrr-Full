@@ -33,3 +33,15 @@ export interface RawRecurringRow {
   subcategory: string // col H — Subcategory
   currency:    string // col I — Currency, e.g. "PHP"
 }
+
+/** Payload accepted by the authenticated /tx Edge Function. */
+export interface NewInstallmentInput {
+  name: string
+  totalAmount: number
+  terms: number
+  startDate: string
+  account: string
+  budget: string
+  currency: string
+  statementDay: number
+}

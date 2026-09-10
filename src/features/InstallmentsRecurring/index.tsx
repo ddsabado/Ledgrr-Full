@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
+import { PanelLeftOpen, PanelTopOpen } from 'lucide-react'
 
 import { formatCurrency } from '@/utils/currency'
 import MonthNavigator from './MonthNavigator'
@@ -18,11 +19,18 @@ const PRIVACY_MASK = '••••••'
 
 interface InstallmentsRecurringProps {
   privacyMode: boolean
+  viewerOpen?: boolean
+  onToggleViewer?: () => void
 }
 
-export default function InstallmentsRecurring({ privacyMode }: InstallmentsRecurringProps) {
+export default function InstallmentsRecurring({
+  privacyMode,
+  viewerOpen = false,
+  onToggleViewer = () => {},
+}: InstallmentsRecurringProps) {
   const { installments, recurring, isLoading, isError } = useInstallmentsRecurring()
   const [selectedMonth, setSelectedMonth] = useState<YearMonth>(() => currentYearMonth())
+  const reduceMotion = useReducedMotion()
 
   const result = useMemo(
     () => buildInstallmentMonths(installments, recurring, selectedMonth),
@@ -32,8 +40,7 @@ export default function InstallmentsRecurring({ privacyMode }: InstallmentsRecur
   const mask = (amount: number, currency = 'PHP') =>
     privacyMode ? PRIVACY_MASK : formatCurrency(amount, currency)
 
-  const cardShell =
-    'rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full'
+  const cardShell = `rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -55,15 +62,29 @@ export default function InstallmentsRecurring({ privacyMode }: InstallmentsRecur
 
   return (
     <motion.div
+      layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: 'easeInOut' }}
       className={cardShell}
     >
       {/* Heading */}
-      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
-        Installments &amp; Recurring
-      </p>
+      <div className="shrink-0 flex items-center justify-between gap-2">
+        <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+          Installments &amp; Recurring
+        </p>
+        <motion.button
+          type="button"
+          aria-label={viewerOpen ? 'Close installments viewer' : 'Open installments viewer'}
+          onClick={onToggleViewer}
+          animate={{ rotate: viewerOpen ? 180 : 0 }}
+          transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }}
+          className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
+          <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+        </motion.button>
+      </div>
 
       {/* Error line — retains whatever data is available (R9.5) */}
       {isError && (
@@ -75,7 +96,7 @@ export default function InstallmentsRecurring({ privacyMode }: InstallmentsRecur
       {/* Chart — the slot is ALWAYS rendered at the chart's height so a month
           with no items does not snap the layout: the donut shows when there
           are items, else a same-height placeholder. */}
-      <div className="shrink-0">
+      <div className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
         {result.items.length > 0 ? (
           <InstallmentDonut items={chartItems} privacyMode={privacyMode} />
         ) : (
