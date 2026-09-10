@@ -14,7 +14,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -26,8 +25,8 @@ import { useAuth } from "@/context/AuthContext"
 import { useAccountBalances } from "@/hooks/useAccountBalances"
 import { useCCAccounts } from "@/hooks/useCCAccounts"
 import { useCurrencies } from "@/hooks/useCurrencies"
-import { createInstallment } from "@/services/api"
-import type { NewInstallmentInput } from "@/types/installments"
+import { createInstallment, createRecurring } from "@/services/api"
+import type { NewInstallmentInput, NewRecurringInput } from "@/types/installments"
 import { formatCurrency } from "@/utils/currency"
 import { parseAmount } from "./buildInstallmentMonths"
 import { useInstallmentsRecurring } from "./useInstallmentsRecurring"
@@ -48,9 +47,24 @@ type InstallmentForm = {
   currency: string
   budget: string
 }
+type RecurringForm = {
+  name: string
+  amount: string
+  frequency: string
+  startDate?: Date
+  endDate?: Date
+  account: string
+  category: string
+  subcategory: string
+  currency: string
+}
 
 function toSheetDate(value: Date): string {
   return `${value.getMonth() + 1}/${value.getDate()}/${value.getFullYear()}`
+}
+
+function toMonthDate(value: Date): string {
+  return `${String(value.getMonth() + 1).padStart(2, "0")}/${value.getFullYear()}`
 }
 
 function startDateTimestamp(value: string): number {
@@ -71,13 +85,19 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
   const { data: budgetRows } = useLiveQuery((q) =>
     session !== null ? q.from({ budget: budgetsCollection }) : null,
   )
-  const accounts = useMemo(
+  const allAccounts = useMemo(
     () => [...debitAccounts, ...creditAccounts]
-      .filter((account) => Number.isInteger(account.statementDay) && account.statementDay! >= 1 && account.statementDay! <= 31)
       .sort((a, b) => a.name.localeCompare(b.name)),
     [creditAccounts, debitAccounts],
   )
+  const installmentAccounts = useMemo(
+    () => allAccounts
+      .filter((account) => Number.isInteger(account.statementDay) && account.statementDay! >= 1 && account.statementDay! <= 31)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [allAccounts],
+  )
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [entryType, setEntryType] = useState<"installment" | "recurring">("installment")
   const [alert, setAlert] = useState<AlertState>(null)
   const [itemTypeFilter, setItemTypeFilter] = useState<ItemTypeFilter>("any")
   const [nameFilter, setNameFilter] = useState("")
@@ -85,6 +105,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
   const [idempotencyError, setIdempotencyError] = useState("")
   const filterActive = itemTypeFilter !== "any" || Boolean(nameFilter.trim()) || sortOrder !== "newest"
   const [form, setForm] = useState<InstallmentForm>({ name: "", totalAmount: "", terms: "", account: "", currency: "", budget: "" })
+  const [recurringForm, setRecurringForm] = useState<RecurringForm>({ name: "", amount: "", frequency: "Monthly", account: "", category: "", subcategory: "", currency: "" })
   const currencyOptions = useMemo(() => Object.keys(currencies).sort(), [currencies])
   const budgetOptions = useMemo(
     () => Array.from(new Set((budgetRows ?? []).map((row) => row.name).filter(Boolean))).sort(),
@@ -98,22 +119,38 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
   }, [alert])
 
   const mutation = useMutation({
-    mutationFn: createInstallment,
-    onSuccess: async () => {
+    mutationFn: (input: NewInstallmentInput | NewRecurringInput) => input.kind === "installment" ? createInstallment(input) : createRecurring(input),
+    onSuccess: async (_data, input) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.installments] }),
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.recurring] }),
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.transactions] }),
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.accountBalances] }),
       ])
       setDialogOpen(false)
       setForm({ name: "", totalAmount: "", terms: "", account: "", currency: "", budget: "" })
-      setAlert({ title: "Installment added", description: "Monthly transactions have been added to your ledger." })
+      setRecurringForm({ name: "", amount: "", frequency: "Monthly", account: "", category: "", subcategory: "", currency: "" })
+      setAlert(input.kind === "installment"
+        ? { title: "Installment added", description: "Monthly transactions have been added to your ledger." }
+        : { title: "Recurring payment added", description: "The recurring payment has been added to your ledger." })
     },
   })
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const account = accounts.find((item) => item.name === form.account)
+    if (entryType === "recurring") {
+      const account = allAccounts.find((item) => item.name === recurringForm.account)
+      if (!account || !recurringForm.startDate || !recurringForm.currency) return
+      const name = recurringForm.name.trim()
+      if (recurring.some((item) => item.name === name)) {
+        setIdempotencyError("A recurring payment with this exact name already exists.")
+        return
+      }
+      setIdempotencyError("")
+      mutation.mutate({ kind: "recurring", name, amount: Number(recurringForm.amount), frequency: recurringForm.frequency.trim(), startDate: toMonthDate(recurringForm.startDate), endDate: recurringForm.endDate ? toMonthDate(recurringForm.endDate) : "", account: account.name, category: recurringForm.category.trim(), subcategory: recurringForm.subcategory.trim(), currency: recurringForm.currency })
+      return
+    }
+    const account = installmentAccounts.find((item) => item.name === form.account)
     if (!account || !form.startDate || !form.currency) return
     const name = form.name.trim()
     const terms = Number(form.terms)
@@ -123,7 +160,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
     }
     setIdempotencyError("")
     const input: NewInstallmentInput = {
-      name, totalAmount: Number(form.totalAmount), terms,
+      kind: "installment", name, totalAmount: Number(form.totalAmount), terms,
       startDate: toSheetDate(form.startDate), account: account.name, budget: form.budget.trim(),
       currency: form.currency, statementDay: account.statementDay!, transactionTime: "00:00:00",
     }
@@ -144,6 +181,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
   }, [allItems, itemTypeFilter, nameFilter, sortOrder])
 
   const transition = reduceMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 260, damping: 30 }
+  const formTransition = reduceMotion ? { duration: 0 } : { duration: 0.15, ease: "easeInOut" as const }
 
   return (
     <motion.section layout transition={transition} className="h-full min-h-0 overflow-hidden rounded-xl border border-border bg-surface p-5">
@@ -165,7 +203,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
                 <label className="grid gap-1 text-xs text-muted">Sort by transaction date<select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)} className="rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><option value="newest">Most recent</option><option value="oldest">Oldest</option></select></label>
               </PopoverContent>
             </Popover>
-            <Button type="button" size="sm" onClick={() => setDialogOpen(true)} disabled={accounts.length === 0}>
+            <Button type="button" size="sm" onClick={() => setDialogOpen(true)} disabled={allAccounts.length === 0}>
               <Plus aria-hidden="true" /> New
             </Button>
           </div>
@@ -198,15 +236,31 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>New installment</DialogTitle><DialogDescription>Creates one installment record and all scheduled monthly ledger transactions.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>New payment</DialogTitle></DialogHeader>
+          <div role="tablist" aria-label="Payment type" className="grid grid-cols-2 rounded-lg bg-surface2 p-1">
+            {(["installment", "recurring"] as const).map((type) => <button key={type} type="button" role="tab" aria-selected={entryType === type} onClick={() => { setEntryType(type); setIdempotencyError("") }} className={`relative rounded-md px-3 py-1.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${entryType === type ? "text-text" : "text-muted hover:text-text"}`}>{entryType === type && <motion.span layoutId="new-payment-type" className="absolute inset-0 rounded-md bg-accent" transition={transition} />}<span className="relative">{type === "installment" ? "Installment" : "Recurring"}</span></button>)}
+          </div>
           <form className="grid gap-3" onSubmit={submit}>
-            <label className="grid gap-1 text-xs text-muted">Name<input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label>
-            <div className="grid grid-cols-[7fr_3fr] gap-3"><label className="grid gap-1 text-xs text-muted">Total amount<input required min="0.01" step="0.01" type="number" value={form.totalAmount} onChange={(event) => setForm((current) => ({ ...current, totalAmount: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label><label className="grid gap-1 text-xs text-muted">Currency<select required value={form.currency} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select</option>{currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label></div>
-            <label className="grid gap-1 text-xs text-muted">Terms (months)<input required min="1" step="1" type="number" value={form.terms} onChange={(event) => setForm((current) => ({ ...current, terms: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label>
-            <label className="grid gap-1 text-xs text-muted">Transaction date<DatePicker value={form.startDate} onChange={(startDate) => setForm((current) => ({ ...current, startDate }))} placeholder="Select transaction date" /></label>
-            <label className="grid gap-1 text-xs text-muted">Account<select required value={form.account} onChange={(event) => setForm((current) => ({ ...current, account: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select account</option>{accounts.map((account) => <option key={account.name} value={account.name}>{account.name} · statement day {account.statementDay}</option>)}</select></label>
-            <label className="grid gap-1 text-xs text-muted">Budget<select required value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select budget</option>{budgetOptions.map((budget) => <option key={budget} value={budget}>{budget}</option>)}</select></label>
-            {accounts.length === 0 && <p role="alert" className="text-sm text-danger">Add a statement day to an account before creating an installment.</p>}
+            <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={entryType} initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={formTransition} className="grid gap-3">
+            {entryType === "installment" ? <>
+              <label className="grid gap-1 text-xs text-muted">Name<input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label>
+              <div className="grid grid-cols-[7fr_3fr] gap-3"><label className="grid gap-1 text-xs text-muted">Total amount<input required min="0.01" step="0.01" type="number" value={form.totalAmount} onChange={(event) => setForm((current) => ({ ...current, totalAmount: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label><label className="grid gap-1 text-xs text-muted">Currency<select required value={form.currency} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select</option>{currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label></div>
+              <label className="grid gap-1 text-xs text-muted">Terms (months)<input required min="1" step="1" type="number" value={form.terms} onChange={(event) => setForm((current) => ({ ...current, terms: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label>
+              <label className="grid gap-1 text-xs text-muted">Transaction date<DatePicker value={form.startDate} onChange={(startDate) => setForm((current) => ({ ...current, startDate }))} placeholder="Select transaction date" /></label>
+              <label className="grid gap-1 text-xs text-muted">Account<select required value={form.account} onChange={(event) => setForm((current) => ({ ...current, account: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select account</option>{installmentAccounts.map((account) => <option key={account.name} value={account.name}>{account.name} · statement day {account.statementDay}</option>)}</select></label>
+              <label className="grid gap-1 text-xs text-muted">Budget<select required value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select budget</option>{budgetOptions.map((budget) => <option key={budget} value={budget}>{budget}</option>)}</select></label>
+              {installmentAccounts.length === 0 && <p role="alert" className="text-sm text-danger">Add a statement day to an account before creating an installment.</p>}
+            </> : <>
+              <label className="grid gap-1 text-xs text-muted">Name<input required value={recurringForm.name} onChange={(event) => setRecurringForm((current) => ({ ...current, name: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label>
+              <div className="grid grid-cols-[7fr_3fr] gap-3"><label className="grid gap-1 text-xs text-muted">Amount<input required min="0.01" step="0.01" type="number" value={recurringForm.amount} onChange={(event) => setRecurringForm((current) => ({ ...current, amount: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label><label className="grid gap-1 text-xs text-muted">Currency<select required value={recurringForm.currency} onChange={(event) => setRecurringForm((current) => ({ ...current, currency: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select</option>{currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label></div>
+              <label className="grid gap-1 text-xs text-muted">Frequency<select value={recurringForm.frequency} onChange={(event) => setRecurringForm((current) => ({ ...current, frequency: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option>Monthly</option></select></label>
+              <div className="grid grid-cols-2 gap-3"><label className="grid gap-1 text-xs text-muted">Start month<DatePicker value={recurringForm.startDate} onChange={(startDate) => setRecurringForm((current) => ({ ...current, startDate }))} placeholder="Select month" /></label><label className="grid gap-1 text-xs text-muted">End month (optional)<DatePicker value={recurringForm.endDate} onChange={(endDate) => setRecurringForm((current) => ({ ...current, endDate }))} placeholder="No end month" /></label></div>
+              <label className="grid gap-1 text-xs text-muted">Account<select required value={recurringForm.account} onChange={(event) => setRecurringForm((current) => ({ ...current, account: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select account</option>{allAccounts.map((account) => <option key={account.name} value={account.name}>{account.name}</option>)}</select></label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="grid gap-1 text-xs text-muted">Category<input required value={recurringForm.category} onChange={(event) => setRecurringForm((current) => ({ ...current, category: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label><label className="grid gap-1 text-xs text-muted">Subcategory<input value={recurringForm.subcategory} onChange={(event) => setRecurringForm((current) => ({ ...current, subcategory: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label></div>
+            </>}
+            </motion.div>
+            </AnimatePresence>
             {idempotencyError && <p role="alert" className="text-sm text-danger">{idempotencyError}</p>}
             {mutation.isError && <p role="alert" className="text-sm text-danger">Could not add the installment. Please try again.</p>}
             <DialogFooter><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Adding…" : "Add installment"}</Button></DialogFooter>
