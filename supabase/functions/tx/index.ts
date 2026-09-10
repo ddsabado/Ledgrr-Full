@@ -17,10 +17,11 @@ export interface NewInstallmentBody {
   budget?: string
   currency?: string
   statementDay?: number
+  transactionTime?: string
 }
 
-function formatDate(date: Date): string {
-  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`
+function formatDate(date: Date, time: string): string {
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ${time}`
 }
 
 function parseStartDate(value: string): Date | null {
@@ -62,7 +63,7 @@ export function buildInstallmentTransactionRows(body: Required<NewInstallmentBod
     const date = new Date(firstStatement.getFullYear(), firstStatement.getMonth() + index, 1)
     date.setDate(dayInMonth(date.getFullYear(), date.getMonth(), body.statementDay))
     return [
-      formatDate(date),
+      formatDate(date, body.transactionTime),
       body.account,
       payment.toFixed(2),
       '',
@@ -101,11 +102,13 @@ Deno.serve(async (req: Request) => {
       budget: rawBody.budget?.trim() ?? '',
       currency: rawBody.currency?.trim() || 'PHP',
       statementDay: Number(rawBody.statementDay),
+      transactionTime: rawBody.transactionTime?.trim() ?? '',
     }
     if (!body.name || !body.account || !body.budget || !parseStartDate(body.startDate) ||
       !Number.isFinite(body.totalAmount) || body.totalAmount <= 0 ||
       !Number.isInteger(body.terms) || body.terms < 1 ||
-      !Number.isInteger(body.statementDay) || body.statementDay < 1 || body.statementDay > 31) {
+      !Number.isInteger(body.statementDay) || body.statementDay < 1 || body.statementDay > 31 ||
+      !/^\d{2}:\d{2}:\d{2}$/.test(body.transactionTime)) {
       return Response.json({ error: 'Invalid installment details' }, { status: 400, headers: CORS_HEADERS })
     }
 

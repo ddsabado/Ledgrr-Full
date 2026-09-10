@@ -44,4 +44,5 @@ export interface NewInstallmentInput {
   budget: string
   currency: string
   statementDay: number
+  transactionTime: string
 }

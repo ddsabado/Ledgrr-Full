@@ -82,6 +82,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
   const [itemTypeFilter, setItemTypeFilter] = useState<ItemTypeFilter>("any")
   const [nameFilter, setNameFilter] = useState("")
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
+  const [idempotencyError, setIdempotencyError] = useState("")
   const filterActive = itemTypeFilter !== "any" || Boolean(nameFilter.trim()) || sortOrder !== "newest"
   const [form, setForm] = useState<InstallmentForm>({ name: "", totalAmount: "", terms: "", account: "", currency: "", budget: "" })
   const currencyOptions = useMemo(() => Object.keys(currencies).sort(), [currencies])
@@ -114,10 +115,17 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
     event.preventDefault()
     const account = accounts.find((item) => item.name === form.account)
     if (!account || !form.startDate || !form.currency) return
+    const name = form.name.trim()
+    const terms = Number(form.terms)
+    if (installments.some((item) => item.name === name && item.account === account.name)) {
+      setIdempotencyError("An installment with this exact name and account already exists.")
+      return
+    }
+    setIdempotencyError("")
     const input: NewInstallmentInput = {
-      name: form.name.trim(), totalAmount: Number(form.totalAmount), terms: Number(form.terms),
+      name, totalAmount: Number(form.totalAmount), terms,
       startDate: toSheetDate(form.startDate), account: account.name, budget: form.budget.trim(),
-      currency: form.currency, statementDay: account.statementDay!,
+      currency: form.currency, statementDay: account.statementDay!, transactionTime: "00:00:00",
     }
     mutation.mutate(input)
   }
@@ -199,6 +207,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
             <label className="grid gap-1 text-xs text-muted">Account<select required value={form.account} onChange={(event) => setForm((current) => ({ ...current, account: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select account</option>{accounts.map((account) => <option key={account.name} value={account.name}>{account.name} · statement day {account.statementDay}</option>)}</select></label>
             <label className="grid gap-1 text-xs text-muted">Budget<select required value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select budget</option>{budgetOptions.map((budget) => <option key={budget} value={budget}>{budget}</option>)}</select></label>
             {accounts.length === 0 && <p role="alert" className="text-sm text-danger">Add a statement day to an account before creating an installment.</p>}
+            {idempotencyError && <p role="alert" className="text-sm text-danger">{idempotencyError}</p>}
             {mutation.isError && <p role="alert" className="text-sm text-danger">Could not add the installment. Please try again.</p>}
             <DialogFooter><Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Adding…" : "Add installment"}</Button></DialogFooter>
           </form>
