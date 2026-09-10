@@ -49,7 +49,7 @@ export default function CCCard({
   const showNative = account.currency !== "PHP";
 
   // Pill selector index: statement = left cell (0), all = right cell (1).
-  const selectedIndex = cycleView === "statement" ? 0 : 1;
+  const selectedIndex = cycleView === 'statement' ? 0 : 1;
 
   // Public URL for the card art stored in the account_images bucket.
   // null when the account has no image filename set.
@@ -222,7 +222,7 @@ export default function CCCard({
                   transition={{
                     type: "tween",
                     duration: 0.22,
-                    ease: "easeInOut",
+                    ease: 'easeInOut',
                   }}
                 />
                 {VIEW_TABS.map((tab) => {

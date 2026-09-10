@@ -1,7 +1,7 @@
 import { supabase, SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
 import type { RawAccountBalancesData, CurrencyData } from '@/types/accounts'
 import type { RawTransaction } from '@/types/transactions'
-import type { RawInstallmentRow, RawRecurringRow } from '@/types/installments'
+import type { NewInstallmentInput, RawInstallmentRow, RawRecurringRow } from '@/types/installments'
 import type { RawBudgetRow } from '@/types/budgets'
 import type { RawDebtReceivableRow } from '@/types/debtsReceivables'
 
@@ -100,6 +100,17 @@ export async function getRecurring(): Promise<RawRecurringRow[]> {
   })
   assertOk(res, 'recurring payments')
   return res.json() as Promise<RawRecurringRow[]>
+}
+
+/** Writes one Installments row and all evaluated monthly Transaction rows. */
+export async function createInstallment(input: NewInstallmentInput): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/tx`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  assertOk(res, 'installment')
 }
 
 /**
