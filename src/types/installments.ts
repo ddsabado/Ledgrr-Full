@@ -36,6 +36,7 @@ export interface RawRecurringRow {
 
 /** Payload accepted by the authenticated /tx Edge Function. */
 export interface NewInstallmentInput {
+  kind: 'installment'
   name: string
   totalAmount: number
   terms: number
@@ -45,4 +46,18 @@ export interface NewInstallmentInput {
   currency: string
   statementDay: number
   transactionTime: string
+}
+
+/** Payload for a single Recurring Payments sheet row. */
+export interface NewRecurringInput {
+  kind: 'recurring'
+  name: string
+  account: string
+  amount: number
+  frequency: string
+  startDate: string
+  endDate: string
+  category: string
+  subcategory: string
+  currency: string
 }

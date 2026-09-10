@@ -8,7 +8,8 @@ const CORS_HEADERS = {
 
 const READ_TIMEOUT_MS = 30_000
 
-export interface NewInstallmentBody {
+export interface NewTxBody {
+  kind?: 'installment' | 'recurring'
   name?: string
   totalAmount?: number
   terms?: number
@@ -18,6 +19,11 @@ export interface NewInstallmentBody {
   currency?: string
   statementDay?: number
   transactionTime?: string
+  amount?: number
+  frequency?: string
+  endDate?: string
+  category?: string
+  subcategory?: string
 }
 
 function formatDate(date: Date, time: string): string {
@@ -42,7 +48,7 @@ function dayInMonth(year: number, month: number, day: number): number {
 }
 
 /** Build monthly transaction rows B:L while keeping column A's sheet formula intact. */
-export function buildInstallmentTransactionRows(body: Required<NewInstallmentBody>): string[][] {
+export function buildInstallmentTransactionRows(body: Required<NewTxBody>): string[][] {
   const start = parseStartDate(body.startDate)!
   const statementThisMonth = new Date(
     start.getFullYear(),
@@ -86,14 +92,15 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
 
-    let rawBody: NewInstallmentBody
+    let rawBody: NewTxBody
     try {
-      rawBody = await req.json() as NewInstallmentBody
+      rawBody = await req.json() as NewTxBody
     } catch {
       return Response.json({ error: 'Malformed JSON body' }, { status: 400, headers: CORS_HEADERS })
     }
 
-    const body: Required<NewInstallmentBody> = {
+    const body: Required<NewTxBody> = {
+      kind: rawBody.kind ?? 'installment',
       name: rawBody.name?.trim() ?? '',
       totalAmount: Number(rawBody.totalAmount),
       terms: Number(rawBody.terms),
@@ -103,12 +110,19 @@ Deno.serve(async (req: Request) => {
       currency: rawBody.currency?.trim() || 'PHP',
       statementDay: Number(rawBody.statementDay),
       transactionTime: rawBody.transactionTime?.trim() ?? '',
+      amount: Number(rawBody.amount),
+      frequency: rawBody.frequency?.trim() ?? '',
+      endDate: rawBody.endDate?.trim() ?? '',
+      category: rawBody.category?.trim() ?? '',
+      subcategory: rawBody.subcategory?.trim() ?? '',
     }
-    if (!body.name || !body.account || !body.budget || !parseStartDate(body.startDate) ||
-      !Number.isFinite(body.totalAmount) || body.totalAmount <= 0 ||
-      !Number.isInteger(body.terms) || body.terms < 1 ||
-      !Number.isInteger(body.statementDay) || body.statementDay < 1 || body.statementDay > 31 ||
-      !/^\d{2}:\d{2}:\d{2}$/.test(body.transactionTime)) {
+    const validInstallment = body.kind === 'installment' && body.name && body.account && body.budget && parseStartDate(body.startDate) &&
+      Number.isFinite(body.totalAmount) && body.totalAmount > 0 && Number.isInteger(body.terms) && body.terms >= 1 &&
+      Number.isInteger(body.statementDay) && body.statementDay >= 1 && body.statementDay <= 31 && /^\d{2}:\d{2}:\d{2}$/.test(body.transactionTime)
+    const validRecurring = body.kind === 'recurring' && body.name && body.account && body.frequency && body.category &&
+      /^\d{1,2}\/\d{4}$/.test(body.startDate) && (!body.endDate || /^\d{1,2}\/\d{4}$/.test(body.endDate)) &&
+      Number.isFinite(body.amount) && body.amount > 0
+    if (!validInstallment && !validRecurring) {
       return Response.json({ error: 'Invalid installment details' }, { status: 400, headers: CORS_HEADERS })
     }
 
@@ -140,7 +154,7 @@ Deno.serve(async (req: Request) => {
     if (!tokenRes.ok) return Response.json({ error: 'Failed to exchange token' }, { status: 502, headers: CORS_HEADERS })
     const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
 
-    const ranges = ['Installments!A2:A', 'Transactions!B2:B']
+    const ranges = body.kind === 'recurring' ? ['Recurring Payments!A2:A'] : ['Installments!A2:A', 'Transactions!B2:B']
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), READ_TIMEOUT_MS)
     let readRes: Response
@@ -154,23 +168,23 @@ Deno.serve(async (req: Request) => {
     } finally { clearTimeout(timeout) }
     if (!readRes.ok) return Response.json({ error: 'Failed to read sheet' }, { status: 502, headers: CORS_HEADERS })
     const reads = await readRes.json() as { valueRanges?: { values?: string[][] }[] }
-    const installmentNextRow = 2 + (reads.valueRanges?.[0]?.values?.length ?? 0)
+    const firstOpenRow = 2 + (reads.valueRanges?.[0]?.values?.length ?? 0)
     const transactionNextRow = 2 + (reads.valueRanges?.[1]?.values?.length ?? 0)
-    const transactionRows = buildInstallmentTransactionRows(body)
-
-    const installmentRange = `Installments!A${installmentNextRow}:H${installmentNextRow}`
-    const transactionsRange = `Transactions!B${transactionNextRow}:L${transactionNextRow + transactionRows.length - 1}`
+    const transactionRows = body.kind === 'installment' ? buildInstallmentTransactionRows(body) : []
+    const writeData = body.kind === 'recurring'
+      ? [{ range: `Recurring Payments!A${firstOpenRow}:I${firstOpenRow}`, majorDimension: 'ROWS', values: [[body.name, body.account, body.amount.toFixed(2), body.frequency, body.startDate, body.endDate, body.category, body.subcategory, body.currency]] }]
+      : [
+        { range: `Installments!A${firstOpenRow}:H${firstOpenRow}`, majorDimension: 'ROWS', values: [[body.name, body.account, body.totalAmount.toFixed(2), body.terms, (body.totalAmount / body.terms).toFixed(2), body.startDate, body.budget, body.currency]] },
+        { range: `Transactions!B${transactionNextRow}:L${transactionNextRow + transactionRows.length - 1}`, majorDimension: 'ROWS', values: transactionRows },
+      ]
     const writeRes = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values:batchUpdate`,
       {
         method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: [
-          { range: installmentRange, majorDimension: 'ROWS', values: [[body.name, body.account, body.totalAmount.toFixed(2), body.terms, (body.totalAmount / body.terms).toFixed(2), body.startDate, body.budget, body.currency]] },
-          { range: transactionsRange, majorDimension: 'ROWS', values: transactionRows },
-        ] }),
+        body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: writeData }),
       },
     )
-    if (!writeRes.ok) return Response.json({ error: 'Failed to write installment' }, { status: 502, headers: CORS_HEADERS })
+    if (!writeRes.ok) return Response.json({ error: `Failed to write ${body.kind}` }, { status: 502, headers: CORS_HEADERS })
     return Response.json({ ok: true, tx: transactionRows.length }, { status: 201, headers: CORS_HEADERS })
   } catch (error) {
     console.error('Unexpected error:', error)
