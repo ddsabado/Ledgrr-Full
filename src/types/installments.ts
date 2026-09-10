@@ -34,7 +34,7 @@ export interface RawRecurringRow {
   currency:    string // col I — Currency, e.g. "PHP"
 }
 
-/** Payload accepted by the authenticated /tx Edge Function. */
+/** Payload accepted by the authenticated /installments Edge Function. */
 export interface NewInstallmentInput {
   kind: 'installment'
   name: string
@@ -60,4 +60,18 @@ export interface NewRecurringInput {
   category: string
   subcategory: string
   currency: string
+}
+
+/** One Transactions-sheet row accepted by the authenticated /tx Edge Function. */
+export interface NewTransactionInput {
+  date: string
+  account: string
+  amount: number
+  currency: string
+  targetAccount: string
+  type: string
+  category: string
+  subcategory: string
+  budget: string
+  note: string
 }

@@ -1,3 +1,8 @@
+/**
+ * Transactions-only endpoint.
+ * Appends caller-provided rows to Transactions!B:L and never writes to any
+ * account, installment, or recurring-payment sheet.
+ */
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
@@ -6,82 +11,40 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const READ_TIMEOUT_MS = 30_000
-
-export interface NewTxBody {
-  kind?: 'installment' | 'recurring'
-  name?: string
-  totalAmount?: number
-  terms?: number
-  startDate?: string
-  account?: string
-  budget?: string
-  currency?: string
-  statementDay?: number
-  transactionTime?: string
-  amount?: number
-  frequency?: string
-  endDate?: string
-  category?: string
-  subcategory?: string
+interface TransactionInput {
+  date: string
+  account: string
+  amount: number
+  currency: string
+  targetAccount: string
+  type: string
+  category: string
+  subcategory: string
+  budget: string
+  note: string
 }
 
-function formatDate(date: Date, time: string): string {
-  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ${time}`
+interface TxBody { transactions?: TransactionInput[] }
+
+function isTransaction(value: unknown): value is TransactionInput {
+  if (!value || typeof value !== 'object') return false
+  const tx = value as Record<string, unknown>
+  return typeof tx.date === 'string' && tx.date.trim() !== '' &&
+    typeof tx.account === 'string' && tx.account.trim() !== '' &&
+    typeof tx.amount === 'number' && Number.isFinite(tx.amount) && tx.amount > 0 &&
+    typeof tx.currency === 'string' && tx.currency.trim() !== '' &&
+    typeof tx.targetAccount === 'string' && typeof tx.type === 'string' && tx.type.trim() !== '' &&
+    typeof tx.category === 'string' && tx.category.trim() !== '' && typeof tx.subcategory === 'string' &&
+    typeof tx.budget === 'string' && typeof tx.note === 'string'
 }
 
-function parseStartDate(value: string): Date | null {
-  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (!match) return null
-  const [, month, day, year] = match
-  const date = new Date(Number(year), Number(month) - 1, Number(day))
-  return Number.isNaN(date.getTime()) ||
-    date.getFullYear() !== Number(year) ||
-    date.getMonth() !== Number(month) - 1 ||
-    date.getDate() !== Number(day)
-    ? null
-    : date
-}
-
-function dayInMonth(year: number, month: number, day: number): number {
-  return Math.min(Math.max(1, day), new Date(year, month + 1, 0).getDate())
-}
-
-/** Build monthly transaction rows B:L while keeping column A's sheet formula intact. */
-export function buildInstallmentTransactionRows(body: Required<NewTxBody>): string[][] {
-  const start = parseStartDate(body.startDate)!
-  const statementThisMonth = new Date(
-    start.getFullYear(),
-    start.getMonth(),
-    dayInMonth(start.getFullYear(), start.getMonth(), body.statementDay),
-  )
-  // Compare calendar dates, rather than instants, so a transaction after the
-  // statement day always begins in the following statement cycle.
-  const firstStatement = new Date(
-    statementThisMonth.getFullYear(),
-    statementThisMonth.getMonth() + (start.getDate() > statementThisMonth.getDate() ? 1 : 0),
-    1,
-  )
-  firstStatement.setDate(dayInMonth(firstStatement.getFullYear(), firstStatement.getMonth(), body.statementDay))
-
-  const payment = body.totalAmount / body.terms
-  return Array.from({ length: body.terms }, (_, index) => {
-    const date = new Date(firstStatement.getFullYear(), firstStatement.getMonth() + index, 1)
-    date.setDate(dayInMonth(date.getFullYear(), date.getMonth(), body.statementDay))
-    return [
-      formatDate(date, body.transactionTime),
-      body.account,
-      payment.toFixed(2),
-      '',
-      body.currency,
-      '',
-      'Expense',
-      'Installment',
-      '',
-      body.budget,
-      `${body.name} (${index + 1}/${body.terms})`,
-    ]
-  })
+/** Converts transport objects to Transactions-sheet columns B:L. */
+export function toTransactionRows(transactions: TransactionInput[]): string[][] {
+  return transactions.map((tx) => [
+    tx.date.trim(), tx.account.trim(), tx.amount.toFixed(2), '', tx.currency.trim(),
+    tx.targetAccount.trim(), tx.type.trim(), tx.category.trim(), tx.subcategory.trim(),
+    tx.budget.trim(), tx.note.trim(),
+  ])
 }
 
 Deno.serve(async (req: Request) => {
@@ -91,39 +54,13 @@ Deno.serve(async (req: Request) => {
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-
-    let rawBody: NewTxBody
-    try {
-      rawBody = await req.json() as NewTxBody
-    } catch {
+    let body: TxBody
+    try { body = await req.json() as TxBody } catch {
       return Response.json({ error: 'Malformed JSON body' }, { status: 400, headers: CORS_HEADERS })
     }
-
-    const body: Required<NewTxBody> = {
-      kind: rawBody.kind ?? 'installment',
-      name: rawBody.name?.trim() ?? '',
-      totalAmount: Number(rawBody.totalAmount),
-      terms: Number(rawBody.terms),
-      startDate: rawBody.startDate?.trim() ?? '',
-      account: rawBody.account?.trim() ?? '',
-      budget: rawBody.budget?.trim() ?? '',
-      currency: rawBody.currency?.trim() || 'PHP',
-      statementDay: Number(rawBody.statementDay),
-      transactionTime: rawBody.transactionTime?.trim() ?? '',
-      amount: Number(rawBody.amount),
-      frequency: rawBody.frequency?.trim() ?? '',
-      endDate: rawBody.endDate?.trim() ?? '',
-      category: rawBody.category?.trim() ?? '',
-      subcategory: rawBody.subcategory?.trim() ?? '',
-    }
-    const validInstallment = body.kind === 'installment' && body.name && body.account && body.budget && parseStartDate(body.startDate) &&
-      Number.isFinite(body.totalAmount) && body.totalAmount > 0 && Number.isInteger(body.terms) && body.terms >= 1 &&
-      Number.isInteger(body.statementDay) && body.statementDay >= 1 && body.statementDay <= 31 && /^\d{2}:\d{2}:\d{2}$/.test(body.transactionTime)
-    const validRecurring = body.kind === 'recurring' && body.name && body.account && body.frequency && body.category &&
-      /^\d{1,2}\/\d{4}$/.test(body.startDate) && (!body.endDate || /^\d{1,2}\/\d{4}$/.test(body.endDate)) &&
-      Number.isFinite(body.amount) && body.amount > 0
-    if (!validInstallment && !validRecurring) {
-      return Response.json({ error: 'Invalid installment details' }, { status: 400, headers: CORS_HEADERS })
+    const transactions = body.transactions
+    if (!Array.isArray(transactions) || transactions.length === 0 || !transactions.every(isTransaction)) {
+      return Response.json({ error: 'Invalid transaction rows' }, { status: 400, headers: CORS_HEADERS })
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -140,7 +77,6 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', user.id)
       .maybeSingle()
     if (!userSheet) return Response.json({ error: 'No sheet connected for this user' }, { status: 404, headers: CORS_HEADERS })
-
     const { data: refreshToken, error: vaultError } = await admin.rpc('decrypt_vault_secret', { p_id: userSheet.refresh_token_secret_id })
     if (vaultError || !refreshToken) return Response.json({ error: 'Failed to retrieve credentials' }, { status: 500, headers: CORS_HEADERS })
 
@@ -153,39 +89,27 @@ Deno.serve(async (req: Request) => {
     })
     if (!tokenRes.ok) return Response.json({ error: 'Failed to exchange token' }, { status: 502, headers: CORS_HEADERS })
     const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
-
-    const ranges = body.kind === 'recurring' ? ['Recurring Payments!A2:A'] : ['Installments!A2:A', 'Transactions!B2:B']
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), READ_TIMEOUT_MS)
-    let readRes: Response
-    try {
-      readRes = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values:batchGet?${ranges.map((range) => `ranges=${encodeURIComponent(range)}`).join('&')}`,
-        { headers: { Authorization: `Bearer ${accessToken}` }, signal: controller.signal },
-      )
-    } catch {
-      return Response.json({ error: 'Failed to read sheet' }, { status: 502, headers: CORS_HEADERS })
-    } finally { clearTimeout(timeout) }
-    if (!readRes.ok) return Response.json({ error: 'Failed to read sheet' }, { status: 502, headers: CORS_HEADERS })
-    const reads = await readRes.json() as { valueRanges?: { values?: string[][] }[] }
-    const firstOpenRow = 2 + (reads.valueRanges?.[0]?.values?.length ?? 0)
-    const transactionNextRow = 2 + (reads.valueRanges?.[1]?.values?.length ?? 0)
-    const transactionRows = body.kind === 'installment' ? buildInstallmentTransactionRows(body) : []
-    const writeData = body.kind === 'recurring'
-      ? [{ range: `Recurring Payments!A${firstOpenRow}:I${firstOpenRow}`, majorDimension: 'ROWS', values: [[body.name, body.account, body.amount.toFixed(2), body.frequency, body.startDate, body.endDate, body.category, body.subcategory, body.currency]] }]
-      : [
-        { range: `Installments!A${firstOpenRow}:H${firstOpenRow}`, majorDimension: 'ROWS', values: [[body.name, body.account, body.totalAmount.toFixed(2), body.terms, (body.totalAmount / body.terms).toFixed(2), body.startDate, body.budget, body.currency]] },
-        { range: `Transactions!B${transactionNextRow}:L${transactionNextRow + transactionRows.length - 1}`, majorDimension: 'ROWS', values: transactionRows },
-      ]
+    // `values.append` detects the whole logical table and can start at its
+    // first column (A), even when passed B:L. Read the populated B column and
+    // update an explicit B:L range instead, preserving the Txn ID formula in A.
+    const existingRes = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Transactions!B2:B')}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    )
+    if (!existingRes.ok) return Response.json({ error: 'Failed to read transactions' }, { status: 502, headers: CORS_HEADERS })
+    const existing = await existingRes.json() as { values?: string[][] }
+    const firstOpenRow = 2 + (existing.values?.length ?? 0)
+    const lastRow = firstOpenRow + transactions.length - 1
+    const writeRange = `Transactions!B${firstOpenRow}:L${lastRow}`
     const writeRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values:batchUpdate`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent(writeRange)}?valueInputOption=USER_ENTERED`,
       {
-        method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: writeData }),
+        method: 'PUT', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ majorDimension: 'ROWS', values: toTransactionRows(transactions) }),
       },
     )
-    if (!writeRes.ok) return Response.json({ error: `Failed to write ${body.kind}` }, { status: 502, headers: CORS_HEADERS })
-    return Response.json({ ok: true, tx: transactionRows.length }, { status: 201, headers: CORS_HEADERS })
+    if (!writeRes.ok) return Response.json({ error: 'Failed to write transactions' }, { status: 502, headers: CORS_HEADERS })
+    return Response.json({ ok: true, tx: transactions.length }, { status: 201, headers: CORS_HEADERS })
   } catch (error) {
     console.error('Unexpected error:', error)
     return Response.json({ error: 'Unexpected server error' }, { status: 500, headers: CORS_HEADERS })

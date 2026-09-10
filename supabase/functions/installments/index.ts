@@ -1,3 +1,8 @@
+/**
+ * Installments sheet endpoint.
+ * GET reads Installments rows; POST writes only a single Installments row.
+ * Use installments-submit for the normal command that also creates transactions.
+ */
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
@@ -70,12 +75,33 @@ const CORS_HEADERS = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS })
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405, headers: CORS_HEADERS })
+  }
 
   const cors = { 'Access-Control-Allow-Origin': '*' }
 
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
+
+    let insert: Record<string, unknown> | null = null
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json()
+        insert = body && typeof body === 'object' ? body as Record<string, unknown> : null
+      } catch {
+        return Response.json({ error: 'Malformed JSON body' }, { status: 400, headers: cors })
+      }
+      const valid = insert && typeof insert.name === 'string' && insert.name.trim() !== '' &&
+        typeof insert.account === 'string' && insert.account.trim() !== '' &&
+        typeof insert.budget === 'string' && insert.budget.trim() !== '' &&
+        typeof insert.currency === 'string' && insert.currency.trim() !== '' &&
+        typeof insert.startDate === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(insert.startDate.trim()) &&
+        typeof insert.totalAmount === 'number' && Number.isFinite(insert.totalAmount) && insert.totalAmount > 0 &&
+        typeof insert.terms === 'number' && Number.isInteger(insert.terms) && insert.terms >= 1
+      if (!valid) return Response.json({ error: 'Invalid installment details' }, { status: 400, headers: cors })
+    }
 
     const supabaseUrl         = Deno.env.get('SUPABASE_URL')!
     const supabaseAnon        = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -121,6 +147,28 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: 'Failed to exchange token' }, { status: 502, headers: cors })
     }
     const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
+
+    if (insert) {
+      const totalAmount = insert.totalAmount as number
+      const terms = insert.terms as number
+      const appendRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Installments!A:H')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            majorDimension: 'ROWS',
+            values: [[
+              (insert.name as string).trim(), (insert.account as string).trim(), totalAmount.toFixed(2), terms,
+              (totalAmount / terms).toFixed(2), (insert.startDate as string).trim(), (insert.budget as string).trim(),
+              (insert.currency as string).trim(),
+            ]],
+          }),
+        },
+      )
+      if (!appendRes.ok) return Response.json({ error: 'Failed to write installment' }, { status: 502, headers: cors })
+      return Response.json({ ok: true }, { status: 201, headers: cors })
+    }
 
     // --- Read the Installments tab (A:H) with a timeout budget; raw passthrough ---
     const sheetId = userSheet.sheet_id

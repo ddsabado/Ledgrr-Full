@@ -1,7 +1,7 @@
 import { supabase, SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
 import type { RawAccountBalancesData, CurrencyData } from '@/types/accounts'
 import type { RawTransaction } from '@/types/transactions'
-import type { NewInstallmentInput, NewRecurringInput, RawInstallmentRow, RawRecurringRow } from '@/types/installments'
+import type { NewInstallmentInput, NewRecurringInput, NewTransactionInput, RawInstallmentRow, RawRecurringRow } from '@/types/installments'
 import type { RawBudgetRow } from '@/types/budgets'
 import type { RawDebtReceivableRow } from '@/types/debtsReceivables'
 
@@ -102,10 +102,10 @@ export async function getRecurring(): Promise<RawRecurringRow[]> {
   return res.json() as Promise<RawRecurringRow[]>
 }
 
-/** Writes one Installments row and all evaluated monthly Transaction rows. */
-export async function createInstallment(input: NewInstallmentInput): Promise<void> {
+/** Writes one Installments-sheet row. */
+export async function insertInstallment(input: NewInstallmentInput): Promise<void> {
   const headers = await buildHeaders()
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/tx`, {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/installments`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -113,15 +113,48 @@ export async function createInstallment(input: NewInstallmentInput): Promise<voi
   assertOk(res, 'installment')
 }
 
-/** Writes one Recurring Payments row through the shared /tx function. */
-export async function createRecurring(input: NewRecurringInput): Promise<void> {
+/** Writes one Recurring Payments-sheet row. */
+export async function insertRecurring(input: NewRecurringInput): Promise<void> {
   const headers = await buildHeaders()
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/tx`, {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/recurring`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
   assertOk(res, 'recurring payment')
+}
+
+/** Runs the dedicated installment command (one auth/token exchange and one Sheets batch). */
+export async function submitInstallment(input: NewInstallmentInput): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/installments-submit`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  assertOk(res, 'installment')
+}
+
+/** Runs the dedicated recurring-payment command endpoint. */
+export async function submitRecurring(input: NewRecurringInput): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/recurring-submit`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  assertOk(res, 'recurring payment')
+}
+
+/** Appends one or more rows to the Transactions sheet. */
+export async function insertTransactions(transactions: NewTransactionInput[]): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/tx`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transactions }),
+  })
+  assertOk(res, 'transactions')
 }
 
 /**

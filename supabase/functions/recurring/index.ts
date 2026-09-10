@@ -1,3 +1,8 @@
+/**
+ * Recurring Payments sheet endpoint.
+ * GET reads recurring rows; POST writes only a single Recurring Payments row.
+ * Use recurring-submit for the command-oriented UI submission path.
+ */
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
@@ -73,12 +78,34 @@ const CORS_HEADERS = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS })
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405, headers: CORS_HEADERS })
+  }
 
   const cors = { 'Access-Control-Allow-Origin': '*' }
 
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
+
+    let insert: Record<string, unknown> | null = null
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json()
+        insert = body && typeof body === 'object' ? body as Record<string, unknown> : null
+      } catch {
+        return Response.json({ error: 'Malformed JSON body' }, { status: 400, headers: cors })
+      }
+      const month = (value: unknown) => typeof value === 'string' && /^\d{1,2}\/\d{4}$/.test(value.trim())
+      const valid = insert && typeof insert.name === 'string' && insert.name.trim() !== '' &&
+        typeof insert.account === 'string' && insert.account.trim() !== '' &&
+        typeof insert.currency === 'string' && insert.currency.trim() !== '' &&
+        typeof insert.frequency === 'string' && insert.frequency.trim() !== '' &&
+        typeof insert.category === 'string' && insert.category.trim() !== '' && month(insert.startDate) &&
+        (insert.endDate === '' || month(insert.endDate)) && typeof insert.amount === 'number' &&
+        Number.isFinite(insert.amount) && insert.amount > 0 && typeof insert.subcategory === 'string'
+      if (!valid) return Response.json({ error: 'Invalid recurring payment details' }, { status: 400, headers: cors })
+    }
 
     const supabaseUrl         = Deno.env.get('SUPABASE_URL')!
     const supabaseAnon        = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -124,6 +151,26 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: 'Failed to exchange token' }, { status: 502, headers: cors })
     }
     const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
+
+    if (insert) {
+      const appendRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Recurring Payments!A:I')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            majorDimension: 'ROWS',
+            values: [[
+              (insert.name as string).trim(), (insert.account as string).trim(), (insert.amount as number).toFixed(2),
+              (insert.frequency as string).trim(), (insert.startDate as string).trim(), (insert.endDate as string).trim(),
+              (insert.category as string).trim(), (insert.subcategory as string).trim(), (insert.currency as string).trim(),
+            ]],
+          }),
+        },
+      )
+      if (!appendRes.ok) return Response.json({ error: 'Failed to write recurring payment' }, { status: 502, headers: cors })
+      return Response.json({ ok: true }, { status: 201, headers: cors })
+    }
 
     // --- Read the Recurring Payments tab (A:I) with a timeout budget; raw passthrough ---
     const sheetId = userSheet.sheet_id
