@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { getSheetContext, sheetHeaders, SheetContextError } from '../_shared/sheetContext.ts'
+import { sortTransactionsByDate } from '../_shared/sortTransactions.ts'
 
 /**
  * Command endpoint for creating an installment.
@@ -81,6 +82,11 @@ Deno.serve(async (req: Request) => {
       method: 'POST', headers: sheetHeaders(accessToken), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }),
     })
     if (!writeRes.ok) return response({ error: 'Failed to write installment' }, 502)
+    try {
+      await sortTransactionsByDate(accessToken, sheetId)
+    } catch {
+      return response({ error: 'Installment inserted but failed to sort transactions' }, 502)
+    }
     return response({ ok: true, tx: txRows.length }, 201)
   } catch (error) {
     if (error instanceof SheetContextError) return response({ error: error.message }, error.status)

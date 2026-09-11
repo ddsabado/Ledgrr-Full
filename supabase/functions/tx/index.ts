@@ -5,6 +5,7 @@
  */
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { sortTransactionsByDate } from '../_shared/sortTransactions.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -109,6 +110,11 @@ Deno.serve(async (req: Request) => {
       },
     )
     if (!writeRes.ok) return Response.json({ error: 'Failed to write transactions' }, { status: 502, headers: CORS_HEADERS })
+    try {
+      await sortTransactionsByDate(accessToken, userSheet.sheet_id)
+    } catch {
+      return Response.json({ error: 'Transactions inserted but failed to sort by date' }, { status: 502, headers: CORS_HEADERS })
+    }
     return Response.json({ ok: true, tx: transactions.length }, { status: 201, headers: CORS_HEADERS })
   } catch (error) {
     console.error('Unexpected error:', error)
