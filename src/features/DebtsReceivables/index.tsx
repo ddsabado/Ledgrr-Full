@@ -1,5 +1,5 @@
 /**
- * Debts & Receivables dashboard panel — display-only.
+ * Debts & Receivables dashboard panel and Split Bill entry point.
  *
  * Lists every D&R record in both directions (Receivable + Payable), sorted
  * chronologically by date (records with no parseable date sort last, keeping
@@ -10,13 +10,14 @@
  * lives entirely in computeDebtsReceivables; this component only renders the
  * view models.
  */
-import { useMemo, useState } from 'react'
-import { Check, AlertTriangle, ChevronDown } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, AlertTriangle, ChevronDown, PanelLeftOpen, PanelTopOpen } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 
 import { formatCurrency } from '@/utils/currency'
 import {
   computeDebtsReceivables,
+  type Direction,
   type DebtReceivableView,
   type ParticipantView,
 } from './computeDebtsReceivables'
@@ -27,9 +28,13 @@ const PRIVACY_MASK = '••••••'
 
 interface DebtsReceivablesProps {
   privacyMode: boolean
+  viewerOpen?: boolean
+  onToggleViewer?: () => void
+  selectedRecord?: string | null
+  onSelectRecord?: (key: string) => void
 }
 
-export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps) {
+export default function DebtsReceivables({ privacyMode, viewerOpen = false, onToggleViewer = () => {}, selectedRecord = null, onSelectRecord = () => {} }: DebtsReceivablesProps) {
   const { rows, fxMap, isLoading, isError } = useDebtsReceivables()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filters, setFilters] = useState<DRFilters>({})
@@ -81,12 +86,24 @@ export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps)
     })
   }, [views, filters])
 
+  // Keep a valid selection when filters/data change, and choose the first
+  // visible record as soon as the viewer opens.
+  const activeRecord = filteredViews.some((view) => view.key === selectedRecord)
+    ? selectedRecord
+    : (filteredViews[0]?.key ?? null)
+  useEffect(() => {
+    if (viewerOpen && activeRecord && activeRecord !== selectedRecord) onSelectRecord(activeRecord)
+  }, [activeRecord, onSelectRecord, selectedRecord, viewerOpen])
+  useEffect(() => {
+    if (viewerOpen) setExpanded(null)
+  }, [viewerOpen])
+
 
   const mask = (amount: number, currency = 'PHP') =>
     privacyMode ? PRIVACY_MASK : formatCurrency(amount, currency)
 
   const cardShell =
-    'rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full'
+    `rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`
 
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -129,11 +146,14 @@ export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps)
         <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
           Debts &amp; Receivables
         </p>
-        <DebtsReceivablesFilter
-          filters={filters}
-          onChange={setFilters}
-          accounts={accountOptions}
-        />
+        <div className="flex items-center gap-2">
+          <DebtsReceivablesFilter
+            filters={filters}
+            onChange={setFilters}
+            accounts={accountOptions}
+          />
+          <motion.button type="button" aria-label={viewerOpen ? 'Close debts and receivables viewer' : 'Open debts and receivables viewer'} onClick={onToggleViewer} animate={{ rotate: viewerOpen ? 180 : 0 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" /><PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" /></motion.button>
+        </div>
       </div>
 
       {views.length === 0 ? (
@@ -155,10 +175,12 @@ export default function DebtsReceivables({ privacyMode }: DebtsReceivablesProps)
                 key={view.key}
                 view={view}
                 mask={mask}
-                isExpanded={expanded === view.key}
-                onToggle={() =>
-                  setExpanded((prev) => (prev === view.key ? null : view.key))
-                }
+                isExpanded={!viewerOpen && expanded === view.key}
+                selected={viewerOpen && activeRecord === view.key}
+                viewerOpen={viewerOpen}
+                onToggle={() => viewerOpen
+                  ? onSelectRecord(view.key)
+                  : setExpanded((prev) => (prev === view.key ? null : view.key))}
               />
             ))}
           </div>
@@ -172,10 +194,12 @@ interface RecordViewProps {
   view:       DebtReceivableView
   mask:       (amount: number, currency?: string) => string
   isExpanded: boolean
+  selected: boolean
+  viewerOpen: boolean
   onToggle:   () => void
 }
 
-function RecordView({ view, mask, isExpanded, onToggle }: RecordViewProps) {
+function RecordView({ view, mask, isExpanded, selected, viewerOpen, onToggle }: RecordViewProps) {
   const {
     name, account, dateLabel, direction, currency,
     totalPhp, totalNative, totalEstimated, participants, overallStatus, rawStatus,
@@ -186,22 +210,18 @@ function RecordView({ view, mask, isExpanded, onToggle }: RecordViewProps) {
   const isForeign = currency !== 'PHP'
 
   return (
-    <div data-testid="dr-record" className="flex flex-col gap-2 pb-4 border-b border-border last:border-b-0 last:pb-0">
+    <div data-testid="dr-record" className={`flex flex-col gap-2 pb-4 border-b border-border last:border-b-0 last:pb-0 ${selected ? 'rounded-lg ring-1 ring-accent bg-accent/10' : ''}`}>
       {/* Record header — click to expand/collapse participants */}
       <button
         type="button"
         onClick={onToggle}
-        aria-expanded={isExpanded}
+        aria-expanded={viewerOpen ? undefined : isExpanded}
+        aria-pressed={selected || undefined}
         className="w-full text-left flex flex-col gap-2 rounded-lg p-1 -m-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-1.5 min-w-0">
-            <ChevronDown
-              aria-hidden="true"
-              className={`shrink-0 w-3.5 h-3.5 mt-0.5 text-muted transition-transform duration-200 ${
-                isExpanded ? 'rotate-180' : ''
-              }`}
-            />
+            {!viewerOpen && <ChevronDown aria-hidden="true" className={`shrink-0 w-3.5 h-3.5 mt-0.5 text-muted transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />}
             <div className="min-w-0">
               <p className="text-sm font-medium text-text truncate">{name}</p>
               {meta !== '' && (
@@ -261,7 +281,7 @@ function RecordView({ view, mask, isExpanded, onToggle }: RecordViewProps) {
           >
             <div className="flex flex-col gap-1.5 pl-5 pt-1">
               {participants.map((p, i) => (
-                <ParticipantRow key={`${p.name}#${i}`} p={p} currency={currency} mask={mask} />
+                <ParticipantRow key={`${p.name}#${i}`} p={p} direction={direction} currency={currency} mask={mask} />
               ))}
             </div>
           </motion.div>
@@ -273,17 +293,21 @@ function RecordView({ view, mask, isExpanded, onToggle }: RecordViewProps) {
 
 interface ParticipantRowProps {
   p:        ParticipantView
+  direction: Direction
   currency: string
   mask:     (amount: number, currency?: string) => string
 }
 
-function ParticipantRow({ p, currency, mask }: ParticipantRowProps) {
+function ParticipantRow({ p, direction, currency, mask }: ParticipantRowProps) {
   const { name, isOwner, sharePhp, shareNative, shareEstimated, paidPhp, status, hasUnresolvedPayment } = p
   const isForeign = currency !== 'PHP'
+  const hideStatus = direction === 'Receivable' && isOwner || direction === 'Payable' && !isOwner
+  const displayStatus = hideStatus ? null : status
 
   const statusClass =
-    status === 'Paid' ? 'text-green-500'
-    : status === 'Partial' ? 'text-amber-500'
+    hideStatus ? 'text-muted'
+    : displayStatus === 'Paid' ? 'text-green-500'
+    : displayStatus === 'Partial' ? 'text-amber-500'
     : 'text-muted'
 
   return (
@@ -314,7 +338,7 @@ function ParticipantRow({ p, currency, mask }: ParticipantRowProps) {
             </span>
           )}
           <span className={`tabular-nums ${statusClass}`}>
-            {status === 'Paid' && (
+            {!hideStatus && displayStatus === 'Paid' && (
               <Check aria-hidden="true" className="inline w-3 h-3 mr-0.5 align-[-1px]" />
             )}
             {mask(sharePhp, 'PHP')}
@@ -325,7 +349,7 @@ function ParticipantRow({ p, currency, mask }: ParticipantRowProps) {
             {mask(shareNative, currency)}
           </span>
         )}
-        {status === 'Partial' && (
+        {displayStatus === 'Partial' && (
           <span className="text-amber-500 tabular-nums mt-0.5">
             ({mask(paidPhp, 'PHP')} of {mask(sharePhp, 'PHP')})
           </span>

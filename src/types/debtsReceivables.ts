@@ -22,3 +22,17 @@ export interface RawDebtReceivableRow {
   currency:         string // M — row-level currency
   resolvedAmount:   string // N — Resolved Amount (empty for PHP/unresolved)
 }
+
+export interface NewDebtReceivableInput {
+  name: string
+  account: string
+  date: string
+  totalAmount: number
+  participants: Array<{ name: string; share: number }>
+  splitBy: 'Exact' | 'Percent'
+  category: string
+  subcategory: string
+  budget: string
+  direction: 'Receivable' | 'Payable'
+  currency: string
+}
