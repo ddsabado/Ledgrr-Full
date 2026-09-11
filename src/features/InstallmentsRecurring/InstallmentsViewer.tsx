@@ -25,6 +25,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useAccountBalances } from "@/hooks/useAccountBalances"
 import { useCCAccounts } from "@/hooks/useCCAccounts"
 import { useCurrencies } from "@/hooks/useCurrencies"
+import { useTxnCatSub } from "@/hooks/useTxnCatSub"
 import { createInstallment, createRecurring } from "@/services/installmentService"
 import type { NewInstallmentInput, NewRecurringInput } from "@/types/installments"
 import { formatCurrency } from "@/utils/currency"
@@ -82,6 +83,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
   const { data: debitAccounts } = useAccountBalances()
   const { data: creditAccounts } = useCCAccounts()
   const { data: currencies } = useCurrencies()
+  const { categories: txnCategories } = useTxnCatSub()
   const { data: budgetRows } = useLiveQuery((q) =>
     session !== null ? q.from({ budget: budgetsCollection }) : null,
   )
@@ -110,6 +112,14 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
   const budgetOptions = useMemo(
     () => Array.from(new Set((budgetRows ?? []).map((row) => row.name).filter(Boolean))).sort(),
     [budgetRows],
+  )
+  const categoryOptions = useMemo(
+    () => txnCategories.map((item) => item.category).filter(Boolean).sort(),
+    [txnCategories],
+  )
+  const subcategoryOptions = useMemo(
+    () => txnCategories.find((item) => item.category === recurringForm.category)?.subcategories ?? [],
+    [recurringForm.category, txnCategories],
   )
 
   useEffect(() => {
@@ -257,7 +267,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
               <label className="grid gap-1 text-xs text-muted">Frequency<select value={recurringForm.frequency} onChange={(event) => setRecurringForm((current) => ({ ...current, frequency: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option>Monthly</option></select></label>
               <div className="grid grid-cols-2 gap-3"><label className="grid gap-1 text-xs text-muted">Start month<DatePicker value={recurringForm.startDate} onChange={(startDate) => setRecurringForm((current) => ({ ...current, startDate }))} placeholder="Select month" /></label><label className="grid gap-1 text-xs text-muted">End month (optional)<DatePicker value={recurringForm.endDate} onChange={(endDate) => setRecurringForm((current) => ({ ...current, endDate }))} placeholder="No end month" /></label></div>
               <label className="grid gap-1 text-xs text-muted">Account<select required value={recurringForm.account} onChange={(event) => setRecurringForm((current) => ({ ...current, account: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text"><option value="">Select account</option>{allAccounts.map((account) => <option key={account.name} value={account.name}>{account.name}</option>)}</select></label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="grid gap-1 text-xs text-muted">Category<input required value={recurringForm.category} onChange={(event) => setRecurringForm((current) => ({ ...current, category: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label><label className="grid gap-1 text-xs text-muted">Subcategory<input value={recurringForm.subcategory} onChange={(event) => setRecurringForm((current) => ({ ...current, subcategory: event.target.value }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text" /></label></div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="grid gap-1 text-xs text-muted">Category<select required value={recurringForm.category} onChange={(event) => setRecurringForm((current) => ({ ...current, category: event.target.value, subcategory: "" }))} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><option value="">Select category</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select></label><label className="grid gap-1 text-xs text-muted">Subcategory<select value={recurringForm.subcategory} onChange={(event) => setRecurringForm((current) => ({ ...current, subcategory: event.target.value }))} disabled={!recurringForm.category} className="rounded-md border border-border bg-surface2 px-3 py-2 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><option value="">{recurringForm.category ? "Select subcategory" : "Select category first"}</option>{subcategoryOptions.map((subcategory) => <option key={subcategory} value={subcategory}>{subcategory}</option>)}</select></label></div>
             </>}
             </motion.div>
             </AnimatePresence>
