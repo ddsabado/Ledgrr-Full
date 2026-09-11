@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { getSheetContext, sheetHeaders, SheetContextError } from '../_shared/sheetContext.ts'
+import { sortTransactionsByDate } from '../_shared/sortTransactions.ts'
 
 /**
  * Command endpoint for creating a split bill.
@@ -142,6 +143,11 @@ async function handlePayment(req: Request, input: PaymentInput) {
   ]
   const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, { method: 'POST', headers: sheetHeaders(accessToken), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) })
   if (!writeRes.ok) return response({ error: 'Failed to record payment' }, 502)
+  try {
+    await sortTransactionsByDate(accessToken, sheetId)
+  } catch {
+    return response({ error: 'Payment recorded but failed to sort transactions' }, 502)
+  }
   return response({ ok: true, settled, tx: 1 }, 201)
 }
 
@@ -188,6 +194,13 @@ Deno.serve(async (req: Request) => {
     if (txRows.length > 0) data.push({ range: `Transactions!B${firstTxRow}:L${firstTxRow + txRows.length - 1}`, majorDimension: 'ROWS', values: txRows })
     const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, { method: 'POST', headers: sheetHeaders(accessToken), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) })
     if (!writeRes.ok) return response({ error: 'Failed to write split bill' }, 502)
+    if (txRows.length > 0) {
+      try {
+        await sortTransactionsByDate(accessToken, sheetId)
+      } catch {
+        return response({ error: 'Split bill inserted but failed to sort transactions' }, 502)
+      }
+    }
     return response({ ok: true, tx: txRows.length }, 201)
   } catch (error) {
     if (error instanceof SheetContextError) return response({ error: error.message }, error.status)

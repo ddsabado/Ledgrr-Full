@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { sortTransactionsByDate } from '../_shared/sortTransactions.ts'
 
 // --- Inlined sheet constants ----------------------------------------------
 // Deno cannot import from `src/`, so these mirror src/constants/sheets.ts.
@@ -451,6 +452,11 @@ Deno.serve(async (req: Request) => {
     })
     if (!updateRes.ok) {
       return Response.json({ error: 'Failed to write row' }, { status: 502, headers: cors })
+    }
+    try {
+      await sortTransactionsByDate(accessToken, sheetId)
+    } catch {
+      return Response.json({ error: 'Transaction inserted but failed to sort by date' }, { status: 502, headers: cors })
     }
 
     return Response.json({ ok: true }, { status: 201, headers: cors })
