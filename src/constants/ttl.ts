@@ -40,3 +40,7 @@ export const DEBTS_RECEIVABLES_STALE_TIME = 5 * 60 * 1000
 
 /** 10 minutes — keep the debts & receivables cache for ten minutes */
 export const DEBTS_RECEIVABLES_GC_TIME = 10 * 60 * 1000
+
+/** 30 minutes — transaction taxonomy changes infrequently. */
+export const TXN_CAT_SUB_STALE_TIME = 30 * 60 * 1000
+export const TXN_CAT_SUB_GC_TIME = 60 * 60 * 1000

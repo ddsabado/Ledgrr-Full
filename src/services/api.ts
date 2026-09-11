@@ -4,6 +4,8 @@ import type { RawTransaction } from '@/types/transactions'
 import type { NewInstallmentInput, NewRecurringInput, NewTransactionInput, RawInstallmentRow, RawRecurringRow } from '@/types/installments'
 import type { RawBudgetRow } from '@/types/budgets'
 import type { RawDebtReceivableRow } from '@/types/debtsReceivables'
+import type { NewDebtReceivableInput } from '@/types/debtsReceivables'
+import type { TxnCategory } from '@/types/txnCatSub'
 
 export class AuthError extends Error {
   constructor(message = 'Unauthorized') {
@@ -146,6 +148,41 @@ export async function submitRecurring(input: NewRecurringInput): Promise<void> {
   assertOk(res, 'recurring payment')
 }
 
+/** Creates a split-bill D&R row and any immediate Transactions rows. */
+export async function submitDebtReceivable(input: NewDebtReceivableInput): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/debtsandreceivables-submit`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  assertOk(res, 'split bill')
+}
+
+/** Records one payment against a D&R participant and appends its transaction. */
+export async function submitDebtReceivablePayment(input: {
+  name: string
+  date: string
+  recordAccount?: string
+  account: string
+  direction: 'Receivable' | 'Payable'
+  participantName: string
+  paymentDate: string
+  amount: number
+  category?: string
+  subcategory?: string
+  budget?: string
+  currency?: string
+}): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/debtsandreceivables-submit?pay`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  assertOk(res, 'D&R payment')
+}
+
 /** Appends one or more rows to the Transactions sheet. */
 export async function insertTransactions(transactions: NewTransactionInput[]): Promise<void> {
   const headers = await buildHeaders()
@@ -185,4 +222,12 @@ export async function getDebtsReceivables(): Promise<RawDebtReceivableRow[]> {
   })
   assertOk(res, 'debts & receivables')
   return res.json() as Promise<RawDebtReceivableRow[]>
+}
+
+/** Fetches the consolidated transaction category/subcategory taxonomy. */
+export async function getTxnCategories(): Promise<TxnCategory[]> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/txn-cat-sub`, { method: 'GET', headers })
+  assertOk(res, 'transaction categories')
+  return res.json() as Promise<TxnCategory[]>
 }

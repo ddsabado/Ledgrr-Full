@@ -19,6 +19,7 @@ import InstallmentsRecurring from "@/features/InstallmentsRecurring";
 import InstallmentsViewer from "@/features/InstallmentsRecurring/InstallmentsViewer";
 import Budgets from "@/features/Budgets";
 import DebtsReceivables from "@/features/DebtsReceivables";
+import DebtsandReceivablesViewer from "@/features/DebtsReceivables/DebtsandReceivablesViewer";
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
@@ -28,15 +29,18 @@ export default function DashboardPage() {
   const [creditCardViewerOpen, setCreditCardViewerOpen] = useState(false);
   const [selectedCreditCard, setSelectedCreditCard] = useState<string | null>(null);
   const [installmentsViewerOpen, setInstallmentsViewerOpen] = useState(false);
+  const [debtsViewerOpen, setDebtsViewerOpen] = useState(false);
+  const [selectedDebtRecord, setSelectedDebtRecord] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
   const layoutTransition = reduceMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 260, damping: 30 };
-  const mobileViewerOpen = viewerOpen || creditCardViewerOpen || installmentsViewerOpen;
+  const mobileViewerOpen = viewerOpen || creditCardViewerOpen || installmentsViewerOpen || debtsViewerOpen;
 
   const toggleAccountViewer = () => {
     setViewerOpen((open) => {
       if (!open) {
         setCreditCardViewerOpen(false);
         setInstallmentsViewerOpen(false);
+        setDebtsViewerOpen(false);
       }
       return !open;
     });
@@ -47,6 +51,7 @@ export default function DashboardPage() {
       if (!open) {
         setViewerOpen(false);
         setInstallmentsViewerOpen(false);
+        setDebtsViewerOpen(false);
       }
       return !open;
     });
@@ -57,6 +62,18 @@ export default function DashboardPage() {
       if (!open) {
         setViewerOpen(false);
         setCreditCardViewerOpen(false);
+        setDebtsViewerOpen(false);
+      }
+      return !open;
+    });
+  };
+
+  const toggleDebtsViewer = () => {
+    setDebtsViewerOpen((open) => {
+      if (!open) {
+        setViewerOpen(false);
+        setCreditCardViewerOpen(false);
+        setInstallmentsViewerOpen(false);
       }
       return !open;
     });
@@ -201,11 +218,18 @@ export default function DashboardPage() {
                 )}
               </AnimatePresence>
             </div>
-            {[
-              <DebtsReceivables key="debts" privacyMode={privacyMode} />,
-            ].map((card) => (
-              <motion.div key={card.key} layout transition={layoutTransition} className="shrink-0 lg:w-[24rem]">{card}</motion.div>
-            ))}
+            <div className={debtsViewerOpen ? "flex h-full shrink-0 flex-col gap-6 lg:contents" : "contents"}>
+              <motion.div layout transition={layoutTransition} className={debtsViewerOpen ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
+                <DebtsReceivables privacyMode={privacyMode} viewerOpen={debtsViewerOpen} selectedRecord={selectedDebtRecord} onSelectRecord={setSelectedDebtRecord} onToggleViewer={toggleDebtsViewer} />
+              </motion.div>
+              <AnimatePresence initial={false} mode="popLayout">
+                {debtsViewerOpen && (
+                  <motion.div key="debts-receivables-viewer" layout initial={reduceMotion ? false : { opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }} transition={layoutTransition} className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0">
+                    <DebtsandReceivablesViewer privacyMode={privacyMode} selectedRecord={selectedDebtRecord} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </LayoutGroup>
       </main>

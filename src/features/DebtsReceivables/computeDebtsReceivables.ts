@@ -41,6 +41,7 @@ export interface DebtReceivableView {
   key:            string
   name:           string
   account:        string
+  date:           string
   dateLabel:      string          // "Mmm dd", raw when unparseable, '' when blank
   sortTs:         number | null   // parsed date epoch ms for chronological sort; null when blank/unparseable
   direction:      Direction
@@ -267,6 +268,7 @@ export function computeDebtReceivableRow(
     key:            `${row.name}#${row.date}#${row.direction}#${index}`,
     name:           row.name,
     account:        row.account,
+    date:           row.date,
     dateLabel:      shortDate(row.date),
     sortTs:         dateSortTs(row.date),
     direction:      normalizeDirection(row.direction),
@@ -275,7 +277,12 @@ export function computeDebtReceivableRow(
     totalNative,
     totalEstimated,
     participants,
-    overallStatus:  overallStatus(participants),
+    // A persisted Settled status is authoritative (especially for Payable
+    // rows, where paying the owner settles the whole record). Fall back to
+    // participant derivation for Pending/legacy status cells.
+    overallStatus:  row.status.trim().toLowerCase() === 'settled'
+      ? 'Settled'
+      : overallStatus(participants),
     rawStatus:      row.status,
   }
 }
