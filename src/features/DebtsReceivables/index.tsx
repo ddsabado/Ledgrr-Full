@@ -13,10 +13,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
-  AlertTriangle,
   PanelLeftOpen,
   PanelTopOpen,
 } from "lucide-react";
+import FxEstimatedIndicator from "@/components/FxEstimatedIndicator";
 import { motion } from "motion/react";
 
 import { formatCurrency } from "@/utils/currency";
@@ -297,13 +297,7 @@ function RecordView({ view, mask, selected, onToggle }: RecordViewProps) {
           <div className="flex flex-col items-end shrink-0 text-right">
             <div className="flex items-center gap-1">
               {totalEstimated && (
-                <span
-                  className="text-amber-500"
-                  title="FX-estimated — pending resolution"
-                  aria-label="FX-estimated total, pending resolution"
-                >
-                  <AlertTriangle aria-hidden="true" className="w-3 h-3" />
-                </span>
+                <FxEstimatedIndicator />
               )}
               <span className="text-sm font-medium tabular-nums text-text">
                 {mask(totalPhp, "PHP")}

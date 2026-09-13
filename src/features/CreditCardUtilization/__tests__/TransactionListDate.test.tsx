@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import TransactionList from '@/features/CreditCardUtilization/TransactionList'
 import type { RawTransaction } from '@/types/transactions'
+
+const resolveTransactionAmount = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+
 vi.mock('@/hooks/useCurrencies', () => ({ useCurrencies: () => ({ data: { PHP: 1 }, isLoading: false, isError: false }) }))
+vi.mock('@/services/api', () => ({ resolveTransactionAmount }))
 
 
 let seq = 0
@@ -58,6 +62,60 @@ describe('CC TransactionList — date formatting', () => {
     )
     expect(screen.queryByText('Food')).not.toBeInTheDocument()
     expect(screen.queryByText('Dining')).not.toBeInTheDocument()
+  })
+
+  it('marks an unresolved foreign-currency transaction as FX-estimated', () => {
+    render(
+      <TransactionList
+        transactions={[tx({ currency: 'USD', resolvedAmount: null })]}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.getByLabelText('FX-estimated total, pending resolution')).toBeInTheDocument()
+  })
+
+  it('explains an FX estimate immediately on hover', async () => {
+    const user = userEvent.setup()
+    render(
+      <TransactionList
+        transactions={[tx({ currency: 'USD', resolvedAmount: null })]}
+        privacyMode={false}
+      />,
+    )
+
+    const indicator = screen.getByLabelText('FX-estimated total, pending resolution')
+    expect(indicator).toHaveClass('cursor-pointer')
+
+    await user.hover(indicator)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('FX-estimated — pending resolution')
+  })
+
+  it('opens a resolution dialog from the alert and saves the PHP amount', async () => {
+    const user = userEvent.setup()
+    const transaction = tx({ key: '42', currency: 'USD', amount: 25, resolvedAmount: null })
+    render(<TransactionList transactions={[transaction]} privacyMode={false} />)
+
+    await user.click(screen.getByLabelText('FX-estimated total, pending resolution'))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Resolve FX amount')
+    await user.type(screen.getByLabelText('Resolved amount (PHP)'), '1450.50')
+    await user.click(screen.getByRole('button', { name: 'Save resolved amount' }))
+
+    await waitFor(() => expect(resolveTransactionAmount).toHaveBeenCalledWith('42', 1450.5))
+  })
+
+  it('does not mark PHP or resolved foreign-currency transactions as estimated', () => {
+    render(
+      <TransactionList
+        transactions={[
+          tx({ currency: 'PHP', resolvedAmount: null }),
+          tx({ currency: 'USD', resolvedAmount: 5700 }),
+        ]}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.queryByLabelText('FX-estimated total, pending resolution')).not.toBeInTheDocument()
   })
 
   it('shows the full note immediately on hover and keeps the pointer cursor', async () => {

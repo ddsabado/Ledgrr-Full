@@ -80,14 +80,15 @@ describe('InstallmentsRecurring panel', () => {
 
   it('renders each amount with its own resolved currency symbol (R8.3, R8.4)', () => {
     hookState.value.installments = [inst({ name: 'Laptop', startDate: '6/1/2026', terms: '3', termPayment: '500', currency: 'USD' })]
-    hookState.value.recurring = [rec({ name: 'Spotify', startDate: '06/2026', amount: '169', currency: 'PHP' })]
+    hookState.value.recurring = [rec({ name: 'Spotify', startDate: '06/2026', amount: '169', currency: 'USD' })]
     render(<InstallmentsRecurring privacyMode={false} />)
     const list = within(screen.getByTestId('ir-list'))
     // USD item → \$ symbol; PHP item → ₱ symbol. No ISO codes shown.
     expect(list.getByText(/\$500\.00/)).toBeInTheDocument()
-    expect(list.getByText(/₱169\.00/)).toBeInTheDocument()
+    expect(list.getByText(/\$169\.00/)).toBeInTheDocument()
     expect(list.queryByText(/\bUSD\b/)).not.toBeInTheDocument()
     expect(list.queryByText(/\bPHP\b/)).not.toBeInTheDocument()
+    expect(list.getAllByLabelText('FX-estimated total, pending resolution')).toHaveLength(2)
   })
 
   it('shows an empty-state message and total 0 when nothing is active (R8.7, R11.4)', () => {

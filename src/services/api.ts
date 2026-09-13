@@ -194,6 +194,17 @@ export async function insertTransactions(transactions: NewTransactionInput[]): P
   assertOk(res, 'transactions')
 }
 
+/** Stores the final PHP amount for one existing foreign-currency transaction. */
+export async function resolveTransactionAmount(transactionId: string, resolvedAmount: number): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/tx?action=resolveamount`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transactionId, resolvedAmount }),
+  })
+  assertOk(res, 'transaction amount resolution')
+}
+
 /**
  * Fetches ALL raw budget rows from the budgets Edge Function.
  * Thin passthrough — no computation, no filtering; the frontend derives

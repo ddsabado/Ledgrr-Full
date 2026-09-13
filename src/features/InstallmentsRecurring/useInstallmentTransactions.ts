@@ -54,7 +54,7 @@ export function useInstallmentTransactions(installments: RawInstallmentRow[]) {
   )
   const getMonthItems = useCallback((target: YearMonth): InstallmentItem[] => transactions
     .filter((tx) => isTransactionInMonth(tx.date, target))
-    .map((tx) => ({ name: tx.installmentName, account: tx.account, amount: tx.amount, currency: tx.currency, isRecurring: false, iteration: tx.iteration, terms: tx.terms })), [transactions])
+    .map((tx) => ({ transactionId: tx.key, name: tx.installmentName, account: tx.account, amount: tx.amount, currency: tx.currency, resolvedAmount: tx.resolvedAmount, isRecurring: false, iteration: tx.iteration, terms: tx.terms })), [transactions])
 
   return { transactions, getMonthItems, isLoading, isError }
 }

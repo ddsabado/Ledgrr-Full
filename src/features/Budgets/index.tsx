@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 
+import FxEstimatedIndicator from '@/components/FxEstimatedIndicator'
 import { formatCurrency } from '@/utils/currency'
 import { formatCreditCardTransactionDate } from '@/utils/date'
 import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
@@ -14,6 +15,7 @@ import {
 } from '@/features/InstallmentsRecurring/buildInstallmentMonths'
 import { computeBudgets, resolvePhp, type BudgetRow, type ProgressColor } from './computeBudgets'
 import { useBudgets } from './useBudgets'
+import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
 
 const PRIVACY_MASK = '••••••'
 
@@ -233,9 +235,14 @@ function BudgetRowView({ row, fxMap, isExpanded, onToggle, mask }: BudgetRowView
                         {tx.note && <TransactionNoteTooltip note={tx.note} />}
                       </div>
                       <div className="flex flex-col items-end shrink-0 text-right">
-                        <span className="text-sm font-medium tabular-nums text-text">
-                          {mask(resolvePhp(tx, fxMap), 'PHP')}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {isUnresolvedForeignCurrency(tx.currency, tx.resolvedAmount) && (
+                            <FxEstimatedIndicator transaction={tx} />
+                          )}
+                          <span className="text-sm font-medium tabular-nums text-text">
+                            {mask(resolvePhp(tx, fxMap), 'PHP')}
+                          </span>
+                        </div>
                         {tx.currency !== 'PHP' && (
                           <span className="text-xs text-muted tabular-nums mt-0.5">
                             {mask(tx.amount, tx.currency)}

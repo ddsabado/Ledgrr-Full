@@ -6,6 +6,7 @@ import { ListFilter, Plus, X } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "../../../@/components/ui/alert"
 import { Button } from "../../../@/components/ui/button"
+import FxEstimatedIndicator from "@/components/FxEstimatedIndicator"
 import {
   Popover,
   PopoverContent,
@@ -21,6 +22,7 @@ import {
 import { QUERY_KEYS } from "@/constants/queryKeys"
 import { budgetsCollection } from "@/collections/budgets"
 import { DatePicker } from "@/components/ui/date-picker"
+import { isUnresolvedForeignCurrency } from "@/utils/resolvePhp"
 import { useAuth } from "@/context/AuthContext"
 import { useAccountBalances } from "@/hooks/useAccountBalances"
 import { useCCAccounts } from "@/hooks/useCCAccounts"
@@ -238,7 +240,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
           {!isLoading && filteredItems.length > 0 && <div className="divide-y divide-border">
             {filteredItems.map((item) => <article key={item.key} className="flex items-start justify-between gap-3 py-3">
               <div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate text-sm font-medium text-text">{item.name}</p><span className="rounded-full bg-surface2 px-2 py-0.5 text-[10px] font-medium text-muted">{item.kind}</span></div><p className="mt-1 truncate text-xs text-muted">Transaction date: {item.startDate}</p><p className="mt-0.5 truncate text-xs text-muted">{item.account} · {item.terms}</p><p className="mt-0.5 truncate text-xs text-muted">Budget: {item.budget || "—"}</p></div>
-              <div className="flex shrink-0 flex-col items-end text-right"><span className="text-sm font-semibold tabular-nums text-text">{privacyMode ? "••••••" : formatCurrency(item.amount, item.currency)}</span>{item.totalAmount !== undefined && <span className="mt-0.5 text-xs tabular-nums text-muted">Total: {privacyMode ? "••••••" : formatCurrency(item.totalAmount, item.currency)}</span>}</div>
+              <div className="flex shrink-0 flex-col items-end text-right"><div className="flex items-center gap-1">{isUnresolvedForeignCurrency(item.currency, null) && <FxEstimatedIndicator />}<span className="text-sm font-semibold tabular-nums text-text">{privacyMode ? "••••••" : formatCurrency(item.amount, item.currency)}</span></div>{item.totalAmount !== undefined && <span className="mt-0.5 text-xs tabular-nums text-muted">Total: {privacyMode ? "••••••" : formatCurrency(item.totalAmount, item.currency)}</span>}</div>
             </article>)}
           </div>}
         </motion.div>

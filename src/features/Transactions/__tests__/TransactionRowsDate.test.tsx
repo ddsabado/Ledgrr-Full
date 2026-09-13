@@ -52,6 +52,18 @@ describe('TransactionRows — date formatting and notes', () => {
     expect(screen.getByText('garbage-date')).toBeInTheDocument()
   })
 
+  it('marks an unresolved foreign-currency transaction as FX-estimated', () => {
+    render(
+      <TransactionRows
+        transactions={[tx({ currency: 'USD', resolvedAmount: null })]}
+        mask={mask}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.getByLabelText('FX-estimated total, pending resolution')).toBeInTheDocument()
+  })
+
   it('shows the full note immediately on hover with a pointer cursor', async () => {
     const note = 'Full transaction note shown in the tooltip.'
     const user = userEvent.setup()

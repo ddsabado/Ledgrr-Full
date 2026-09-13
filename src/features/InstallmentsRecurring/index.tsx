@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { PanelLeftOpen, PanelTopOpen } from 'lucide-react'
 
+import FxEstimatedIndicator from '@/components/FxEstimatedIndicator'
 import { formatCurrency } from '@/utils/currency'
 import MonthNavigator from './MonthNavigator'
 import InstallmentDonut from './InstallmentDonut'
 import ChartPlaceholder from '@/components/ChartPlaceholder'
 import { useInstallmentsRecurring } from './useInstallmentsRecurring'
 import { useInstallmentTransactions } from './useInstallmentTransactions'
+import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
 import {
   buildInstallmentMonths,
   currentYearMonth,
@@ -148,9 +150,14 @@ export default function InstallmentsRecurring({
 
                 {/* Right: amount + currency, with metadata underneath */}
                 <div className="flex flex-col items-end shrink-0 text-right">
-                  <span className="text-sm font-medium tabular-nums text-text">
-                    {mask(item.amount, item.currency)}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {isUnresolvedForeignCurrency(item.currency, item.resolvedAmount) && (
+                      <FxEstimatedIndicator transaction={item.transactionId ? { key: item.transactionId, amount: item.amount, currency: item.currency, note: item.name } : undefined} />
+                    )}
+                    <span className="text-sm font-medium tabular-nums text-text">
+                      {mask(item.amount, item.currency)}
+                    </span>
+                  </div>
                   <span className="text-xs text-muted tabular-nums mt-0.5">
                     {item.isRecurring
                       ? item.frequency
