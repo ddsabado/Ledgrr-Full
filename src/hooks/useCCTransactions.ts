@@ -11,23 +11,23 @@ import type {
 /**
  * Computes the billing cycle boundaries for a given statement day.
  *
- * Re-implemented identically to the `transactions` Edge Function's
- * `computeCycleBoundaries` (see supabase/functions/transactions/index.ts).
- * The frontend cannot import from `supabase/functions`, so the logic is
- * duplicated here as a named export. Keep the two in sync.
- *
- * Matches the legacy Code.js getChartData cycle logic exactly.
+ * Index 0 is always the running statement cycle, including before its
+ * statement end date. For example, a card with statement day 16 shows
+ * Aug 16–Sep 15 on Sep 14, then Sep 16–Oct 15 on Sep 16.
  */
 export function computeCycleBoundaries(
   statementDay:  number,
   referenceDate: Date = new Date()
 ): { cycleStart: Date; cycleEnd: Date } {
-  const year  = referenceDate.getFullYear()
+  const year = referenceDate.getFullYear()
   const month = referenceDate.getMonth()
+  // Ignore the current time: the statement end date is inclusive for the
+  // full local calendar day, rather than ending at midnight.
+  const referenceDay = new Date(year, month, referenceDate.getDate())
 
   const cycleEnd = new Date(year, month, statementDay - 1)
-  if (cycleEnd >= referenceDate) {
-    cycleEnd.setMonth(cycleEnd.getMonth() - 1)
+  if (cycleEnd < referenceDay) {
+    cycleEnd.setMonth(cycleEnd.getMonth() + 1)
   }
   const cycleStart = new Date(cycleEnd.getFullYear(), cycleEnd.getMonth() - 1, statementDay)
 
