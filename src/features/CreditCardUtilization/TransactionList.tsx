@@ -1,8 +1,9 @@
 import type { RawTransaction } from '@/types/transactions'
+import FxEstimatedIndicator from '@/components/FxEstimatedIndicator'
 import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import { formatCurrency } from '@/utils/currency'
 import { formatCreditCardTransactionDate } from '@/utils/date'
-import { resolvePhp } from '@/utils/resolvePhp'
+import { isUnresolvedForeignCurrency, resolvePhp } from '@/utils/resolvePhp'
 import { useCurrencies } from '@/hooks/useCurrencies'
 
 const PRIVACY_MASK = '••••••'
@@ -29,7 +30,9 @@ export default function TransactionList({ transactions, privacyMode, accountName
             ? 'text-danger'
             : 'text-text'
 
-        const showNative = tx.currency !== 'PHP'
+        const currency = (tx.currency || 'PHP').trim() || 'PHP'
+        const showNative = currency !== 'PHP'
+        const isFxEstimated = isUnresolvedForeignCurrency(currency, tx.resolvedAmount)
 
         const phpDisplay = privacyMode
           ? PRIVACY_MASK
@@ -37,7 +40,7 @@ export default function TransactionList({ transactions, privacyMode, accountName
 
         const nativeDisplay = privacyMode
           ? PRIVACY_MASK
-          : formatCurrency(tx.amount, tx.currency)
+          : formatCurrency(tx.amount, currency)
 
         return (
           <li key={tx.key} className="flex items-start justify-between py-2 gap-3">
@@ -53,13 +56,18 @@ export default function TransactionList({ transactions, privacyMode, accountName
 
             {/* Right: PHP amount + optional native amount */}
             <div className="flex flex-col items-end shrink-0 text-right">
-              <span
-                className={`text-sm font-medium tabular-nums ${
-                  amountTone
-                }`}
-              >
-                {phpDisplay}
-              </span>
+              <div className="flex items-center gap-1">
+                {isFxEstimated && (
+                  <FxEstimatedIndicator transaction={tx} />
+                )}
+                <span
+                  className={`text-sm font-medium tabular-nums ${
+                    amountTone
+                  }`}
+                >
+                  {phpDisplay}
+                </span>
+              </div>
               {showNative && (
                 <span className={`text-xs tabular-nums mt-0.5 ${isTransferIn ? 'text-success' : isTransferOut ? 'text-danger' : 'text-muted'}`}>
                   {nativeDisplay}

@@ -17,10 +17,14 @@ export interface YearMonth {
 
 /** Normalized list entry rendered in the panel (mirrors the SPA InstallmentItem). */
 export interface InstallmentItem {
+  /** Transactions-sheet ID for a ledger-backed installment. */
+  transactionId?: string
   name:        string
   account:     string
   amount:      number // parsed; 0 when unparseable
   currency:    string
+  /** PHP resolution from a matching Transactions row; absent for a plan-only recurring item. */
+  resolvedAmount?: number | null
   isRecurring: boolean
   iteration?:  number // installments only — 1-based, 1..terms
   terms?:      number // installments only

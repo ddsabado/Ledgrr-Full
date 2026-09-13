@@ -128,6 +128,7 @@ describe('Budgets panel', () => {
     expect(screen.getByText(/₱3,588\.39/)).toBeInTheDocument()
     // native JPY secondary line (¥ symbol) — proves cross-currency display
     expect(screen.getByText(/¥8,940/)).toBeInTheDocument()
+    expect(screen.getByLabelText('FX-estimated total, pending resolution')).toBeInTheDocument()
     // PHP row shows its PHP amount and no ¥ native line
     expect(screen.getByText(/₱500\.00/)).toBeInTheDocument()
   })

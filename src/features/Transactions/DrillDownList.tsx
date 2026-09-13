@@ -1,10 +1,12 @@
 import { ChevronRight } from 'lucide-react'
+import FxEstimatedIndicator from '@/components/FxEstimatedIndicator'
 
 import type { RawTransaction } from '@/types/transactions'
 import { formatCreditCardTransactionDate } from '@/utils/date'
 import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import { type CategoryData, signedAmount } from './groupTransactions'
 import { useCurrencies } from '@/hooks/useCurrencies'
+import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
 
 type MaskFn = (amount: number) => string
 
@@ -156,12 +158,14 @@ export function TransactionRows({ transactions, mask, privacyMode }: Transaction
   return (
     <ul className="flex flex-col divide-y divide-border">
       {transactions.map((tx) => {
-        const showNative = tx.currency !== 'PHP'
+        const currency = (tx.currency || 'PHP').trim() || 'PHP'
+        const showNative = currency !== 'PHP'
+        const isFxEstimated = isUnresolvedForeignCurrency(currency, tx.resolvedAmount)
         const nativeDisplay = privacyMode
           ? PRIVACY_MASK
           : new Intl.NumberFormat('en-PH', {
               style: 'currency',
-              currency: tx.currency,
+              currency,
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             }).format(tx.amount)
@@ -179,9 +183,14 @@ export function TransactionRows({ transactions, mask, privacyMode }: Transaction
               )}
             </div>
             <div className="flex flex-col items-end shrink-0 text-right">
-              <span className="text-sm font-medium tabular-nums text-text">
-                {mask(signedAmount(tx, fxMap))}
-              </span>
+              <div className="flex items-center gap-1">
+                {isFxEstimated && (
+                  <FxEstimatedIndicator transaction={tx} />
+                )}
+                <span className="text-sm font-medium tabular-nums text-text">
+                  {mask(signedAmount(tx, fxMap))}
+                </span>
+              </div>
               {showNative && (
                 <span className="text-xs text-muted tabular-nums mt-0.5">
                   {nativeDisplay}

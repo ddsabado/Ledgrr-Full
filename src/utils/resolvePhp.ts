@@ -24,3 +24,15 @@ export function resolvePhp(tx: RawTransaction, fxMap: CurrencyData): number {
   const rate = fxMap[currency]
   return amount * (Number.isFinite(rate) ? rate : 1)
 }
+
+/**
+ * True when a non-PHP value is being converted with a live FX rate rather than
+ * its transaction's recorded PHP resolution.
+ */
+export function isUnresolvedForeignCurrency(
+  currency: string,
+  resolvedAmount: number | null | undefined,
+): boolean {
+  const normalizedCurrency = (currency || 'PHP').trim() || 'PHP'
+  return normalizedCurrency !== 'PHP' && !(resolvedAmount != null && Number.isFinite(resolvedAmount))
+}
