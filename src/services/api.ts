@@ -1,5 +1,5 @@
 import { supabase, SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
-import type { RawAccountBalancesData, CurrencyData } from '@/types/accounts'
+import type { RawAccountBalancesData, CurrencyData, NewCreditCardInput } from '@/types/accounts'
 import type { RawTransaction } from '@/types/transactions'
 import type { NewInstallmentInput, NewRecurringInput, NewTransactionInput, RawInstallmentRow, RawRecurringRow } from '@/types/installments'
 import type { RawBudgetRow } from '@/types/budgets'
@@ -42,6 +42,28 @@ export async function getRawAccountBalances(): Promise<RawAccountBalancesData> {
   })
   assertOk(res, 'account balances')
   return res.json() as Promise<RawAccountBalancesData>
+}
+
+/** Creates one credit-card account in the connected user's Accounts sheet. */
+export async function createCreditCard(input: NewCreditCardInput): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/accounts-balances`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  assertOk(res, 'credit card')
+}
+
+/** Lists selectable card-art filenames via the authenticated Accounts endpoint. */
+export async function getAccountImages(): Promise<string[]> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/accounts-balances?action=images`, {
+    method: 'GET',
+    headers,
+  })
+  assertOk(res, 'account images')
+  return res.json() as Promise<string[]>
 }
 
 /**
