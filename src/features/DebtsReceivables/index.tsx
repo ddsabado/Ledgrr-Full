@@ -34,7 +34,9 @@ interface DebtsReceivablesProps {
   onSelectRecord?: (key: string) => void
 }
 
-export default function DebtsReceivables({ privacyMode, viewerOpen = false, onToggleViewer = () => {}, selectedRecord = null, onSelectRecord = () => {} }: DebtsReceivablesProps) {
+export default function DebtsReceivables({ privacyMode, viewerOpen = false, onToggleViewer, selectedRecord = null, onSelectRecord = () => {} }: DebtsReceivablesProps) {
+  const hasViewerToggle = Boolean(onToggleViewer)
+  const toggleViewer = onToggleViewer ?? (() => {})
   const { rows, fxMap, isLoading, isError } = useDebtsReceivables()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filters, setFilters] = useState<DRFilters>({})
@@ -152,7 +154,7 @@ export default function DebtsReceivables({ privacyMode, viewerOpen = false, onTo
             onChange={setFilters}
             accounts={accountOptions}
           />
-          <motion.button type="button" aria-label={viewerOpen ? 'Close debts and receivables viewer' : 'Open debts and receivables viewer'} onClick={onToggleViewer} animate={{ rotate: viewerOpen ? 180 : 0 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" /><PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" /></motion.button>
+          <motion.button type="button" aria-label={viewerOpen ? 'Close debts and receivables viewer' : 'Open debts and receivables viewer'} onClick={toggleViewer} animate={{ rotate: viewerOpen ? 180 : 0 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" /><PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" /></motion.button>
         </div>
       </div>
 
@@ -178,9 +180,17 @@ export default function DebtsReceivables({ privacyMode, viewerOpen = false, onTo
                 isExpanded={!viewerOpen && expanded === view.key}
                 selected={viewerOpen && activeRecord === view.key}
                 viewerOpen={viewerOpen}
-                onToggle={() => viewerOpen
-                  ? onSelectRecord(view.key)
-                  : setExpanded((prev) => (prev === view.key ? null : view.key))}
+                onToggle={() => {
+                  if (viewerOpen) {
+                    if (activeRecord === view.key) toggleViewer()
+                    else onSelectRecord(view.key)
+                  } else if (hasViewerToggle) {
+                    onSelectRecord(view.key)
+                    toggleViewer()
+                  } else {
+                    setExpanded((prev) => (prev === view.key ? null : view.key))
+                  }
+                }}
               />
             ))}
           </div>
@@ -217,7 +227,7 @@ function RecordView({ view, mask, isExpanded, selected, viewerOpen, onToggle }: 
         onClick={onToggle}
         aria-expanded={viewerOpen ? undefined : isExpanded}
         aria-pressed={selected || undefined}
-        className="w-full text-left flex flex-col gap-2 rounded-lg p-1 -m-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
+        className="w-full text-left flex flex-col gap-2 rounded-lg px-2 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-1.5 min-w-0">

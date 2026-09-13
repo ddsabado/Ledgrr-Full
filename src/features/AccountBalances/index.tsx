@@ -141,6 +141,14 @@ export default function AccountBalances({
       onSelectAccount(filteredAccounts[0].name);
     onToggleViewer();
   };
+  const selectAccount = (name: string) => {
+    if (viewerOpen && selectedAccount === name) {
+      onToggleViewer();
+      return;
+    }
+    onSelectAccount(name);
+    if (!viewerOpen) onToggleViewer();
+  };
 
   return (
     <motion.div
@@ -259,7 +267,7 @@ export default function AccountBalances({
                               selected={
                                 viewerOpen && selectedAccount === account.name
                               }
-                              onSelect={() => onSelectAccount(account.name)}
+                              onSelect={() => selectAccount(account.name)}
                             />
                           );
                         })}
