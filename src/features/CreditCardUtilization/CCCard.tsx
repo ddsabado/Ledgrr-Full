@@ -49,7 +49,7 @@ export default function CCCard({
   const showNative = account.currency !== "PHP";
 
   // Pill selector index: statement = left cell (0), all = right cell (1).
-  const selectedIndex = cycleView === 'statement' ? 0 : 1;
+  const selectedIndex = cycleView === "statement" ? 0 : 1;
 
   // Public URL for the card art stored in the account_images bucket.
   // null when the account has no image filename set.
@@ -164,7 +164,7 @@ export default function CCCard({
         </div>
 
         {/* Utilization progress bar */}
-        <div className="h-1.5 rounded-full bg-surface2 overflow-hidden">
+        <div className="h-1.5 rounded-full bg-border overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor}`}
             style={{ width: `${barWidth}%` }}
@@ -222,7 +222,7 @@ export default function CCCard({
                   transition={{
                     type: "tween",
                     duration: 0.22,
-                    ease: 'easeInOut',
+                    ease: "easeInOut",
                   }}
                 />
                 {VIEW_TABS.map((tab) => {
