@@ -144,7 +144,7 @@ export default function CCCard({
             alt=""
             aria-hidden="true"
             loading="lazy"
-            className="h-12 w-20 rounded object-contain object-left"
+            className="h-8 w-14 rounded object-contain object-left"
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}

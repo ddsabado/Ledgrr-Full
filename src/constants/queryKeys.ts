@@ -1,5 +1,6 @@
 export const QUERY_KEYS = Object.freeze({
   accountBalances: 'accountBalances',
+  accountImages:   'accountImages',
   currencies:      'currencies',
   transactions:    'transactions',
   installments:    'installments',

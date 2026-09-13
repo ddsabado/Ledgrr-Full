@@ -20,6 +20,18 @@ export interface RawAccountBalance {
   accountType:    string        // classification from Account Categories sheet; '' when unmapped
 }
 
+/** Payload for creating one Accounts-sheet row through accounts-balances. */
+export interface NewCreditCardInput {
+  name: string
+  creditLimit: number
+  initialBalance: number
+  currency: string
+  image: string
+  statementDay: number
+  dueDay: number
+  metadata?: string
+}
+
 /**
  * FX rate map returned by the currencies Edge Function.
  * Keys are ISO currency codes; values are rates relative to PHP.

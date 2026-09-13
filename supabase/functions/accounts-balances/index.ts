@@ -33,6 +33,63 @@ interface RawAccountBalance {
   accountType:    string        // looked up from Account Categories sheet; '' when unmapped
 }
 
+interface NewCreditCardInput {
+  name?: unknown
+  creditLimit?: unknown
+  initialBalance?: unknown
+  currency?: unknown
+  image?: unknown
+  statementDay?: unknown
+  dueDay?: unknown
+  metadata?: unknown
+}
+
+interface ValidCreditCardInput {
+  name: string
+  creditLimit: number
+  initialBalance: number
+  currency: string
+  image: string
+  statementDay: number
+  dueDay: number
+  metadata?: string
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isDay(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 31
+}
+
+function isNewCreditCardInput(value: unknown): value is ValidCreditCardInput {
+  if (!value || typeof value !== 'object') return false
+  const input = value as NewCreditCardInput
+  return typeof input.name === 'string' && input.name.trim() !== '' &&
+    isFiniteNumber(input.creditLimit) && input.creditLimit >= 0 &&
+    isFiniteNumber(input.initialBalance) &&
+    typeof input.currency === 'string' && input.currency.trim() !== '' &&
+    typeof input.image === 'string' &&
+    isDay(input.statementDay) && isDay(input.dueDay) &&
+    (input.metadata === undefined || typeof input.metadata === 'string')
+}
+
+/** Mirrors the Accounts-sheet Current Balance formula using the new row's references. */
+export function currentBalanceFormula(row: number): string {
+  return `=D${row}+SUMPRODUCT((Transactions!C2:C=A${row})*(Transactions!H2:H="Expense")*Transactions!D2:D*IFERROR(VLOOKUP(Transactions!F2:F,Currency!$A:$B,2,0),1)/IFERROR(VLOOKUP(E${row},Currency!$A:$B,2,0),1))+SUMPRODUCT((Transactions!C2:C=A${row})*(Transactions!H2:H="Transfer")*Transactions!D2:D*IFERROR(VLOOKUP(Transactions!F2:F,Currency!$A:$B,2,0),1)/IFERROR(VLOOKUP(E${row},Currency!$A:$B,2,0),1))-SUMPRODUCT((Transactions!G2:G=A${row})*(Transactions!H2:H="Transfer")*Transactions!D2:D*IFERROR(VLOOKUP(Transactions!F2:F,Currency!$A:$B,2,0),1)/IFERROR(VLOOKUP(E${row},Currency!$A:$B,2,0),1))`
+}
+
+/** Converts the validated UI payload to the Accounts sheet's A:K order. */
+export function toAccountRow(input: ValidCreditCardInput, category: string, row: number): string[] {
+  return [
+    input.name.trim(), category, input.creditLimit.toFixed(2),
+    input.initialBalance.toFixed(2), input.currency.trim(), '',
+    input.image.trim(), String(input.statementDay), String(input.dueDay),
+    currentBalanceFormula(row), input.metadata?.trim() ?? '',
+  ]
+}
+
 export function buildHeaderMap(headers: string[]): Record<string, number> {
   return headers.reduce((map, header, index) => {
     map[header.trim()] = index
@@ -91,6 +148,13 @@ const CORS_HEADERS = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS })
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405, headers: CORS_HEADERS })
+  }
+  const action = new URL(req.url).searchParams.get('action')
+  if (action !== null && !(req.method === 'GET' && action === 'images')) {
+    return Response.json({ error: 'Unknown action' }, { status: 400, headers: CORS_HEADERS })
+  }
 
   const cors = { 'Access-Control-Allow-Origin': '*' }
 
@@ -111,6 +175,19 @@ Deno.serve(async (req: Request) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
       auth: { persistSession: false },
     })
+
+    if (action === 'images') {
+      const bucket = supabaseAdmin.storage.from('account_images')
+      const listFolder = async (path = ''): Promise<string[]> => {
+        const { data, error } = await bucket.list(path, { limit: 1000, sortBy: { column: 'name', order: 'asc' } })
+        if (error) throw new Error('Failed to list account images')
+        const entries = await Promise.all((data ?? []).map((item) =>
+          item.metadata ? Promise.resolve([`${path}${item.name}`]) : listFolder(`${path}${item.name}/`),
+        ))
+        return entries.flat()
+      }
+      return Response.json(await listFolder(), { status: 200, headers: CORS_HEADERS })
+    }
 
     const { data: userSheet } = await supabaseAdmin
       .from('user_sheets')
@@ -142,6 +219,47 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: 'Failed to exchange token' }, { status: 502, headers: cors })
     }
     const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
+
+    if (req.method === 'POST') {
+      let input: NewCreditCardInput
+      try { input = await req.json() as NewCreditCardInput } catch {
+        return Response.json({ error: 'Malformed JSON body' }, { status: 400, headers: cors })
+      }
+      if (!isNewCreditCardInput(input)) {
+        return Response.json({ error: 'Invalid credit card details' }, { status: 400, headers: cors })
+      }
+
+      const categoriesRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Account Categories!A:B')}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (!categoriesRes.ok) return Response.json({ error: 'Failed to read account categories' }, { status: 502, headers: cors })
+      const categoryValues = ((await categoriesRes.json()) as { values?: string[][] }).values ?? []
+      const creditCategory = Object.entries(buildCategoryTypeMap(categoryValues)).find(([, type]) => type === 'Credit')?.[0]
+      if (!creditCategory) return Response.json({ error: 'No credit-card account category is configured' }, { status: 422, headers: cors })
+
+      const namesRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Accounts!A2:A')}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (!namesRes.ok) return Response.json({ error: 'Failed to read accounts' }, { status: 502, headers: cors })
+      const { values = [] } = await namesRes.json() as { values?: string[][] }
+      if (values.some((row) => row[0]?.trim() === input.name.trim())) {
+        return Response.json({ error: 'An account with this name already exists' }, { status: 409, headers: cors })
+      }
+
+      const row = values.length + 2
+      const writeRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent(`Accounts!A${row}:K${row}`)}?valueInputOption=USER_ENTERED`,
+        {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ majorDimension: 'ROWS', values: [toAccountRow(input, creditCategory, row)] }),
+        },
+      )
+      if (!writeRes.ok) return Response.json({ error: 'Failed to create credit card' }, { status: 502, headers: cors })
+      return new Response(null, { status: 201, headers: CORS_HEADERS })
+    }
 
     const accountsRes = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/Accounts!A:K`,
