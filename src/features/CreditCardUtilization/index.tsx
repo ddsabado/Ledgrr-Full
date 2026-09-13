@@ -1,21 +1,21 @@
-import { useState } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
-import { PanelLeftOpen, PanelTopOpen } from 'lucide-react'
+import { useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { PanelLeftOpen, PanelTopOpen } from "lucide-react";
 
-import { useAuth } from '@/context/AuthContext'
-import { useCCAccounts } from '@/hooks/useCCAccounts'
-import { useCCTransactions } from '@/hooks/useCCTransactions'
-import { useCurrencies } from '@/hooks/useCurrencies'
-import { resolvePhp } from '@/utils/resolvePhp'
-import type { CCAccount } from '@/types/transactions'
-import CCCard from './CCCard'
+import { useAuth } from "@/context/AuthContext";
+import { useCCAccounts } from "@/hooks/useCCAccounts";
+import { useCCTransactions } from "@/hooks/useCCTransactions";
+import { useCurrencies } from "@/hooks/useCurrencies";
+import { resolvePhp } from "@/utils/resolvePhp";
+import type { CCAccount } from "@/types/transactions";
+import CCCard from "./CCCard";
 
 interface CreditCardUtilizationProps {
-  privacyMode: boolean
-  viewerOpen?: boolean
-  selectedCard?: string | null
-  onSelectCard?: (name: string) => void
-  onToggleViewer?: () => void
+  privacyMode: boolean;
+  viewerOpen?: boolean;
+  selectedCard?: string | null;
+  onSelectCard?: (name: string) => void;
+  onToggleViewer?: () => void;
 }
 
 export default function CreditCardUtilization({
@@ -25,25 +25,25 @@ export default function CreditCardUtilization({
   onSelectCard = () => {},
   onToggleViewer = () => {},
 }: CreditCardUtilizationProps) {
-  const [expandedCard, setExpandedCard] = useState<string | null>(null)
-  const [cycleIndex, setCycleIndex] = useState<Record<string, number>>({})
-  const [cycleView, setCycleView] = useState<'statement' | 'all'>('statement')
-  const reduceMotion = useReducedMotion()
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [cycleIndex, setCycleIndex] = useState<Record<string, number>>({});
+  const [cycleView, setCycleView] = useState<"statement" | "all">("statement");
+  const reduceMotion = useReducedMotion();
 
   // Guard: selecting the already-active view is a no-op (R6.6) — prevents a
   // spurious pill transition when the current option is re-clicked.
-  const handleCycleViewChange = (view: 'statement' | 'all') => {
-    setCycleView((prev) => (prev === view ? prev : view))
-  }
+  const handleCycleViewChange = (view: "statement" | "all") => {
+    setCycleView((prev) => (prev === view ? prev : view));
+  };
 
-  const { session } = useAuth()
-  const { data: fxMap } = useCurrencies()
+  const { session } = useAuth();
+  const { data: fxMap } = useCurrencies();
 
   const {
     data: ccAccounts,
     isLoading: accountsLoading,
     isError: accountsError,
-  } = useCCAccounts()
+  } = useCCAccounts();
 
   const {
     data: ccTxData,
@@ -51,15 +51,15 @@ export default function CreditCardUtilization({
     isError: txError,
   } = useCCTransactions(
     ccAccounts.map((a) => ({ name: a.name, statementDay: a.statementDay })),
-  )
+  );
 
-  const isLoading = accountsLoading || txLoading
-  const isError = accountsError || txError
+  const isLoading = accountsLoading || txLoading;
+  const isError = accountsError || txError;
 
   // ─── Auth guard ───────────────────────────────────────────────────────────
   // When unauthenticated render nothing — no skeleton, no error.
   if (session === null) {
-    return null
+    return null;
   }
 
   // ─── Loading ────────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ export default function CreditCardUtilization({
           <div key={i} className="h-20 bg-surface2 rounded-lg animate-pulse" />
         ))}
       </div>
-    )
+    );
   }
 
   // ─── Error ───────────────────────────────────────────────────────────────
@@ -82,56 +82,75 @@ export default function CreditCardUtilization({
           Could not load credit card data. Please try again later.
         </p>
       </div>
-    )
+    );
   }
 
   // ─── Empty ───────────────────────────────────────────────────────────────
   if (ccAccounts.length === 0) {
     return (
       <div className="rounded-xl bg-surface border border-border p-5">
-        <p className="text-sm text-muted text-center">
-          No credit cards found.
-        </p>
+        <p className="text-sm text-muted text-center">No credit cards found.</p>
       </div>
-    )
+    );
   }
 
   // ─── Merge amountDue from ccTxData into each account ───────────────────────
   // amountDue = sum of phpValue for non-Payment txs in the current cycle
   // (cycles[0]). A "Payment" tx is one where tx.type === 'Transfer'.
   const merged: CCAccount[] = ccAccounts.map((account) => {
-    const cycles = ccTxData.get(account.name)?.cycles ?? []
+    const cycles = ccTxData.get(account.name)?.cycles ?? [];
     const amountDue =
       cycles[0]?.transactions
-        .filter((t) => t.type !== 'Transfer')
-        .reduce((sum, t) => sum + resolvePhp(t, fxMap), 0) ?? 0
-    return { ...account, amountDue }
-  })
+        .filter((t) => t.type !== "Transfer")
+        .reduce((sum, t) => sum + resolvePhp(t, fxMap), 0) ?? 0;
+    return { ...account, amountDue };
+  });
 
   // ─── Success ─────────────────────────────────────────────────────────────
   // Sort by daysUntilDue ascending, nulls last.
   const sorted = [...merged].sort((a, b) => {
-    if (a.daysUntilDue === null && b.daysUntilDue === null) return 0
-    if (a.daysUntilDue === null) return 1
-    if (b.daysUntilDue === null) return -1
-    return a.daysUntilDue - b.daysUntilDue
-  })
+    if (a.daysUntilDue === null && b.daysUntilDue === null) return 0;
+    if (a.daysUntilDue === null) return 1;
+    if (b.daysUntilDue === null) return -1;
+    return a.daysUntilDue - b.daysUntilDue;
+  });
   const toggleViewer = () => {
-    if (!viewerOpen && sorted[0]) onSelectCard(sorted[0].name)
-    setExpandedCard(null)
-    onToggleViewer()
-  }
+    if (!viewerOpen && sorted[0]) onSelectCard(sorted[0].name);
+    setExpandedCard(null);
+    onToggleViewer();
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.15, ease: 'easeInOut' }}
-      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
+      transition={{ duration: 0.15, ease: "easeInOut" }}
+      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? "h-full max-h-none" : "max-h-[calc(100vh-8rem)]"}`}
     >
       <div className="shrink-0 flex items-center justify-between gap-2">
-        <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">Credit Cards</p>
-        <motion.button type="button" aria-label={viewerOpen ? 'Close credit card viewer' : 'Open credit card viewer'} onClick={toggleViewer} animate={{ rotate: viewerOpen ? 180 : 0 }} transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" /><PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" /></motion.button>
+        <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+          Credit Cards
+        </p>
+        <motion.button
+          type="button"
+          aria-label={
+            viewerOpen ? "Close credit card viewer" : "Open credit card viewer"
+          }
+          onClick={toggleViewer}
+          animate={{ rotate: viewerOpen ? 180 : 0 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 260, damping: 30 }
+          }
+          className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
+          <PanelLeftOpen
+            aria-hidden="true"
+            className="hidden h-4 w-4 lg:block"
+          />
+        </motion.button>
       </div>
 
       {/* CC cards — scrollable list; cards keep natural height (shrink-0) so
@@ -147,7 +166,9 @@ export default function CreditCardUtilization({
             onToggle={() =>
               viewerOpen
                 ? onSelectCard(account.name)
-                : setExpandedCard(expandedCard === account.name ? null : account.name)
+                : setExpandedCard(
+                    expandedCard === account.name ? null : account.name,
+                  )
             }
             viewerOpen={viewerOpen}
             selected={selectedCard === account.name}
@@ -161,5 +182,5 @@ export default function CreditCardUtilization({
         ))}
       </div>
     </motion.div>
-  )
+  );
 }

@@ -124,14 +124,14 @@ export default function InstallmentsRecurring({
       </div>
 
       {/* List — the only scroll region; keyed motion.div fades in per month */}
-      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-gutter-stable">
+      <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-1 py-1 scrollbar-gutter-stable">
         <motion.div
           key={`${selectedMonth.year}-${selectedMonth.month}`}
           data-testid="ir-list"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.15, ease: 'easeInOut' }}
-          className="flex flex-col divide-y divide-border"
+          className="flex flex-col divide-y divide-border px-1"
         >
           {result.items.length === 0 ? (
             <p className="py-6 px-2 text-sm text-center text-muted">
@@ -139,7 +139,7 @@ export default function InstallmentsRecurring({
             </p>
           ) : (
             result.items.map((item, i) => (
-              <button key={`${item.name}-${i}`} type="button" onClick={onToggleViewer} className="w-full flex items-start justify-between py-2 gap-3 text-left rounded-md px-2 -mx-2 hover:bg-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset">
+              <button key={`${item.name}-${i}`} type="button" onClick={onToggleViewer} className="w-full flex items-start justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset">
                 {/* Left: name with the account on its own line underneath */}
                 <div className="min-w-0">
                   <p className="text-sm text-text truncate">{item.name}</p>
