@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { motion, AnimatePresence, LayoutGroup, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import {
+  motion,
+  AnimatePresence,
+  LayoutGroup,
+  useReducedMotion,
+} from "motion/react";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
@@ -27,56 +32,83 @@ export default function DashboardPage() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [creditCardViewerOpen, setCreditCardViewerOpen] = useState(false);
-  const [selectedCreditCard, setSelectedCreditCard] = useState<string | null>(null);
+  const [selectedCreditCard, setSelectedCreditCard] = useState<string | null>(
+    null,
+  );
   const [installmentsViewerOpen, setInstallmentsViewerOpen] = useState(false);
   const [debtsViewerOpen, setDebtsViewerOpen] = useState(false);
-  const [selectedDebtRecord, setSelectedDebtRecord] = useState<string | null>(null);
+  const [selectedDebtRecord, setSelectedDebtRecord] = useState<string | null>(
+    null,
+  );
   const reduceMotion = useReducedMotion();
-  const layoutTransition = reduceMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 260, damping: 30 };
-  const mobileViewerOpen = viewerOpen || creditCardViewerOpen || installmentsViewerOpen || debtsViewerOpen;
+  const layoutTransition = reduceMotion
+    ? { duration: 0 }
+    : { type: "spring" as const, stiffness: 260, damping: 30 };
+  const mobileViewerOpen =
+    viewerOpen ||
+    creditCardViewerOpen ||
+    installmentsViewerOpen ||
+    debtsViewerOpen;
+  const accountGroupRef = useRef<HTMLDivElement>(null);
+  const creditCardGroupRef = useRef<HTMLDivElement>(null);
+  const installmentsGroupRef = useRef<HTMLDivElement>(null);
+  const debtsGroupRef = useRef<HTMLDivElement>(null);
+  const previousViewers = useRef({
+    account: false,
+    creditCard: false,
+    installments: false,
+    debts: false,
+  });
+
+  useEffect(() => {
+    const current = {
+      account: viewerOpen,
+      creditCard: creditCardViewerOpen,
+      installments: installmentsViewerOpen,
+      debts: debtsViewerOpen,
+    };
+    const groupToFocus =
+      current.account && !previousViewers.current.account
+        ? accountGroupRef.current
+        : current.creditCard && !previousViewers.current.creditCard
+          ? creditCardGroupRef.current
+          : current.installments && !previousViewers.current.installments
+            ? installmentsGroupRef.current
+            : current.debts && !previousViewers.current.debts
+              ? debtsGroupRef.current
+              : null;
+
+    if (groupToFocus) {
+      groupToFocus.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+
+    previousViewers.current = current;
+  }, [
+    creditCardViewerOpen,
+    debtsViewerOpen,
+    installmentsViewerOpen,
+    reduceMotion,
+    viewerOpen,
+  ]);
 
   const toggleAccountViewer = () => {
-    setViewerOpen((open) => {
-      if (!open) {
-        setCreditCardViewerOpen(false);
-        setInstallmentsViewerOpen(false);
-        setDebtsViewerOpen(false);
-      }
-      return !open;
-    });
+    setViewerOpen((open) => !open);
   };
 
   const toggleCreditCardViewer = () => {
-    setCreditCardViewerOpen((open) => {
-      if (!open) {
-        setViewerOpen(false);
-        setInstallmentsViewerOpen(false);
-        setDebtsViewerOpen(false);
-      }
-      return !open;
-    });
+    setCreditCardViewerOpen((open) => !open);
   };
 
   const toggleInstallmentsViewer = () => {
-    setInstallmentsViewerOpen((open) => {
-      if (!open) {
-        setViewerOpen(false);
-        setCreditCardViewerOpen(false);
-        setDebtsViewerOpen(false);
-      }
-      return !open;
-    });
+    setInstallmentsViewerOpen((open) => !open);
   };
 
   const toggleDebtsViewer = () => {
-    setDebtsViewerOpen((open) => {
-      if (!open) {
-        setViewerOpen(false);
-        setCreditCardViewerOpen(false);
-        setInstallmentsViewerOpen(false);
-      }
-      return !open;
-    });
+    setDebtsViewerOpen((open) => !open);
   };
 
   return (
@@ -135,9 +167,26 @@ export default function DashboardPage() {
           compressing. On < lg screens the panels stack in a single column. */}
       <main className="flex-1 min-h-0 lg:overflow-hidden overflow-y-auto px-4 sm:px-6 py-6">
         <LayoutGroup id="dashboard-cards">
-          <div className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? 'h-full' : ''}`}>
-            <div className={viewerOpen ? "flex h-full shrink-0 flex-col gap-6 lg:contents" : "contents"}>
-              <motion.div layout transition={layoutTransition} className={viewerOpen ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
+          <div
+            className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? "h-full" : ""}`}
+          >
+            <div
+              ref={accountGroupRef}
+              className={
+                viewerOpen
+                  ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
+                  : "contents"
+              }
+            >
+              <motion.div
+                layout
+                transition={layoutTransition}
+                className={
+                  viewerOpen
+                    ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0"
+                    : "lg:w-[24rem] lg:shrink-0"
+                }
+              >
                 <AccountBalances
                   privacyMode={privacyMode}
                   viewerOpen={viewerOpen}
@@ -157,13 +206,31 @@ export default function DashboardPage() {
                     transition={layoutTransition}
                     className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0"
                   >
-                    <AccountViewer accountName={selectedAccount} privacyMode={privacyMode} />
+                    <AccountViewer
+                      accountName={selectedAccount}
+                      privacyMode={privacyMode}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
-            <div className={creditCardViewerOpen ? "flex h-full shrink-0 flex-col gap-6 lg:contents" : "contents"}>
-              <motion.div layout transition={layoutTransition} className={creditCardViewerOpen ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
+            <div
+              ref={creditCardGroupRef}
+              className={
+                creditCardViewerOpen
+                  ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
+                  : "contents"
+              }
+            >
+              <motion.div
+                layout
+                transition={layoutTransition}
+                className={
+                  creditCardViewerOpen
+                    ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0"
+                    : "lg:w-[24rem] lg:shrink-0"
+                }
+              >
                 <CreditCardUtilization
                   privacyMode={privacyMode}
                   viewerOpen={creditCardViewerOpen}
@@ -183,7 +250,10 @@ export default function DashboardPage() {
                     transition={layoutTransition}
                     className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0"
                   >
-                    <CreditCardViewer accountName={selectedCreditCard} privacyMode={privacyMode} />
+                    <CreditCardViewer
+                      accountName={selectedCreditCard}
+                      privacyMode={privacyMode}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -192,10 +262,32 @@ export default function DashboardPage() {
               <Transactions key="transactions" privacyMode={privacyMode} />,
               <Budgets key="budgets" privacyMode={privacyMode} />,
             ].map((card) => (
-              <motion.div key={card.key} layout transition={layoutTransition} className="shrink-0 lg:w-[24rem]">{card}</motion.div>
+              <motion.div
+                key={card.key}
+                layout
+                transition={layoutTransition}
+                className="shrink-0 lg:w-[24rem]"
+              >
+                {card}
+              </motion.div>
             ))}
-            <div className={installmentsViewerOpen ? "flex h-full shrink-0 flex-col gap-6 lg:contents" : "contents"}>
-              <motion.div layout transition={layoutTransition} className={installmentsViewerOpen ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
+            <div
+              ref={installmentsGroupRef}
+              className={
+                installmentsViewerOpen
+                  ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
+                  : "contents"
+              }
+            >
+              <motion.div
+                layout
+                transition={layoutTransition}
+                className={
+                  installmentsViewerOpen
+                    ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0"
+                    : "lg:w-[24rem] lg:shrink-0"
+                }
+              >
                 <InstallmentsRecurring
                   privacyMode={privacyMode}
                   viewerOpen={installmentsViewerOpen}
@@ -218,14 +310,46 @@ export default function DashboardPage() {
                 )}
               </AnimatePresence>
             </div>
-            <div className={debtsViewerOpen ? "flex h-full shrink-0 flex-col gap-6 lg:contents" : "contents"}>
-              <motion.div layout transition={layoutTransition} className={debtsViewerOpen ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0" : "lg:w-[24rem] lg:shrink-0"}>
-                <DebtsReceivables privacyMode={privacyMode} viewerOpen={debtsViewerOpen} selectedRecord={selectedDebtRecord} onSelectRecord={setSelectedDebtRecord} onToggleViewer={toggleDebtsViewer} />
+            <div
+              ref={debtsGroupRef}
+              className={
+                debtsViewerOpen
+                  ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
+                  : "contents"
+              }
+            >
+              <motion.div
+                layout
+                transition={layoutTransition}
+                className={
+                  debtsViewerOpen
+                    ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0"
+                    : "lg:w-[24rem] lg:shrink-0"
+                }
+              >
+                <DebtsReceivables
+                  privacyMode={privacyMode}
+                  viewerOpen={debtsViewerOpen}
+                  selectedRecord={selectedDebtRecord}
+                  onSelectRecord={setSelectedDebtRecord}
+                  onToggleViewer={toggleDebtsViewer}
+                />
               </motion.div>
               <AnimatePresence initial={false} mode="popLayout">
                 {debtsViewerOpen && (
-                  <motion.div key="debts-receivables-viewer" layout initial={reduceMotion ? false : { opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }} transition={layoutTransition} className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0">
-                    <DebtsandReceivablesViewer privacyMode={privacyMode} selectedRecord={selectedDebtRecord} />
+                  <motion.div
+                    key="debts-receivables-viewer"
+                    layout
+                    initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                    transition={layoutTransition}
+                    className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0"
+                  >
+                    <DebtsandReceivablesViewer
+                      privacyMode={privacyMode}
+                      selectedRecord={selectedDebtRecord}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>

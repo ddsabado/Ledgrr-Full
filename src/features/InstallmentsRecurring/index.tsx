@@ -139,7 +139,7 @@ export default function InstallmentsRecurring({
             </p>
           ) : (
             result.items.map((item, i) => (
-              <div key={`${item.name}-${i}`} className="flex items-start justify-between py-2 gap-3">
+              <button key={`${item.name}-${i}`} type="button" onClick={onToggleViewer} className="w-full flex items-start justify-between py-2 gap-3 text-left rounded-md px-2 -mx-2 hover:bg-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset">
                 {/* Left: name with the account on its own line underneath */}
                 <div className="min-w-0">
                   <p className="text-sm text-text truncate">{item.name}</p>
@@ -157,7 +157,7 @@ export default function InstallmentsRecurring({
                       : `${item.iteration}/${item.terms}`}
                   </span>
                 </div>
-              </div>
+              </button>
             ))
           )}
         </motion.div>
