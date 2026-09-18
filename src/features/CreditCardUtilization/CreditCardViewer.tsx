@@ -10,8 +10,11 @@ import {
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useCCAccounts } from "@/hooks/useCCAccounts";
 import { useCCTransactions } from "@/hooks/useCCTransactions";
+import { useCurrencies } from "@/hooks/useCurrencies";
+import { formatCurrency } from "@/utils/currency";
 import TransactionList from "./TransactionList";
 import CycleNavigator from "./CycleNavigator";
+import { getStatementTotal } from "./utils";
 import {
   filterTransactions,
   type AccountTransactionFilters,
@@ -31,6 +34,7 @@ export default function CreditCardViewer({
   const [cycleIndex, setCycleIndex] = useState(0);
   const [filters, setFilters] = useState<AccountTransactionFilters>({});
   const reduceMotion = useReducedMotion();
+  const { data: fxMap } = useCurrencies();
   const {
     data: accounts,
     isLoading: accountsLoading,
@@ -56,6 +60,7 @@ export default function CreditCardViewer({
   );
   const cycles = txData?.cycles ?? [];
   const activeCycle = cycles[cycleIndex];
+  const statementTotal = getStatementTotal(activeCycle?.transactions ?? [], fxMap);
   const source =
     view === "statement"
       ? (activeCycle?.transactions ?? [])
@@ -214,17 +219,22 @@ export default function CreditCardViewer({
         </div>
       </LayoutGroup>
       {view === "statement" && (
-        <CycleNavigator
-          label={activeCycle?.label ?? "—"}
-          onPrevious={() =>
-            setCycleIndex((index) =>
-              Math.min(index + 1, Math.max(0, cycles.length - 1)),
-            )
-          }
-          onNext={() => setCycleIndex((index) => Math.max(0, index - 1))}
-          canGoPrevious={cycleIndex < cycles.length - 1}
-          canGoNext={cycleIndex > 0}
-        />
+        <div className="flex flex-col gap-1">
+          <CycleNavigator
+            label={activeCycle?.label ?? "—"}
+            onPrevious={() =>
+              setCycleIndex((index) =>
+                Math.min(index + 1, Math.max(0, cycles.length - 1)),
+              )
+            }
+            onNext={() => setCycleIndex((index) => Math.max(0, index - 1))}
+            canGoPrevious={cycleIndex < cycles.length - 1}
+            canGoNext={cycleIndex > 0}
+          />
+          <p className="text-right text-xs tabular-nums text-muted">
+            Total {privacyMode ? "••••••" : formatCurrency(statementTotal, "PHP")}
+          </p>
+        </div>
       )}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
         {isLoading && (
@@ -239,7 +249,9 @@ export default function CreditCardViewer({
         )}
         {!isLoading && !isError && transactions.length === 0 && (
           <p className="py-8 text-center text-sm text-muted">
-            No matching transactions.
+            {view === "statement" && (activeCycle?.transactions.length ?? 0) === 0
+              ? "No transactions."
+              : "No matching transactions."}
           </p>
         )}
         {!isLoading && !isError && transactions.length > 0 && (

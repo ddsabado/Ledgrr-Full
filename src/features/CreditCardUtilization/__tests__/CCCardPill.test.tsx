@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 
 import CCCard from '@/features/CreditCardUtilization/CCCard'
 import ccSource from '@/features/CreditCardUtilization/CCCard.tsx?raw'
-import type { CCAccount, CCTransactionData } from '@/types/transactions'
+import { getStatementTotal } from '@/features/CreditCardUtilization/utils'
+import type { CCAccount, CCTransactionData, RawTransaction } from '@/types/transactions'
 vi.mock('@/hooks/useCurrencies', () => ({ useCurrencies: () => ({ data: { PHP: 1 }, isLoading: false, isError: false }) }))
 
 
@@ -61,6 +62,22 @@ function highlights(container: HTMLElement): HTMLElement[] {
 }
 
 describe('CCCard Pill_Selector (R6)', () => {
+  it('shows a zero total and explicit empty state for an empty statement', () => {
+    renderCard('statement')
+
+    expect(screen.getByText('No transactions.')).toBeInTheDocument()
+    expect(screen.getByText(/Total/)).toBeInTheDocument()
+  })
+
+  it('excludes card-payment transfers from a statement total', () => {
+    const statementTransactions: RawTransaction[] = [
+      { key: 'expense', date: '9/1/2026', account: 'Test Card', amount: 1000, resolvedAmount: null, currency: 'PHP', targetAccount: '', type: 'Expense', category: '', subcategory: '', budget: '', note: '' },
+      { key: 'payment', date: '9/2/2026', account: 'Cash', amount: 400, resolvedAmount: null, currency: 'PHP', targetAccount: 'Test Card', type: 'Transfer', category: '', subcategory: '', budget: '', note: '' },
+    ]
+
+    expect(getStatementTotal(statementTransactions, { PHP: 1 })).toBe(1000)
+  })
+
   it('renders exactly one persistent highlight in both view states (R6.4)', () => {
     const a = renderCard('statement')
     expect(highlights(a.container)).toHaveLength(1)
@@ -85,7 +102,7 @@ describe('CCCard Pill_Selector (R6)', () => {
   })
 
   it('uses a tween duration within [0.15, 0.40]s (R6.5)', () => {
-    const m = ccSource.match(/duration:\s*(0?\.\d+)[^}]*ease:\s*'easeInOut'/)
+    const m = ccSource.match(/duration:\s*(0?\.\d+)[^}]*ease:\s*["']easeInOut["']/)
     expect(m, 'highlight transition config not found').not.toBeNull()
     const duration = Number(m![1])
     expect(duration).toBeGreaterThanOrEqual(0.15)
@@ -94,7 +111,7 @@ describe('CCCard Pill_Selector (R6)', () => {
 
   it('selectedIndex direction: statement=0 (left), all=1 (right) (R6.1, R6.2)', () => {
     // Model-level: index 0 for statement, 1 for all — drives x 0% vs 100%.
-    expect(ccSource).toContain("cycleView === 'statement' ? 0 : 1")
+    expect(ccSource).toMatch(/cycleView === ["']statement["'] \? 0 : 1/)
   })
 
   it('re-selecting the active option is a no-op (R6.6)', async () => {

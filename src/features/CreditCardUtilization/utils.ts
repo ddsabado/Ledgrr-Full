@@ -6,9 +6,25 @@
  */
 
 import { supabase } from '@/lib/supabase'
+import type { CurrencyData } from '@/types/accounts'
+import type { RawTransaction } from '@/types/transactions'
+import { resolvePhp } from '@/utils/resolvePhp'
 
 /** Storage bucket holding per-account card images. */
 const ACCOUNT_IMAGES_BUCKET = 'account_images'
+
+/**
+ * Returns a statement's amount due in PHP. Transfers are card payments, not
+ * statement charges, so they do not contribute to the statement total.
+ */
+export function getStatementTotal(
+  transactions: RawTransaction[],
+  fxMap: CurrencyData,
+): number {
+  return transactions
+    .filter((transaction) => transaction.type !== 'Transfer')
+    .reduce((total, transaction) => total + resolvePhp(transaction, fxMap), 0)
+}
 
 /**
  * Resolves the public URL for an account image filename stored in the

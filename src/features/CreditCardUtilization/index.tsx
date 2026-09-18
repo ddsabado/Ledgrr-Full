@@ -7,7 +7,6 @@ import { useCCAccounts } from "@/hooks/useCCAccounts";
 import { useCCTransactions } from "@/hooks/useCCTransactions";
 import { useCurrencies } from "@/hooks/useCurrencies";
 import { useAccountImages } from "@/hooks/useAccountImages";
-import { resolvePhp } from "@/utils/resolvePhp";
 import type { CCAccount } from "@/types/transactions";
 import type { NewCreditCardInput } from "@/types/accounts";
 import { createCreditCard } from "@/services/api";
@@ -15,6 +14,7 @@ import { queryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import CCCard from "./CCCard";
 import NewCreditCardDialog from "./NewCreditCardDialog";
+import { getStatementTotal } from "./utils";
 
 interface CreditCardUtilizationProps {
   privacyMode: boolean;
@@ -97,14 +97,12 @@ export default function CreditCardUtilization({
   }
 
   // ─── Merge amountDue from ccTxData into each account ───────────────────────
-  // amountDue = sum of phpValue for non-Payment txs in the current cycle
-  // (cycles[0]). A "Payment" tx is one where tx.type === 'Transfer'.
+  // cycles[0] is the running statement cycle. The dashboard instead shows the
+  // latest completed statement, which is cycles[1]. Transfers are payments and
+  // do not contribute to the statement total.
   const merged: CCAccount[] = ccAccounts.map((account) => {
     const cycles = ccTxData.get(account.name)?.cycles ?? [];
-    const amountDue =
-      cycles[0]?.transactions
-        .filter((t) => t.type !== "Transfer")
-        .reduce((sum, t) => sum + resolvePhp(t, fxMap), 0) ?? 0;
+    const amountDue = getStatementTotal(cycles[1]?.transactions ?? [], fxMap);
     return { ...account, amountDue };
   });
 
