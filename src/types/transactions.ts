@@ -48,5 +48,5 @@ export interface CCAccount extends RawAccountBalance {
   phpEquivalent: number
   utilization:   number         // 0–100+ (clamped to 0 minimum)
   daysUntilDue:  number | null  // null when dueDay is null or ≤ 0
-  amountDue:     number         // sum of non-payment phpValues in current cycle
+  amountDue:     number         // sum of non-payment PHP values in latest completed cycle
 }

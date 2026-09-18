@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from "motion/react";
 
 import type { CCAccount, CCTransactionData } from "@/types/transactions";
 import { formatCurrency } from "@/utils/currency";
+import { useCurrencies } from "@/hooks/useCurrencies";
 import {
   getUtilizationBarColor,
   getDueBadgeText,
   getDueBadgeColor,
   getAccountImageUrl,
+  getStatementTotal,
 } from "./utils";
 import TransactionList from "./TransactionList";
 import CycleNavigator from "./CycleNavigator";
@@ -46,6 +48,7 @@ export default function CCCard({
   viewerOpen = false,
   selected = false,
 }: CCCardProps) {
+  const { data: fxMap } = useCurrencies();
   const showNative = account.currency !== "PHP";
 
   // Pill selector index: statement = left cell (0), all = right cell (1).
@@ -96,6 +99,10 @@ export default function CCCard({
   // Cycle navigation state (index 0 = most recent).
   const cycles = txData?.cycles ?? [];
   const activeCycle = cycles[cycleIndex];
+  const statementTotal = getStatementTotal(activeCycle?.transactions ?? [], fxMap);
+  const statementTotalDisplay = privacyMode
+    ? PRIVACY_MASK
+    : formatCurrency(statementTotal, "PHP");
   const canGoPrevious = cycleIndex < cycles.length - 1; // older
   const canGoNext = cycleIndex > 0; // newer
 
@@ -254,6 +261,9 @@ export default function CCCard({
                     canGoPrevious={canGoPrevious}
                     canGoNext={canGoNext}
                   />
+                  <p className="text-right text-xs tabular-nums text-muted">
+                    Total <span className="font-semibold text-text">{statementTotalDisplay}</span>
+                  </p>
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={cycleIndex}
@@ -263,10 +273,14 @@ export default function CCCard({
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.15, ease: "easeInOut" }}
                     >
-                      <TransactionList
-                        transactions={activeCycle?.transactions ?? []}
-                        privacyMode={privacyMode}
-                      />
+                      {(activeCycle?.transactions.length ?? 0) === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted">No transactions.</p>
+                      ) : (
+                        <TransactionList
+                          transactions={activeCycle?.transactions ?? []}
+                          privacyMode={privacyMode}
+                        />
+                      )}
                     </motion.div>
                   </AnimatePresence>
                 </div>
