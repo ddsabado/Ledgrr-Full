@@ -1,5 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { sortTransactionsByDate } from '../_shared/sortTransactions.ts'
+import { adjustmentTransactionRow, formatAdjustmentTimestamp, isAdjustBalanceInput, type AdjustBalanceInput } from './adjustBalance.ts'
+import { adjustedCurrentBalanceFormula, currentBalanceFormula } from './formulas.ts'
 
 const ACCOUNTS_COLUMNS = Object.freeze({
   NAME:            'Account',
@@ -75,11 +78,6 @@ function isNewCreditCardInput(value: unknown): value is ValidCreditCardInput {
     (input.metadata === undefined || typeof input.metadata === 'string')
 }
 
-/** Mirrors the Accounts-sheet Current Balance formula using the new row's references. */
-export function currentBalanceFormula(row: number): string {
-  return `=D${row}+SUMPRODUCT((Transactions!C2:C=A${row})*(Transactions!H2:H="Expense")*Transactions!D2:D*IFERROR(VLOOKUP(Transactions!F2:F,Currency!$A:$B,2,0),1)/IFERROR(VLOOKUP(E${row},Currency!$A:$B,2,0),1))+SUMPRODUCT((Transactions!C2:C=A${row})*(Transactions!H2:H="Transfer")*Transactions!D2:D*IFERROR(VLOOKUP(Transactions!F2:F,Currency!$A:$B,2,0),1)/IFERROR(VLOOKUP(E${row},Currency!$A:$B,2,0),1))-SUMPRODUCT((Transactions!G2:G=A${row})*(Transactions!H2:H="Transfer")*Transactions!D2:D*IFERROR(VLOOKUP(Transactions!F2:F,Currency!$A:$B,2,0),1)/IFERROR(VLOOKUP(E${row},Currency!$A:$B,2,0),1))`
-}
-
 /** Converts the validated UI payload to the Accounts sheet's A:K order. */
 export function toAccountRow(input: ValidCreditCardInput, category: string, row: number): string[] {
   return [
@@ -152,7 +150,7 @@ Deno.serve(async (req: Request) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405, headers: CORS_HEADERS })
   }
   const action = new URL(req.url).searchParams.get('action')
-  if (action !== null && !(req.method === 'GET' && action === 'images')) {
+  if (action !== null && !(req.method === 'GET' && action === 'images') && !(req.method === 'POST' && action === 'adjust-balance')) {
     return Response.json({ error: 'Unknown action' }, { status: 400, headers: CORS_HEADERS })
   }
 
@@ -221,10 +219,88 @@ Deno.serve(async (req: Request) => {
     const { access_token: accessToken } = await tokenRes.json() as { access_token: string }
 
     if (req.method === 'POST') {
-      let input: NewCreditCardInput
+      let input: NewCreditCardInput | AdjustBalanceInput
       try { input = await req.json() as NewCreditCardInput } catch {
         return Response.json({ error: 'Malformed JSON body' }, { status: 400, headers: cors })
       }
+
+      if (action === 'adjust-balance') {
+        if (!isAdjustBalanceInput(input)) {
+          return Response.json({ error: 'Invalid balance adjustment' }, { status: 400, headers: cors })
+        }
+        const accountsRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/Accounts!A:K`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        )
+        if (!accountsRes.ok) return Response.json({ error: 'Failed to read accounts' }, { status: 502, headers: cors })
+        const accountValues = ((await accountsRes.json()) as { values?: string[][] }).values ?? []
+        if (accountValues.length < 2) return Response.json({ error: 'Account not found' }, { status: 404, headers: cors })
+
+        const categoriesRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Account Categories!A:B')}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        )
+        if (!categoriesRes.ok) return Response.json({ error: 'Failed to read account categories' }, { status: 502, headers: cors })
+        const categoryValues = ((await categoriesRes.json()) as { values?: string[][] }).values ?? []
+        const categoryToType = buildCategoryTypeMap(categoryValues)
+        const headerMap = buildHeaderMap(accountValues[0])
+        const accountIndex = accountValues.slice(1).findIndex((row) => row[headerMap[ACCOUNTS_COLUMNS.NAME] ?? -1]?.trim() === input.accountName.trim())
+        if (accountIndex === -1) return Response.json({ error: 'Account not found' }, { status: 404, headers: cors })
+        const accountRow = accountValues[accountIndex + 1]
+        const account = mapRowToAccount(accountRow, headerMap, categoryToType)
+        if (!account) return Response.json({ error: 'Account not found' }, { status: 404, headers: cors })
+        if (account.accountType.trim().toLowerCase() === 'credit') {
+          return Response.json({ error: 'Credit-card balances cannot be adjusted' }, { status: 400, headers: cors })
+        }
+        const delta = input.targetBalance - account.currentBalance
+        if (!Number.isFinite(delta) || delta === 0) {
+          return Response.json({ error: 'Target balance must differ from the current balance' }, { status: 400, headers: cors })
+        }
+
+        const existingRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent('Transactions!B2:B')}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        )
+        if (!existingRes.ok) return Response.json({ error: 'Failed to read transactions' }, { status: 502, headers: cors })
+        const existing = await existingRes.json() as { values?: string[][] }
+        const transactionRow = 2 + (existing.values?.length ?? 0)
+        const date = formatAdjustmentTimestamp(new Date())
+        const accountSheetRow = accountIndex + 2
+        // Install the adjustment-aware formula first. If it fails, no financial
+        // row has been written; if the following append fails, this formula is
+        // still equivalent until a future Adjustment row exists.
+        const formulaRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent(`Accounts!J${accountSheetRow}`)}?valueInputOption=USER_ENTERED`,
+          {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[adjustedCurrentBalanceFormula(accountSheetRow)]] }),
+          },
+        )
+        if (!formulaRes.ok) return Response.json({ error: 'Failed to update account balance formula' }, { status: 502, headers: cors })
+        const adjustmentRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/${encodeURIComponent(`Transactions!B${transactionRow}:L${transactionRow}`)}?valueInputOption=USER_ENTERED`,
+          {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ majorDimension: 'ROWS', values: [adjustmentTransactionRow(date, account.name, account.currency, delta)] }),
+          },
+        )
+        if (!adjustmentRes.ok) return Response.json({ error: 'Failed to write adjustment' }, { status: 502, headers: cors })
+        let sortWarning = false
+        try {
+          await sortTransactionsByDate(accessToken, userSheet.sheet_id)
+        } catch (error) {
+          // The adjustment is already persisted and its formula is correct.
+          // Return success so the client refreshes its stale balance and rows;
+          // sorting is a non-financial presentation concern that can recover
+          // on the next transaction write.
+          console.error('Adjustment recorded but failed to sort transactions:', error)
+          sortWarning = true
+        }
+        return Response.json({ ok: true, sortWarning }, { status: 201, headers: CORS_HEADERS })
+      }
+
       if (!isNewCreditCardInput(input)) {
         return Response.json({ error: 'Invalid credit card details' }, { status: 400, headers: cors })
       }

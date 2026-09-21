@@ -32,6 +32,12 @@ export interface NewCreditCardInput {
   metadata?: string
 }
 
+/** Command payload for setting a non-credit account's native-currency balance. */
+export interface AdjustAccountBalanceInput {
+  accountName: string
+  targetBalance: number
+}
+
 /**
  * FX rate map returned by the currencies Edge Function.
  * Keys are ISO currency codes; values are rates relative to PHP.
