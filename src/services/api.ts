@@ -1,5 +1,5 @@
 import { supabase, SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase'
-import type { RawAccountBalancesData, CurrencyData, NewCreditCardInput } from '@/types/accounts'
+import type { AdjustAccountBalanceInput, RawAccountBalancesData, CurrencyData, NewCreditCardInput } from '@/types/accounts'
 import type { RawTransaction } from '@/types/transactions'
 import type { NewInstallmentInput, NewRecurringInput, NewTransactionInput, RawInstallmentRow, RawRecurringRow } from '@/types/installments'
 import type { RawBudgetRow } from '@/types/budgets'
@@ -53,6 +53,21 @@ export async function createCreditCard(input: NewCreditCardInput): Promise<void>
     body: JSON.stringify(input),
   })
   assertOk(res, 'credit card')
+}
+
+/** Appends a signed Adjustment transaction for a non-credit account. */
+export async function adjustAccountBalance(input: AdjustAccountBalanceInput): Promise<void> {
+  const headers = await buildHeaders()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/accounts-balances?action=adjust-balance`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new AuthError()
+  if (!res.ok) {
+    const body = await res.json().catch(() => null) as { error?: unknown } | null
+    throw new Error(typeof body?.error === 'string' ? body.error : `Failed to adjust account balance (${res.status})`)
+  }
 }
 
 /** Lists selectable card-art filenames via the authenticated Accounts endpoint. */
