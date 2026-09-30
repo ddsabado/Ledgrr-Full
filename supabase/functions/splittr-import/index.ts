@@ -3,6 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { getSheetContext, sheetHeaders, SheetContextError } from '../_shared/sheetContext.ts'
 import { sortTransactionsByDate } from '../_shared/sortTransactions.ts'
 import { validateGroup as parseGroup, type Group } from './validateGroup.ts'
+import { buildSplittrImportRows } from './settlementRows.ts'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
 const API_ORIGIN = 'https://ddsabado-splittr.vercel.app'
@@ -98,32 +99,7 @@ Deno.serve(async (req) => {
     const read = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${context.sheetId}/values:batchGet?ranges=${encodeURIComponent('Debts and Receivables!A2:A')}&ranges=${encodeURIComponent('Transactions!B2:B')}`, { headers: { Authorization: `Bearer ${context.accessToken}` }, signal: AbortSignal.timeout(30_000) })
     if (!read.ok) return json({ error: 'Failed to read finance sheet.' }, 502)
     const values = await read.json() as { valueRanges?: { values?: string[][] }[] }; let drRow = 2 + (values.valueRanges?.[0]?.values?.length ?? 0); let txRow = 2 + (values.valueRanges?.[1]?.values?.length ?? 0)
-    const data: Array<{ range: string; majorDimension: string; values: string[][] }> = []
-    const member = group.members.find((m) => m.id === memberId)!
-    const balances = new Map<string, number>()
-    const metadata = new Map<string, { date: string; account: string; category: string; subcategory: string; budget: string }>()
-    for (const item of selected) {
-      const expense = byId.get(item.expenseId)!; const myShare = expense.shares.find((share) => share.memberId === memberId)?.amount ?? 0
-      if (expense.paidByMemberId === memberId) {
-        const otherTotal = expense.shares.filter((share) => share.memberId !== memberId).reduce((sum, share) => sum + share.amount, 0)
-        data.push({ range: `Transactions!B${txRow}:L${txRow}`, majorDimension: 'ROWS', values: [[expense.date, item.account!, expense.amount.toFixed(2), '', group.baseCurrency, '', 'Expense', item.category!, item.subcategory, item.budget, `Splittr import: ${group.name}`]] }); txRow++
-        if (otherTotal > 0) { data.push({ range: `Transactions!B${txRow}:L${txRow}`, majorDimension: 'ROWS', values: [[expense.date, item.account!, (-otherTotal).toFixed(2), '', group.baseCurrency, '', 'Split Offset', item.category!, item.subcategory, item.budget, `Splittr offset: ${group.name}`]] }); txRow++ }
-        for (const share of expense.shares.filter((share) => share.memberId !== memberId && share.amount > 0)) balances.set(share.memberId, (balances.get(share.memberId) ?? 0) + share.amount)
-      } else if (myShare > 0) {
-        balances.set(expense.paidByMemberId, (balances.get(expense.paidByMemberId) ?? 0) - myShare)
-      }
-      for (const share of expense.shares) if (share.memberId !== memberId && !metadata.has(share.memberId)) metadata.set(share.memberId, { date: expense.date, account: item.account!, category: item.category!, subcategory: item.subcategory, budget: item.budget })
-    }
-    for (const [counterpartyId, balance] of balances) {
-      if (Math.abs(balance) < 0.005) continue
-      const counterparty = group.members.find((m) => m.id === counterpartyId)!; const details = metadata.get(counterpartyId)!
-      const direction = balance > 0 ? 'Receivable' : 'Payable'; const amount = Math.abs(balance)
-      const shares = direction === 'Receivable' ? [0, amount] : [amount, 0]
-      const paid = settledAccount ? `${direction === 'Receivable' ? counterparty.name : member.name}:${amount.toFixed(2)}:${group.baseCurrency}` : ''
-      const status = settledAccount ? 'Settled' : 'Pending'
-      data.push({ range: `Debts and Receivables!A${drRow}:N${drRow++}`, majorDimension: 'ROWS', values: [[`Splittr: ${group.name} — ${counterparty.name}`, direction === 'Receivable' ? details.account : '', details.date, amount.toFixed(2), `${member.name};${counterparty.name}`, 'Exact', shares.map((share) => share.toFixed(2)).join(';'), details.category, details.subcategory, paid, status, direction, group.baseCurrency, '']] })
-      if (settledAccount) { const type = direction === 'Receivable' ? 'Income' : 'Expense'; const category = direction === 'Receivable' ? 'Receivables' : 'Payables'; const note = direction === 'Receivable' ? `Splittr receipt from ${counterparty.name}: ${group.name}` : `Splittr payment to ${counterparty.name}: ${group.name}`; data.push({ range: `Transactions!B${txRow}:L${txRow}`, majorDimension: 'ROWS', values: [[details.date, settledAccount, amount.toFixed(2), '', group.baseCurrency, '', type, category, '', '', note]] }); txRow++ }
-    }
+    const data = buildSplittrImportRows({ group, memberId, selected, settledAccount, debtRow: drRow, transactionRow: txRow })
     const write = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${context.sheetId}/values:batchUpdate`, { method: 'POST', headers: sheetHeaders(context.accessToken), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) })
     if (!write.ok) return json({ error: 'The import was reserved but the finance sheet could not be written.' }, 502)
     await sortTransactionsByDate(context.accessToken, context.sheetId).catch(() => undefined)
