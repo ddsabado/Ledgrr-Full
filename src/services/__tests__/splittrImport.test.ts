@@ -12,7 +12,7 @@ describe('Splittr import client', () => {
   beforeEach(() => vi.restoreAllMocks())
 
   it('sends the share only to the authenticated Edge Function preview', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ group: {}, importedExpenseIds: [] })))
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ group: {} })))
     await previewSplittrGroup('share-token')
     expect(fetchMock).toHaveBeenCalledWith('https://project.supabase.co/functions/v1/splittr-import', expect.objectContaining({
       method: 'POST', headers: expect.objectContaining({ Authorization: 'Bearer jwt' }), body: JSON.stringify({ action: 'preview', share: 'share-token' }),
