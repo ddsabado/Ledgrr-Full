@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Plus, Split, X } from "lucide-react";
+import { Download, Plus, Split, X } from "lucide-react";
 
 import {
   Dialog,
@@ -20,6 +20,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTxnCatSub } from "@/hooks/useTxnCatSub";
 import { useSubmitDebtReceivable } from "@/hooks/useDebtReceivableMutations";
 import type { NewDebtReceivableInput } from "@/types/debtsReceivables";
+import SplittrImportDialog from "./SplittrImportDialog";
 
 interface SplitBillDialogProps {
   open: boolean;
@@ -93,6 +94,7 @@ export default function SplitBillDialog({
     { name: "", share: "" },
   ]);
   const [error, setError] = useState("");
+  const [splittrOpen, setSplittrOpen] = useState(false);
 
   const reset = () => {
     setStep("menu");
@@ -187,6 +189,7 @@ export default function SplitBillDialog({
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 260, damping: 30 };
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={(value) => (value ? onOpenChange(true) : close())}
@@ -220,6 +223,16 @@ export default function SplitBillDialog({
                     Track shared expenses and repayments
                   </span>
                 </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSplittrOpen(true)}
+                className="mt-3 flex w-full items-center gap-3 rounded-xl border border-border bg-surface2 p-4 text-left transition-colors hover:bg-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-accent/15 text-accent">
+                  <Download aria-hidden="true" className="h-5 w-5" />
+                </span>
+                <span><span className="block text-sm font-medium text-text">Import Splittr group</span><span className="block text-xs text-muted">Review expenses before adding them</span></span>
               </button>
             </motion.div>
           ) : (
@@ -466,5 +479,7 @@ export default function SplitBillDialog({
         </AnimatePresence>
       </DialogContent>
     </Dialog>
+    <SplittrImportDialog open={splittrOpen} onOpenChange={setSplittrOpen} onImportSuccess={close} accounts={accounts} budgets={budgetOptions} categories={txnCategories} />
+    </>
   );
 }

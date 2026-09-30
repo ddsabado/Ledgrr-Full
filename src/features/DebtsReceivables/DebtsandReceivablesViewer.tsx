@@ -12,6 +12,7 @@ import SplitBillDialog from './SplitBillDialog'
 import { submitDebtReceivablePayment } from '@/services/api'
 import { useSubmitDebtReceivablePayment } from '@/hooks/useDebtReceivableMutations'
 import { formatCurrency } from '@/utils/currency'
+import type { SplittrExpenseDetail } from '../../../supabase/functions/_shared/splittrImportDetails'
 
 interface Props { privacyMode: boolean; selectedRecord?: string | null }
 function today() { return new Date() }
@@ -50,9 +51,14 @@ function RecordDetails({ view, privacyMode }: { view: DebtReceivableView; privac
     <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable space-y-4">
       <div className="rounded-lg border border-border bg-surface2 p-3"><div className="flex items-center justify-between gap-3"><span className="text-sm text-muted">Total</span><span className="text-lg font-semibold tabular-nums text-text">{mask(view.totalNative, view.currency)}</span></div></div>
       <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-widest text-muted">Participants</p>{view.participants.map((participant) => { const hideStatus = view.direction === 'Receivable' && participant.isOwner || view.direction === 'Payable' && !participant.isOwner; const displayStatus = hideStatus ? null : participant.status; const isPaid = displayStatus === 'Paid'; const canPay = view.direction === 'Payable' ? participant.isOwner : !participant.isOwner; return <div key={participant.name} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"><div className="min-w-0"><p className={`truncate text-sm ${isPaid ? 'text-green-500' : 'text-text'}`}>{participant.name}{participant.isOwner ? ' (me)' : ''}{!hideStatus && isPaid && <Check aria-hidden="true" className="ml-1 inline h-3 w-3" />}</p>{!hideStatus && <p className="text-xs text-muted">{displayStatus}{participant.paidPhp > 0 && !isPaid ? ` · paid ${mask(participant.paidPhp)}` : ''}</p>}</div><div className="flex shrink-0 items-center gap-2"><span className="text-sm tabular-nums text-muted">{mask(participant.shareNative, view.currency)}</span>{canPay && !isPaid && <button type="button" onClick={() => setPayment(participant)} className="rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">{actionLabel}</button>}</div></div> })}</div>
+      {view.splittrExpenses && <SplittrExpenseDetails expenses={view.splittrExpenses} mask={mask} />}
     </div>
     <PaymentDialog view={view} participant={payment} accounts={accounts} open={payment !== null} submitting={mutation.isPending} onClose={() => setPayment(null)} onSubmit={(input) => mutation.mutate(input, { onSuccess: () => setPayment(null) })} />
   </>
+}
+
+function SplittrExpenseDetails({ expenses, mask }: { expenses: SplittrExpenseDetail[]; mask: (amount: number, currency?: string) => string }) {
+  return <section className="space-y-2"><p className="text-xs font-semibold uppercase tracking-widest text-muted">Imported Splittr expenses</p><div className="divide-y divide-border overflow-hidden rounded-lg border border-border">{expenses.map((expense, index) => <div key={`${expense.date}-${expense.description}-${index}`} className="space-y-1.5 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm text-text">{expense.description || 'Untitled expense'}</p><p className="text-xs text-muted">{expense.date} · Paid by {expense.paidBy}</p></div><span className="shrink-0 text-sm tabular-nums text-text">{mask(expense.amount, expense.currency)}</span></div>{expense.items?.length ? <ul className="space-y-1 text-xs text-muted">{expense.items.map((item, itemIndex) => <li key={`${item.description}-${itemIndex}`}><span className="text-text">{item.description}</span> · Split: {item.splits.map((split) => `${split.member} ${mask(split.amount, expense.currency)}`).join(' · ')}</li>)}</ul> : <p className="text-xs text-muted">Split: {expense.splits.map((split) => `${split.member} ${mask(split.amount, expense.currency)}`).join(' · ')}</p>}</div>)}</div></section>
 }
 
 function PaymentDialog({ view, participant, accounts, open, submitting, onClose, onSubmit }: { view: DebtReceivableView; participant: ParticipantView | null; accounts: string[]; open: boolean; submitting: boolean; onClose: () => void; onSubmit: (input: Parameters<typeof submitDebtReceivablePayment>[0]) => void }) {
