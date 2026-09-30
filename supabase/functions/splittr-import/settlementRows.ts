@@ -32,15 +32,10 @@ export function buildSplittrImportRows({
   for (const item of selected) {
     const expense = byId.get(item.expenseId)!
     if (expense.paidByMemberId !== memberId) continue
-    const otherTotal = expense.shares.filter((share) => share.memberId !== memberId).reduce((sum, share) => sum + share.amount, 0)
     const metadata = { date: expense.date, account: item.account!, category: item.category!, subcategory: item.subcategory, budget: item.budget }
     settlementMetadata ??= metadata
     data.push({ range: `Transactions!B${txRow}:L${txRow}`, majorDimension: 'ROWS', values: [[expense.date, metadata.account, expense.amount.toFixed(2), '', group.baseCurrency, '', 'Expense', metadata.category, metadata.subcategory, metadata.budget, `Splittr import: ${expense.description}`]] })
     txRow++
-    if (otherTotal > 0) {
-      data.push({ range: `Transactions!B${txRow}:L${txRow}`, majorDimension: 'ROWS', values: [[expense.date, metadata.account, (-otherTotal).toFixed(2), '', group.baseCurrency, '', 'Split Offset', metadata.category, metadata.subcategory, metadata.budget, `Splittr offset: ${expense.description}`]] })
-      txRow++
-    }
   }
 
   const selectedExpenses = selected.map((item) => byId.get(item.expenseId)!)
