@@ -13,7 +13,7 @@ const group: Group = {
 }
 
 describe('buildSplittrImportRows', () => {
-  it('writes only the selected member’s globally simplified receipt', () => {
+  it('writes the selected member expense without a Split Offset and preserves its metadata', () => {
     const rows = buildSplittrImportRows({
       group, memberId: 'DW8', settledAccount: 'Cash', settlementDate: '2026-10-02', debtRow: 2, transactionRow: 2,
       selected: [
@@ -22,8 +22,12 @@ describe('buildSplittrImportRows', () => {
       ],
     })
     const receipts = rows.flatMap((row) => row.values).filter((values) => values[10]?.startsWith('Splittr receipt'))
-    expect(rows.flatMap((row) => row.values)).toEqual(expect.arrayContaining([
-      expect.arrayContaining(['Splittr import: Hotel']),
+    const transactionRows = rows.flatMap((row) => row.values).filter((values) => values[10]?.startsWith('Splittr'))
+    expect(transactionRows).toEqual(expect.arrayContaining([
+      ['9/30/2026', 'Card', '100.00', '', 'PHP', '', 'Expense', 'Travel', '', '', 'Splittr import: Hotel'],
+    ]))
+    expect(transactionRows).not.toEqual(expect.arrayContaining([
+      expect.arrayContaining(['Split Offset']),
       expect.arrayContaining(['Splittr offset: Hotel']),
     ]))
     expect(receipts).toEqual([expect.arrayContaining(['51.67', 'Income', 'Receivables', 'Splittr receipt from MEM3: Global netting'])])
