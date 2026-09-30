@@ -24,4 +24,4 @@ $$;
 
 -- Restrict to service_role only — not callable by anon or authenticated
 REVOKE EXECUTE ON FUNCTION public.decrypt_vault_secret(uuid) FROM public, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.decrypt_vault_secret(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.decrypt_vault_secret(uuid) TO service_role;;
