@@ -13,6 +13,7 @@ import type { RawTransaction } from '@/types/transactions'
 import type { CurrencyData } from '@/types/accounts'
 import { resolvePhp } from '@/utils/resolvePhp'
 import { parseTxDate } from '@/features/Transactions/groupTransactions'
+import { parseSplittrExpenseDetails, type SplittrExpenseDetail } from '../../../supabase/functions/_shared/splittrImportDetails'
 
 export type Direction = 'Receivable' | 'Payable'
 export type ParticipantStatus = 'Paid' | 'Partial' | 'Pending'
@@ -52,6 +53,7 @@ export interface DebtReceivableView {
   participants:   ParticipantView[]
   overallStatus:  OverallStatus
   rawStatus:      string          // col K
+  splittrExpenses: SplittrExpenseDetail[] | null
 }
 
 const MONTHS_SHORT = [
@@ -284,6 +286,7 @@ export function computeDebtReceivableRow(
       ? 'Settled'
       : overallStatus(participants),
     rawStatus:      row.status,
+    splittrExpenses: parseSplittrExpenseDetails(row.splitBy) ?? parseSplittrExpenseDetails(row.subcategory),
   }
 }
 

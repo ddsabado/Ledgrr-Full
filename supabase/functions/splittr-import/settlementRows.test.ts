@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildSplittrImportRows } from './settlementRows.ts'
 import type { Group } from './validateGroup.ts'
+import { parseSplittrExpenseDetails } from '../_shared/splittrImportDetails.ts'
 
 const group: Group = {
   id: 'global-netting', name: 'Global netting', baseCurrency: 'PHP',
@@ -14,20 +15,34 @@ const group: Group = {
 describe('buildSplittrImportRows', () => {
   it('writes only the selected member’s globally simplified receipt', () => {
     const rows = buildSplittrImportRows({
-      group, memberId: 'DW8', settledAccount: 'Cash', debtRow: 2, transactionRow: 2,
+      group, memberId: 'DW8', settledAccount: 'Cash', settlementDate: '2026-10-02', debtRow: 2, transactionRow: 2,
       selected: [
         { expenseId: 'dw8-paid', account: 'Card', category: 'Travel', subcategory: '', budget: '' },
         { expenseId: 'mem2-paid', account: null, category: null, subcategory: '', budget: '' },
       ],
     })
     const receipts = rows.flatMap((row) => row.values).filter((values) => values[10]?.startsWith('Splittr receipt'))
+    expect(rows.flatMap((row) => row.values)).toEqual(expect.arrayContaining([
+      expect.arrayContaining(['Splittr import: Hotel']),
+      expect.arrayContaining(['Splittr offset: Hotel']),
+    ]))
     expect(receipts).toEqual([expect.arrayContaining(['51.67', 'Income', 'Receivables', 'Splittr receipt from MEM3: Global netting'])])
-    expect(rows.flatMap((row) => row.values).some((values) => values.join(' ').includes('MEM2'))).toBe(false)
+    expect(rows.flatMap((row) => row.values).filter((values) => values[10]?.startsWith('Splittr receipt')).every((values) => values[0] === '10/2/2026')).toBe(true)
+    expect(rows.flatMap((row) => row.values).filter((values) => values[0]?.startsWith('Splittr:')).every((values) => values[2] === '10/2/2026')).toBe(true)
+    const debtRows = rows.filter((row) => row.range.startsWith('Debts and Receivables!'))
+    expect(debtRows).toHaveLength(1)
+    expect(debtRows[0].values[0][1]).toBe('Cash')
+    expect(debtRows[0].values[0][7]).toEqual('')
+    expect(debtRows[0].values[0][8]).toEqual('')
+    expect(parseSplittrExpenseDetails(debtRows[0].values[0][5])).toEqual(expect.arrayContaining([
+      expect.objectContaining({ description: 'Hotel', paidBy: 'DW8' }),
+      expect.objectContaining({ description: 'Dinner', paidBy: 'MEM2' }),
+    ]))
   })
 
   it('records a payment when the selected member is the debtor', () => {
     const rows = buildSplittrImportRows({
-      group, memberId: 'MEM3', settledAccount: 'Cash', debtRow: 2, transactionRow: 2,
+      group, memberId: 'MEM3', settledAccount: 'Cash', settlementDate: '2026-10-02', debtRow: 2, transactionRow: 2,
       selected: [
         { expenseId: 'dw8-paid', account: null, category: null, subcategory: '', budget: '' },
         { expenseId: 'mem2-paid', account: null, category: null, subcategory: '', budget: '' },

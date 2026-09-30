@@ -23,4 +23,12 @@ describe('Splittr import client', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ error: 'Splittr is unavailable.' }), { status: 502 }))
     await expect(importSplittrExpenses({ share: 'share-token', groupId: 'g1', memberId: 'm1', expenses: [] })).rejects.toThrow('Splittr is unavailable.')
   })
+
+  it('sends the chosen settlement date only with the authenticated import request', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ imported: [] })))
+    await importSplittrExpenses({ share: 'share-token', groupId: 'g1', memberId: 'm1', settledAccount: 'Cash', settlementDate: '2026-10-02', expenses: [] })
+    expect(fetchMock).toHaveBeenCalledWith('https://project.supabase.co/functions/v1/splittr-import', expect.objectContaining({
+      body: JSON.stringify({ action: 'import', share: 'share-token', groupId: 'g1', memberId: 'm1', settledAccount: 'Cash', settlementDate: '2026-10-02', expenses: [] }),
+    }))
+  })
 })

@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { validateGroup } from './validateGroup.ts'
 
 describe('validateGroup', () => {
+  it('preserves a provided time in the Sheets-compatible date format', () => {
+    const group = validateGroup({ id: 'timed', name: 'Timed group', baseCurrency: 'PHP', members: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], expenses: [{ id: 'expense', description: 'Taxi', baseAmount: 20, payerId: 'a', date: '2026-09-29T10:35:00', splits: [{ memberId: 'a', amountBase: 10 }, { memberId: 'b', amountBase: 10 }] }] })
+    expect(group?.expenses[0].date).toBe('9/29/2026 10:35:00')
+  })
+
+  it('uses receipt-item splits when Splittr supplies them', () => {
+    const group = validateGroup({ id: 'items', name: 'Itemized group', baseCurrency: 'PHP', members: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], expenses: [{ id: 'expense', description: 'Dinner', baseAmount: 100, payerId: 'a', splits: [{ memberId: 'a', amountBase: 50 }, { memberId: 'b', amountBase: 50 }], items: [{ id: 'item-a', description: 'Pizza', splits: [{ memberId: 'a', amountBase: 20 }, { memberId: 'b', amountBase: 80 }] }] }] })
+    expect(group?.expenses[0].shares).toEqual([{ memberId: 'a', amount: 20 }, { memberId: 'b', amount: 80 }])
+    expect(group?.expenses[0].items).toEqual([{ description: 'Pizza', shares: [{ memberId: 'a', amount: 20 }, { memberId: 'b', amount: 80 }] }])
+  })
+
   it('keeps every valid expense from Splittr’s current group payload in the preview', () => {
     const group = validateGroup({
       id: 'trip-2026',

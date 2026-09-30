@@ -136,7 +136,9 @@ async function handlePayment(req: Request, input: PaymentInput) {
   const note = input.direction === 'Payable'
     ? `Paid ${input.participantName.trim()}: ${input.name.trim()}`
     : `Received from ${input.participantName.trim()}: ${input.name.trim()}`
-  const txRow = [input.paymentDate.trim(), input.account.trim(), Math.abs(input.amount).toFixed(2), '', input.currency?.trim() || row[12]?.trim() || 'PHP', '', txType, txCategory, input.subcategory?.trim() || row[8]?.trim() || '', input.budget?.trim() || '', note]
+  const storedSubcategory = row[8]?.trim() || ''
+  const fallbackSubcategory = storedSubcategory.startsWith('splittr-expenses:v1:') ? '' : storedSubcategory
+  const txRow = [input.paymentDate.trim(), input.account.trim(), Math.abs(input.amount).toFixed(2), '', input.currency?.trim() || row[12]?.trim() || 'PHP', '', txType, txCategory, input.subcategory?.trim() || fallbackSubcategory, input.budget?.trim() || '', note]
   const data: Array<{ range: string; majorDimension: string; values: string[][] }> = [
     { range: `Debts and Receivables!J${rowIndex + 2}:K${rowIndex + 2}`, majorDimension: 'ROWS', values: [[paidText(paid), settled ? 'Settled' : 'Pending']] },
     { range: `Transactions!B${firstTxRow}:L${firstTxRow}`, majorDimension: 'ROWS', values: [txRow] },

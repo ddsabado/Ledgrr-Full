@@ -9,7 +9,7 @@ export interface SplittrPreview { group: SplittrGroup }
 export interface SplittrImportSelection {
   /** Used once for confirmation; never stored by Ledgrr. */
   share: string
-  groupId: string; memberId: string; settledAccount?: string; expenses: Array<{
+  groupId: string; memberId: string; settledAccount?: string; settlementDate?: string; expenses: Array<{
     expenseId: string; account: string; category: string; subcategory: string; budget: string
   }>
 }

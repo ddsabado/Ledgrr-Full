@@ -479,7 +479,7 @@ export default function SplitBillDialog({
         </AnimatePresence>
       </DialogContent>
     </Dialog>
-    <SplittrImportDialog open={splittrOpen} onOpenChange={setSplittrOpen} accounts={accounts} categories={txnCategories} />
+    <SplittrImportDialog open={splittrOpen} onOpenChange={setSplittrOpen} onImportSuccess={close} accounts={accounts} budgets={budgetOptions} categories={txnCategories} />
     </>
   );
 }

@@ -14,10 +14,11 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 function text(value: unknown, max = 160): string | null {
   return typeof value === 'string' && value.trim().length > 0 && value.trim().length <= max ? value.trim() : null
 }
-function date(value: unknown): string {
-  const valueText = text(value, 40) ?? ''
-  const parsed = new Date(valueText)
-  return Number.isNaN(parsed.valueOf()) ? new Date().toLocaleDateString('en-US') : `${parsed.getMonth() + 1}/${parsed.getDate()}/${parsed.getFullYear()}`
+function isoDate(value: unknown): string | null {
+  const valueText = text(value, 10)
+  if (!valueText || !/^\d{4}-\d{2}-\d{2}$/.test(valueText)) return null
+  const parsed = new Date(`${valueText}T00:00:00.000Z`)
+  return Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== valueText ? null : valueText
 }
 /** Accept only a URL on the known public site, or an opaque share token. */
 function shareToken(value: unknown): string | null {
@@ -91,15 +92,17 @@ Deno.serve(async (req) => {
     if (text(body.groupId, 120) !== group.id) return json({ error: 'The selected group no longer matches this share link.' }, 400)
     const selected = requested.map(object).map((value) => ({ expenseId: text(value?.expenseId, 120), account: text(value?.account, 160), category: text(value?.category, 160), subcategory: text(value?.subcategory, 160) ?? '', budget: text(value?.budget, 160) ?? '' }))
     const settledAccount = text(body.settledAccount, 160)
+    const settlementDate = isoDate(body.settlementDate)
     if (selected.some((v) => !v.expenseId) || new Set(selected.map((v) => v.expenseId)).size !== selected.length) return json({ error: 'Selected expenses are invalid.' }, 400)
     const byId = new Map(group.expenses.map((expense) => [expense.id, expense]))
     if (selected.some((s) => !byId.get(s.expenseId))) return json({ error: 'An expense no longer exists in this group.' }, 400)
     if (selected.some((s) => byId.get(s.expenseId)?.paidByMemberId === memberId && (!s.account || !s.category))) return json({ error: 'Every expense paid by the selected member needs an account and category.' }, 400)
+    if (settledAccount && !settlementDate) return json({ error: 'Choose a valid settlement date.' }, 400)
     const context = await getSheetContext(req.headers.get('Authorization'))
     const read = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${context.sheetId}/values:batchGet?ranges=${encodeURIComponent('Debts and Receivables!A2:A')}&ranges=${encodeURIComponent('Transactions!B2:B')}`, { headers: { Authorization: `Bearer ${context.accessToken}` }, signal: AbortSignal.timeout(30_000) })
     if (!read.ok) return json({ error: 'Failed to read finance sheet.' }, 502)
     const values = await read.json() as { valueRanges?: { values?: string[][] }[] }; let drRow = 2 + (values.valueRanges?.[0]?.values?.length ?? 0); let txRow = 2 + (values.valueRanges?.[1]?.values?.length ?? 0)
-    const data = buildSplittrImportRows({ group, memberId, selected, settledAccount, debtRow: drRow, transactionRow: txRow })
+    const data = buildSplittrImportRows({ group, memberId, selected, settledAccount, settlementDate, debtRow: drRow, transactionRow: txRow })
     const write = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${context.sheetId}/values:batchUpdate`, { method: 'POST', headers: sheetHeaders(context.accessToken), body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) })
     if (!write.ok) return json({ error: 'The import was reserved but the finance sheet could not be written.' }, 502)
     await sortTransactionsByDate(context.accessToken, context.sheetId).catch(() => undefined)
