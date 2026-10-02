@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useId } from "react";
 
 import type { CCAccount, CCTransactionData } from "@/types/transactions";
 import { formatCurrency } from "@/utils/currency";
@@ -48,6 +49,7 @@ export default function CCCard({
   viewerOpen = false,
   selected = false,
 }: CCCardProps) {
+  const detailsId = useId();
   const { data: fxMap } = useCurrencies();
   const showNative = account.currency !== "PHP";
 
@@ -91,10 +93,12 @@ export default function CCCard({
     account.statementDay !== null ? String(account.statementDay) : "—";
   const dueDayDisplay = account.dueDay !== null ? String(account.dueDay) : "—";
 
-  // Amount due (current cycle, PHP).
-  const amountDueDisplay = privacyMode
-    ? PRIVACY_MASK
-    : formatCurrency(account.amountDue, "PHP");
+  const dueStatus =
+    account.daysUntilDue === null
+      ? null
+      : account.daysUntilDue < 0
+        ? `Overdue by ${Math.abs(account.daysUntilDue)}d`
+        : getDueBadgeText(account.daysUntilDue);
 
   // Cycle navigation state (index 0 = most recent).
   const cycles = txData?.cycles ?? [];
@@ -110,10 +114,17 @@ export default function CCCard({
     <div
       className={`shrink-0 rounded-lg border bg-surface overflow-hidden ${viewerOpen && selected ? "border-accent ring-1 ring-accent/60" : "border-border"}`}
     >
-      {/* ─── Collapsed / header (clickable) ─────────────────────────────── */}
+      {/* The summary and activity actions are siblings: the card never nests
+          an interactive control inside its full-width action. */}
       <button
         type="button"
         onClick={onToggle}
+        aria-label={
+          viewerOpen
+            ? `Select ${account.name}`
+            : `${isExpanded ? "Collapse" : "Expand"} ${account.name} details`
+        }
+        aria-controls={viewerOpen ? undefined : detailsId}
         aria-expanded={viewerOpen ? undefined : isExpanded}
         aria-pressed={viewerOpen ? selected : undefined}
         className="w-full text-left px-4 py-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
@@ -124,13 +135,13 @@ export default function CCCard({
             <span className="text-xs font-semibold uppercase tracking-wider text-muted truncate">
               {account.name}
             </span>
-            {account.daysUntilDue !== null && (
+            {dueStatus && (
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getDueBadgeColor(
-                  account.daysUntilDue,
+                  account.daysUntilDue!,
                 )}`}
               >
-                {getDueBadgeText(account.daysUntilDue)}
+                {dueStatus}
               </span>
             )}
           </div>
@@ -158,14 +169,16 @@ export default function CCCard({
           />
         )}
 
-        {/* Balance (large) */}
+        {/* Current balance remains the leading PHP amount; native currency is
+            retained directly beneath it for non-PHP cards. */}
         <div className="flex flex-col">
+          <span className="text-xs font-medium text-muted">Current balance</span>
           <span className="text-2xl font-bold text-text tabular-nums leading-tight">
             {phpDisplay}
           </span>
           {showNative && (
             <span className="text-xs text-muted tabular-nums mt-0.5">
-              {nativeDisplay}
+              Native balance {nativeDisplay}
             </span>
           )}
         </div>
@@ -184,16 +197,12 @@ export default function CCCard({
           <span className="tabular-nums">{availableDisplay} limit left</span>
         </div>
 
-        {/* Statement / due day + amount due */}
-        <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted">
+        {/* Keep calendar metadata quiet unless the payment is imminent. */}
+        <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 text-xs text-muted">
           <span>
             Statement{" "}
             <b className="text-text font-semibold">{statementDayDisplay}</b> ·
             Due <b className="text-text font-semibold">{dueDayDisplay}</b>
-          </span>
-          <span className="tabular-nums">
-            <span className="text-muted">Amount due </span>
-            <span className="text-text font-semibold">{amountDueDisplay}</span>
           </span>
         </div>
       </button>
@@ -202,13 +211,14 @@ export default function CCCard({
       <AnimatePresence initial={false}>
         {!viewerOpen && isExpanded && (
           <motion.div
+            id={detailsId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ type: "tween", duration: 0.2, ease: "easeInOut" }}
             style={{ overflow: "hidden" }}
           >
-            <div className="px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-border">
+            <div className="px-4 pb-4 pt-2 flex flex-col gap-3 border-t border-border">
               {/* View mode tabs — single persistent highlight that slides
                   horizontally between the two equal-width cells (R6). */}
               <div

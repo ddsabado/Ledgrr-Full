@@ -30,7 +30,6 @@ const account: CCAccount = {
   phpEquivalent:  1000,
   utilization:    20,
   daysUntilDue:   10,
-  amountDue:      500,
 }
 
 const txData: CCTransactionData = {
@@ -62,6 +61,63 @@ function highlights(container: HTMLElement): HTMLElement[] {
 }
 
 describe('CCCard Pill_Selector (R6)', () => {
+  it('labels the leading PHP amount as the current balance and retains native currency', () => {
+    render(
+      <CCCard
+        account={{ ...account, currency: 'USD', currentBalance: 20, phpEquivalent: 1200 }}
+        txData={txData}
+        privacyMode={false}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        cycleView="statement"
+        onCycleViewChange={vi.fn()}
+        cycleIndex={0}
+        onCycleIndexChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Current balance')).toBeInTheDocument()
+    expect(screen.getByText(/Native balance/)).toBeInTheDocument()
+  })
+
+  it('promotes the due status only for an imminent or overdue payment', () => {
+    const { rerender } = render(
+      <CCCard
+        account={account}
+        txData={txData}
+        privacyMode={false}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        cycleView="statement"
+        onCycleViewChange={vi.fn()}
+        cycleIndex={0}
+        onCycleIndexChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Due in 10d')).toBeInTheDocument()
+    expect(screen.queryByText('Amount due')).not.toBeInTheDocument()
+
+    rerender(
+      <CCCard
+        account={{ ...account, daysUntilDue: -2 }}
+        txData={txData}
+        privacyMode={false}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        cycleView="statement"
+        onCycleViewChange={vi.fn()}
+        cycleIndex={0}
+        onCycleIndexChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Overdue by 2d')).toBeInTheDocument()
+    expect(screen.queryByText('Due in -2d')).not.toBeInTheDocument()
+    expect(screen.queryByText('Amount due')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'View activity' })).not.toBeInTheDocument()
+  })
+
   it('shows a zero total and explicit empty state for an empty statement', () => {
     renderCard('statement')
 
