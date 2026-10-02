@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ListFilter, Wrench, X } from 'lucide-react'
-import { motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -15,11 +15,25 @@ import { useAccountTransactions, type AccountTransactionFilters } from './useAcc
 
 interface AccountViewerProps { accountName: string; privacyMode: boolean }
 
+const PRIVACY_MASK = '••••••'
+
+function describeFilters(filters: AccountTransactionFilters, privacyMode: boolean): string {
+  const details: string[] = []
+  if (filters.type) details.push(`Type: ${filters.type}`)
+  if (filters.note?.trim()) details.push(`Note: “${filters.note.trim()}”`)
+  if (filters.minAmount || filters.maxAmount) details.push(privacyMode ? 'Amount range active' : `Amount: ${filters.minAmount || 'any'}–${filters.maxAmount || 'any'}`)
+  if (filters.range?.from) {
+    const formatDate = (date: Date) => new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }).format(date)
+    details.push(filters.range.to ? `Dates: ${formatDate(filters.range.from)}–${formatDate(filters.range.to)}` : `Date: ${formatDate(filters.range.from)}`)
+  }
+  return details.join(' · ')
+}
+
 export default function AccountViewer({ accountName, privacyMode }: AccountViewerProps) {
   const [filters, setFilters] = useState<AccountTransactionFilters>({})
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [adjustmentNotice, setAdjustmentNotice] = useState<string | null>(null)
-  const { transactions, types, isLoading, isError } = useAccountTransactions(accountName, filters)
+  const { transactions, types, isLoading, isError, retry } = useAccountTransactions(accountName, filters)
   const { data: accounts } = useAccountBalances()
   const queryClient = useQueryClient()
   const account = accounts.find((item) => item.name === accountName)
@@ -48,12 +62,39 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
   const active = Object.values(filters).some((value) => Boolean(value))
   const activeCount = Object.values(filters).filter((value) => Boolean(value)).length
   const set = (patch: Partial<AccountTransactionFilters>) => setFilters((current) => ({ ...current, ...patch }))
+  const resultLabel = isLoading
+    ? 'Loading transactions'
+    : isError
+      ? 'Transaction results could not be loaded'
+      : `${transactions.length} transaction${transactions.length === 1 ? '' : 's'} ${active ? 'match the active filters' : 'in this account'}`
+  const summaryBalance = account ? (privacyMode ? PRIVACY_MASK : formatCurrency(account.phpEquivalent, 'PHP')) : null
+  const nativeBalance = account && account.currency !== 'PHP'
+    ? (privacyMode ? PRIVACY_MASK : formatCurrency(account.currentBalance, account.currency))
+    : null
+  const filterDescription = describeFilters(filters, privacyMode)
 
   return (
-    <motion.section layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="h-full rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-none lg:h-full">
-      <header className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-        <h2 className="min-w-0 font-display text-xl font-semibold tracking-tight text-text truncate">{accountName}</h2>
-        <div className="flex flex-wrap items-center gap-1">
+    <motion.section layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="h-full min-h-0 max-h-none overflow-hidden rounded-xl border border-border bg-surface p-5 flex flex-col gap-3 lg:h-full">
+      <AnimatePresence initial={false} mode="wait">
+      <motion.div
+        key={accountName}
+        initial={reduceMotion ? false : { opacity: 0, y: 6, filter: 'blur(2px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        exit={{ opacity: 0, y: reduceMotion ? 0 : -3, filter: reduceMotion ? 'blur(0px)' : 'blur(1px)', transition: { duration: reduceMotion ? 0 : 0.11, ease: 'easeIn' } }}
+        transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+        className="flex min-h-0 flex-1 flex-col gap-3"
+      >
+      <header className="sticky top-0 z-10 -mx-1 shrink-0 bg-surface px-1 pb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">{accountName}</h2>
+          {account && <dl aria-label="Account summary" className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-1 border-t border-border pt-2 text-xs leading-5 sm:flex sm:flex-wrap sm:items-end sm:gap-x-5">
+            <div className="min-w-0"><dt className="text-muted">PHP equivalent</dt><dd className="font-medium tabular-nums text-text">{summaryBalance}</dd></div>
+            {nativeBalance && <div className="text-right sm:text-left"><dt className="text-muted">Native · {account.currency}</dt><dd className="font-medium tabular-nums text-text">{nativeBalance}</dd></div>}
+            <div className="col-span-2 flex flex-wrap gap-x-2 text-muted sm:col-span-1"><dt className="sr-only">Account details</dt><dd>{account.category} · {account.currency}</dd><span aria-hidden="true">•</span><dt className="sr-only">Visible result count</dt><dd>{resultLabel}</dd></div>
+          </dl>}
+          <p aria-live="polite" aria-atomic="true" className="sr-only">{resultLabel}{active ? `. Filters active: ${filterDescription}` : ''}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1 self-start">
           {account && <button type="button" aria-label="Adjust balance" title="Adjust balance" onClick={() => { adjustment.reset(); setAdjustOpen(true) }} className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Wrench aria-hidden="true" className="h-4 w-4" /><span>Adjust balance</span></button>}
           <Popover>
             <PopoverTrigger asChild>
@@ -79,13 +120,19 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
           </Popover>
         </div>
       </header>
+      {active && <div className="shrink-0 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border pb-3 text-xs text-muted">
+        <p className="min-w-0"><span className="font-medium text-text">{transactions.length} result{transactions.length === 1 ? '' : 's'}</span><span> · {filterDescription}</span></p>
+        <button type="button" onClick={() => setFilters({})} className="shrink-0 rounded px-1 py-1 font-medium text-text underline decoration-muted underline-offset-2 transition-colors hover:decoration-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">Clear filters</button>
+      </div>}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
         {adjustmentNotice && <p role="status" aria-live="polite" className="mb-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">{adjustmentNotice}</p>}
-        {isLoading && <p className="py-8 text-center text-sm text-muted">Loading transactions…</p>}
-        {isError && <p className="py-8 text-center text-sm text-muted">Could not load transactions. Please try again later.</p>}
-        {!isLoading && !isError && transactions.length === 0 && <p className="py-8 text-center text-sm text-muted">No matching transactions.</p>}
+        {isLoading && <p role="status" aria-live="polite" className="py-8 text-center text-sm text-muted">Loading transactions…</p>}
+        {isError && <div role="alert" className="py-8 text-center text-sm text-muted"><p>We couldn’t load this account’s transactions. Your account summary is still available.</p>{retry && <button type="button" onClick={() => void retry()} className="mt-3 min-h-11 rounded-md border border-border px-3 text-sm font-medium text-text transition-colors hover:bg-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">Retry</button>}</div>}
+        {!isLoading && !isError && transactions.length === 0 && <p className="py-8 text-center text-sm text-muted">{active ? 'No transactions match these filters.' : 'This account has no transactions yet.'}</p>}
         {!isLoading && !isError && transactions.length > 0 && <TransactionList transactions={transactions} privacyMode={privacyMode} accountName={accountName} />}
       </div>
+      </motion.div>
+      </AnimatePresence>
       {account && <AdjustBalanceDialog open={adjustOpen} accountName={account.name} currency={account.currency} currentBalance={account.currentBalance} isSubmitting={adjustment.isPending} error={adjustmentError} canRetry={canRetryAdjustment} onOpenChange={setAdjustOpen} onSubmit={(targetBalance) => adjustment.mutate(targetBalance)} />}
     </motion.section>
   )

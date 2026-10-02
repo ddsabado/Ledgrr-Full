@@ -3,7 +3,9 @@ import { useLiveQuery } from '@tanstack/react-db'
 import type { DateRange } from 'react-day-picker'
 
 import { transactionsCollection } from '@/collections/transactions'
+import { QUERY_KEYS } from '@/constants/queryKeys'
 import { useAuth } from '@/context/AuthContext'
+import { queryClient } from '@/lib/queryClient'
 import type { RawTransaction } from '@/types/transactions'
 
 export interface AccountTransactionFilters {
@@ -65,5 +67,9 @@ export function useAccountTransactions(accountName: string, filters: AccountTran
   }, [accountName, filters, rows])
 
   const types = useMemo(() => Array.from(new Set((rows ?? []).map((row) => row.type).filter(Boolean))).sort(), [rows])
-  return { transactions, types, isLoading, isError }
+  // useLiveQuery automatically follows collection updates but does not expose a
+  // refetch action. The underlying collection is backed by this query key, so
+  // refetching it is a scoped and safe retry for the current account view.
+  const retry = () => queryClient.refetchQueries({ queryKey: [QUERY_KEYS.transactions] })
+  return { transactions, types, isLoading, isError, retry }
 }
