@@ -14,6 +14,16 @@ export class AuthError extends Error {
   }
 }
 
+/** A response-confirmed adjustment failure, which is safe for the user to retry. */
+export class AdjustAccountBalanceError extends Error {
+  readonly retrySafe = true
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'AdjustAccountBalanceError'
+  }
+}
+
 /** Shared header builder for authenticated Edge Function calls */
 async function buildHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -66,7 +76,7 @@ export async function adjustAccountBalance(input: AdjustAccountBalanceInput): Pr
   if (res.status === 401) throw new AuthError()
   if (!res.ok) {
     const body = await res.json().catch(() => null) as { error?: unknown } | null
-    throw new Error(typeof body?.error === 'string' ? body.error : `Failed to adjust account balance (${res.status})`)
+    throw new AdjustAccountBalanceError(typeof body?.error === 'string' ? body.error : `Failed to adjust account balance (${res.status})`)
   }
 }
 

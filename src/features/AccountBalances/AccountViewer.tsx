@@ -7,7 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { QUERY_KEYS } from '@/constants/queryKeys'
 import { useAccountBalances } from '@/hooks/useAccountBalances'
-import { adjustAccountBalance } from '@/services/api'
+import { AdjustAccountBalanceError, adjustAccountBalance } from '@/services/api'
+import { formatCurrency } from '@/utils/currency'
 import TransactionList from '@/features/CreditCardUtilization/TransactionList'
 import AdjustBalanceDialog from './AdjustBalanceDialog'
 import { useAccountTransactions, type AccountTransactionFilters } from './useAccountTransactions'
@@ -17,20 +18,32 @@ interface AccountViewerProps { accountName: string; privacyMode: boolean }
 export default function AccountViewer({ accountName, privacyMode }: AccountViewerProps) {
   const [filters, setFilters] = useState<AccountTransactionFilters>({})
   const [adjustOpen, setAdjustOpen] = useState(false)
+  const [adjustmentNotice, setAdjustmentNotice] = useState<string | null>(null)
   const { transactions, types, isLoading, isError } = useAccountTransactions(accountName, filters)
   const { data: accounts } = useAccountBalances()
   const queryClient = useQueryClient()
   const account = accounts.find((item) => item.name === accountName)
   const adjustment = useMutation({
     mutationFn: (targetBalance: number) => adjustAccountBalance({ accountName, targetBalance }),
-    onSuccess: async () => {
+    onSuccess: async (_data, targetBalance) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.accountBalances] }),
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.transactions] }),
       ])
       setAdjustOpen(false)
+      setFilters((current) => ({ ...current, type: 'Adjustment' }))
+      const delta = targetBalance - (account?.currentBalance ?? targetBalance)
+      setAdjustmentNotice(privacyMode
+        ? 'Adjustment transaction recorded. The balance change is hidden while Privacy Mode is on. Showing Adjustment transactions.'
+        : `Adjustment transaction recorded: ${delta >= 0 ? '+' : '−'}${formatCurrency(Math.abs(delta), account?.currency ?? 'PHP')}. Showing Adjustment transactions.`)
     },
   })
+  const canRetryAdjustment = adjustment.error instanceof AdjustAccountBalanceError
+  const adjustmentError = adjustment.error
+    ? canRetryAdjustment
+      ? 'We couldn’t record this adjustment. No balance change was recorded. Check your connection and retry.'
+      : 'We couldn’t confirm whether this adjustment was recorded. Check the Adjustment transactions before trying again.'
+    : null
   const reduceMotion = useReducedMotion()
   const active = Object.values(filters).some((value) => Boolean(value))
   const activeCount = Object.values(filters).filter((value) => Boolean(value)).length
@@ -67,12 +80,13 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
         </div>
       </header>
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
+        {adjustmentNotice && <p role="status" aria-live="polite" className="mb-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">{adjustmentNotice}</p>}
         {isLoading && <p className="py-8 text-center text-sm text-muted">Loading transactions…</p>}
         {isError && <p className="py-8 text-center text-sm text-muted">Could not load transactions. Please try again later.</p>}
         {!isLoading && !isError && transactions.length === 0 && <p className="py-8 text-center text-sm text-muted">No matching transactions.</p>}
         {!isLoading && !isError && transactions.length > 0 && <TransactionList transactions={transactions} privacyMode={privacyMode} accountName={accountName} />}
       </div>
-      {account && <AdjustBalanceDialog open={adjustOpen} accountName={account.name} currency={account.currency} currentBalance={account.currentBalance} isSubmitting={adjustment.isPending} error={adjustment.error instanceof Error ? adjustment.error.message : adjustment.error ? 'Could not adjust the balance.' : null} onOpenChange={setAdjustOpen} onSubmit={(targetBalance) => adjustment.mutate(targetBalance)} />}
+      {account && <AdjustBalanceDialog open={adjustOpen} accountName={account.name} currency={account.currency} currentBalance={account.currentBalance} isSubmitting={adjustment.isPending} error={adjustmentError} canRetry={canRetryAdjustment} onOpenChange={setAdjustOpen} onSubmit={(targetBalance) => adjustment.mutate(targetBalance)} />}
     </motion.section>
   )
 }
