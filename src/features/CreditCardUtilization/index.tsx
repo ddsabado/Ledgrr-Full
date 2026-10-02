@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { PanelLeftOpen, PanelTopOpen, Settings } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen, Settings } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useCCAccounts } from "@/hooks/useCCAccounts";
@@ -120,6 +120,12 @@ export default function CreditCardUtilization({
     onToggleViewer();
   };
 
+  const viewActivity = (accountName: string) => {
+    onSelectCard(accountName);
+    setExpandedCard(null);
+    if (!viewerOpen) onToggleViewer();
+  };
+
   const submitNewCard = (input: NewCreditCardInput) => {
     setIsSubmitting(true);
     setSubmitError(null);
@@ -144,19 +150,29 @@ export default function CreditCardUtilization({
           Credit Cards
         </p>
         <div className="flex items-center gap-1">
-          <button type="button" aria-label="Add credit card" onClick={() => { setSubmitError(null); setNewCardOpen(true); }} className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+          <button type="button" aria-label="Add credit card" onClick={() => { setSubmitError(null); setNewCardOpen(true); }} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
             <Settings aria-hidden="true" className="h-4 w-4" />
           </button>
           <motion.button
             type="button"
-            aria-label={viewerOpen ? "Close credit card viewer" : "Open credit card viewer"}
+            aria-label={viewerOpen ? "Close credit card activity" : "View credit card activity"}
             onClick={toggleViewer}
             animate={{ rotate: viewerOpen ? 180 : 0 }}
             transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 30 }}
-            className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
-            <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+            {viewerOpen ? (
+              <>
+                <PanelTopClose aria-hidden="true" className="h-4 w-4 lg:hidden" />
+                <PanelLeftClose aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+              </>
+            ) : (
+              <>
+                <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
+                <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+              </>
+            )}
+            <span className="whitespace-nowrap">{viewerOpen ? "Close activity" : "View activity"}</span>
           </motion.button>
         </div>
       </div>
@@ -178,6 +194,7 @@ export default function CreditCardUtilization({
                     expandedCard === account.name ? null : account.name,
                   )
             }
+            onViewActivity={() => viewActivity(account.name)}
             viewerOpen={viewerOpen}
             selected={selectedCard === account.name}
             cycleView={cycleView}

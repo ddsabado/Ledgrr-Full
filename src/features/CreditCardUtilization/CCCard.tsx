@@ -1,5 +1,6 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useId } from "react";
 
 import type { CCAccount, CCTransactionData } from "@/types/transactions";
 import { formatCurrency } from "@/utils/currency";
@@ -22,6 +23,7 @@ interface CCCardProps {
   privacyMode: boolean;
   isExpanded: boolean;
   onToggle: () => void;
+  onViewActivity: () => void;
   cycleView: "statement" | "all";
   onCycleViewChange: (view: "statement" | "all") => void;
   cycleIndex: number;
@@ -41,6 +43,7 @@ export default function CCCard({
   privacyMode,
   isExpanded,
   onToggle,
+  onViewActivity,
   cycleView,
   onCycleViewChange,
   cycleIndex,
@@ -48,6 +51,7 @@ export default function CCCard({
   viewerOpen = false,
   selected = false,
 }: CCCardProps) {
+  const detailsId = useId();
   const { data: fxMap } = useCurrencies();
   const showNative = account.currency !== "PHP";
 
@@ -95,6 +99,14 @@ export default function CCCard({
   const amountDueDisplay = privacyMode
     ? PRIVACY_MASK
     : formatCurrency(account.amountDue, "PHP");
+  const isDueActionable =
+    account.daysUntilDue !== null && account.daysUntilDue <= 7;
+  const dueStatus =
+    account.daysUntilDue === null
+      ? null
+      : account.daysUntilDue < 0
+        ? `Overdue by ${Math.abs(account.daysUntilDue)}d`
+        : getDueBadgeText(account.daysUntilDue);
 
   // Cycle navigation state (index 0 = most recent).
   const cycles = txData?.cycles ?? [];
@@ -110,10 +122,17 @@ export default function CCCard({
     <div
       className={`shrink-0 rounded-lg border bg-surface overflow-hidden ${viewerOpen && selected ? "border-accent ring-1 ring-accent/60" : "border-border"}`}
     >
-      {/* ─── Collapsed / header (clickable) ─────────────────────────────── */}
+      {/* The summary and activity actions are siblings: the card never nests
+          an interactive control inside its full-width action. */}
       <button
         type="button"
         onClick={onToggle}
+        aria-label={
+          viewerOpen
+            ? `Select ${account.name}`
+            : `${isExpanded ? "Collapse" : "Expand"} ${account.name} details`
+        }
+        aria-controls={viewerOpen ? undefined : detailsId}
         aria-expanded={viewerOpen ? undefined : isExpanded}
         aria-pressed={viewerOpen ? selected : undefined}
         className="w-full text-left px-4 py-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
@@ -124,13 +143,13 @@ export default function CCCard({
             <span className="text-xs font-semibold uppercase tracking-wider text-muted truncate">
               {account.name}
             </span>
-            {account.daysUntilDue !== null && (
+            {dueStatus && (
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getDueBadgeColor(
-                  account.daysUntilDue,
+                  account.daysUntilDue!,
                 )}`}
               >
-                {getDueBadgeText(account.daysUntilDue)}
+                {dueStatus}
               </span>
             )}
           </div>
@@ -158,14 +177,16 @@ export default function CCCard({
           />
         )}
 
-        {/* Balance (large) */}
+        {/* Current balance remains the leading PHP amount; native currency is
+            retained directly beneath it for non-PHP cards. */}
         <div className="flex flex-col">
+          <span className="text-xs font-medium text-muted">Current balance</span>
           <span className="text-2xl font-bold text-text tabular-nums leading-tight">
             {phpDisplay}
           </span>
           {showNative && (
             <span className="text-xs text-muted tabular-nums mt-0.5">
-              {nativeDisplay}
+              Native balance {nativeDisplay}
             </span>
           )}
         </div>
@@ -184,24 +205,48 @@ export default function CCCard({
           <span className="tabular-nums">{availableDisplay} limit left</span>
         </div>
 
-        {/* Statement / due day + amount due */}
-        <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted">
+        {/* Keep calendar metadata quiet unless the payment is imminent. */}
+        <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 text-xs text-muted">
           <span>
             Statement{" "}
             <b className="text-text font-semibold">{statementDayDisplay}</b> ·
             Due <b className="text-text font-semibold">{dueDayDisplay}</b>
           </span>
-          <span className="tabular-nums">
-            <span className="text-muted">Amount due </span>
-            <span className="text-text font-semibold">{amountDueDisplay}</span>
-          </span>
         </div>
       </button>
+
+      <div className="border-t border-border px-4 py-3">
+        <div
+          className={`flex min-h-11 items-center justify-between gap-3 rounded-md px-3 py-2 ${
+            isDueActionable ? "bg-surface2" : ""
+          }`}
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted">Amount due</p>
+            <p className="text-sm font-semibold text-text tabular-nums">
+              {amountDueDisplay}
+              {isDueActionable && dueStatus && (
+                <span className="ml-2 text-xs font-medium text-muted">{dueStatus}</span>
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onViewActivity}
+            aria-current={viewerOpen && selected ? "page" : undefined}
+            className="group inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <span>{viewerOpen && selected ? "Viewing activity" : "View activity"}</span>
+            <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" />
+          </button>
+        </div>
+      </div>
 
       {/* ─── Expanded panel ─────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>
         {!viewerOpen && isExpanded && (
           <motion.div
+            id={detailsId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -241,7 +286,7 @@ export default function CCCard({
                       role="tab"
                       aria-selected={isSelected}
                       onClick={() => onCycleViewChange(tab.id)}
-                      className={`relative z-10 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      className={`relative z-10 min-h-11 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                         isSelected ? "text-text" : "text-muted hover:text-text"
                       }`}
                     >

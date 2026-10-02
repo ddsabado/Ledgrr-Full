@@ -90,15 +90,18 @@ export default function CreditCardViewer({
       className="h-full rounded-xl border border-border bg-surface p-5 flex flex-col gap-4 min-h-0 overflow-hidden"
     >
       <header className="shrink-0 flex items-start justify-between gap-3">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">
-          {accountName}
-        </h2>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted">Card activity</p>
+          <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">
+            {accountName}
+          </h2>
+        </div>
         <Popover>
           <PopoverTrigger asChild>
             <button
               type="button"
               aria-label="Filter transactions"
-              className="relative rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <ListFilter className="h-4 w-4" />
               {active && (
@@ -121,7 +124,7 @@ export default function CreditCardViewer({
                 <button
                   type="button"
                   onClick={() => setFilters({})}
-                  className="flex items-center gap-1 text-xs text-muted hover:text-text"
+                  className="inline-flex min-h-11 items-center gap-1 px-2 text-xs text-muted hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <X className="h-3 w-3" />
                   Clear
@@ -196,7 +199,7 @@ export default function CreditCardViewer({
               role="tab"
               aria-selected={view === mode}
               onClick={() => setView(mode)}
-              className={`relative rounded-md px-3 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${view === mode ? "text-text" : "text-muted hover:text-text"}`}
+              className={`relative min-h-11 rounded-md px-3 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${view === mode ? "text-text" : "text-muted hover:text-text"}`}
             >
               {view === mode && (
                 <motion.span

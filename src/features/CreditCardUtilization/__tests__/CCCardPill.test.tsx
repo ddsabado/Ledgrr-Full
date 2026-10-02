@@ -46,6 +46,7 @@ function renderCard(cycleView: 'statement' | 'all', onCycleViewChange = vi.fn())
       privacyMode={false}
       isExpanded
       onToggle={vi.fn()}
+      onViewActivity={vi.fn()}
       cycleView={cycleView}
       onCycleViewChange={onCycleViewChange}
       cycleIndex={0}
@@ -62,6 +63,87 @@ function highlights(container: HTMLElement): HTMLElement[] {
 }
 
 describe('CCCard Pill_Selector (R6)', () => {
+  it('labels the leading PHP amount as the current balance and retains native currency', () => {
+    render(
+      <CCCard
+        account={{ ...account, currency: 'USD', currentBalance: 20, phpEquivalent: 1200 }}
+        txData={txData}
+        privacyMode={false}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        onViewActivity={vi.fn()}
+        cycleView="statement"
+        onCycleViewChange={vi.fn()}
+        cycleIndex={0}
+        onCycleIndexChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Current balance')).toBeInTheDocument()
+    expect(screen.getByText(/Native balance/)).toBeInTheDocument()
+  })
+
+  it('promotes the due status only for an imminent or overdue payment', () => {
+    const { rerender } = render(
+      <CCCard
+        account={account}
+        txData={txData}
+        privacyMode={false}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        onViewActivity={vi.fn()}
+        cycleView="statement"
+        onCycleViewChange={vi.fn()}
+        cycleIndex={0}
+        onCycleIndexChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Due in 10d')).toBeInTheDocument()
+    expect(screen.getByText('Amount due').parentElement?.parentElement).not.toHaveClass('bg-surface2')
+
+    rerender(
+      <CCCard
+        account={{ ...account, daysUntilDue: -2 }}
+        txData={txData}
+        privacyMode={false}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        onViewActivity={vi.fn()}
+        cycleView="statement"
+        onCycleViewChange={vi.fn()}
+        cycleIndex={0}
+        onCycleIndexChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getAllByText('Overdue by 2d')).toHaveLength(2)
+    expect(screen.queryByText('Due in -2d')).not.toBeInTheDocument()
+    expect(screen.getByText('Amount due').parentElement?.parentElement).toHaveClass('bg-surface2')
+  })
+
+  it('keeps viewing activity a separate, named action', async () => {
+    const onViewActivity = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <CCCard
+        account={account}
+        txData={txData}
+        privacyMode={false}
+        isExpanded={false}
+        onToggle={vi.fn()}
+        onViewActivity={onViewActivity}
+        cycleView="statement"
+        onCycleViewChange={vi.fn()}
+        cycleIndex={0}
+        onCycleIndexChange={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'View activity' }))
+    expect(onViewActivity).toHaveBeenCalledOnce()
+  })
+
   it('shows a zero total and explicit empty state for an empty statement', () => {
     renderCard('statement')
 
