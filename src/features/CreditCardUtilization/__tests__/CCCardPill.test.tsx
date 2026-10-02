@@ -30,7 +30,6 @@ const account: CCAccount = {
   phpEquivalent:  1000,
   utilization:    20,
   daysUntilDue:   10,
-  amountDue:      500,
 }
 
 const txData: CCTransactionData = {
@@ -46,7 +45,6 @@ function renderCard(cycleView: 'statement' | 'all', onCycleViewChange = vi.fn())
       privacyMode={false}
       isExpanded
       onToggle={vi.fn()}
-      onViewActivity={vi.fn()}
       cycleView={cycleView}
       onCycleViewChange={onCycleViewChange}
       cycleIndex={0}
@@ -71,7 +69,6 @@ describe('CCCard Pill_Selector (R6)', () => {
         privacyMode={false}
         isExpanded={false}
         onToggle={vi.fn()}
-        onViewActivity={vi.fn()}
         cycleView="statement"
         onCycleViewChange={vi.fn()}
         cycleIndex={0}
@@ -91,7 +88,6 @@ describe('CCCard Pill_Selector (R6)', () => {
         privacyMode={false}
         isExpanded={false}
         onToggle={vi.fn()}
-        onViewActivity={vi.fn()}
         cycleView="statement"
         onCycleViewChange={vi.fn()}
         cycleIndex={0}
@@ -100,7 +96,7 @@ describe('CCCard Pill_Selector (R6)', () => {
     )
 
     expect(screen.getByText('Due in 10d')).toBeInTheDocument()
-    expect(screen.getByText('Amount due').parentElement?.parentElement).not.toHaveClass('bg-surface2')
+    expect(screen.queryByText('Amount due')).not.toBeInTheDocument()
 
     rerender(
       <CCCard
@@ -109,7 +105,6 @@ describe('CCCard Pill_Selector (R6)', () => {
         privacyMode={false}
         isExpanded={false}
         onToggle={vi.fn()}
-        onViewActivity={vi.fn()}
         cycleView="statement"
         onCycleViewChange={vi.fn()}
         cycleIndex={0}
@@ -117,31 +112,10 @@ describe('CCCard Pill_Selector (R6)', () => {
       />,
     )
 
-    expect(screen.getAllByText('Overdue by 2d')).toHaveLength(2)
+    expect(screen.getByText('Overdue by 2d')).toBeInTheDocument()
     expect(screen.queryByText('Due in -2d')).not.toBeInTheDocument()
-    expect(screen.getByText('Amount due').parentElement?.parentElement).toHaveClass('bg-surface2')
-  })
-
-  it('keeps viewing activity a separate, named action', async () => {
-    const onViewActivity = vi.fn()
-    const user = userEvent.setup()
-    render(
-      <CCCard
-        account={account}
-        txData={txData}
-        privacyMode={false}
-        isExpanded={false}
-        onToggle={vi.fn()}
-        onViewActivity={onViewActivity}
-        cycleView="statement"
-        onCycleViewChange={vi.fn()}
-        cycleIndex={0}
-        onCycleIndexChange={vi.fn()}
-      />,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'View activity' }))
-    expect(onViewActivity).toHaveBeenCalledOnce()
+    expect(screen.queryByText('Amount due')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'View activity' })).not.toBeInTheDocument()
   })
 
   it('shows a zero total and explicit empty state for an empty statement', () => {

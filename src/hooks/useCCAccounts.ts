@@ -12,10 +12,6 @@
  * The CC filter is frontend-only — the accounts-balances Edge Function
  * returns all accounts; useLiveQuery narrows to category === 'Credit Cards'.
  *
- * `amountDue` is initialised to 0 here — it is populated later by the
- * CreditCardUtilization component from useCCTransactions data (sum of
- * non-payment phpValues in the current billing cycle).
- *
  * Returning null from the useLiveQuery callback when unauthenticated
  * disables the query (status='disabled', data=undefined, isLoading=false).
  */
@@ -99,7 +95,6 @@ export function useCCAccounts(): {
       phpEquivalent,
       utilization,
       daysUntilDue:   computeDaysUntilDue(row.dueDay),
-      amountDue:      0,
     }
   })
 

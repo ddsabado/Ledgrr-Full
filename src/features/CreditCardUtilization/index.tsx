@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen, Settings } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -7,14 +7,13 @@ import { useCCAccounts } from "@/hooks/useCCAccounts";
 import { useCCTransactions } from "@/hooks/useCCTransactions";
 import { useCurrencies } from "@/hooks/useCurrencies";
 import { useAccountImages } from "@/hooks/useAccountImages";
-import type { CCAccount } from "@/types/transactions";
 import type { NewCreditCardInput } from "@/types/accounts";
 import { createCreditCard } from "@/services/api";
 import { queryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { NAV_TOGGLE_HOVER, NAV_TOGGLE_TAP } from "@/components/navToggle";
 import CCCard from "./CCCard";
 import NewCreditCardDialog from "./NewCreditCardDialog";
-import { getStatementTotal } from "./utils";
 
 interface CreditCardUtilizationProps {
   privacyMode: boolean;
@@ -96,19 +95,9 @@ export default function CreditCardUtilization({
     );
   }
 
-  // ─── Merge amountDue from ccTxData into each account ───────────────────────
-  // cycles[0] is the running statement cycle. The dashboard instead shows the
-  // latest completed statement, which is cycles[1]. Transfers are payments and
-  // do not contribute to the statement total.
-  const merged: CCAccount[] = ccAccounts.map((account) => {
-    const cycles = ccTxData.get(account.name)?.cycles ?? [];
-    const amountDue = getStatementTotal(cycles[1]?.transactions ?? [], fxMap);
-    return { ...account, amountDue };
-  });
-
   // ─── Success ─────────────────────────────────────────────────────────────
   // Sort by daysUntilDue ascending, nulls last.
-  const sorted = [...merged].sort((a, b) => {
+  const sorted = [...ccAccounts].sort((a, b) => {
     if (a.daysUntilDue === null && b.daysUntilDue === null) return 0;
     if (a.daysUntilDue === null) return 1;
     if (b.daysUntilDue === null) return -1;
@@ -118,12 +107,6 @@ export default function CreditCardUtilization({
     if (!viewerOpen && sorted[0]) onSelectCard(sorted[0].name);
     setExpandedCard(null);
     onToggleViewer();
-  };
-
-  const viewActivity = (accountName: string) => {
-    onSelectCard(accountName);
-    setExpandedCard(null);
-    if (!viewerOpen) onToggleViewer();
   };
 
   const submitNewCard = (input: NewCreditCardInput) => {
@@ -156,23 +139,47 @@ export default function CreditCardUtilization({
           <motion.button
             type="button"
             aria-label={viewerOpen ? "Close credit card activity" : "View credit card activity"}
+            title={viewerOpen ? "Close credit card activity" : "View credit card activity"}
             onClick={toggleViewer}
-            animate={{ rotate: viewerOpen ? 180 : 0 }}
-            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 30 }}
+            whileHover={NAV_TOGGLE_HOVER}
+            whileTap={NAV_TOGGLE_TAP}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            {viewerOpen ? (
-              <>
-                <PanelTopClose aria-hidden="true" className="h-4 w-4 lg:hidden" />
-                <PanelLeftClose aria-hidden="true" className="hidden h-4 w-4 lg:block" />
-              </>
-            ) : (
-              <>
-                <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
-                <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
-              </>
-            )}
-            <span className="whitespace-nowrap">{viewerOpen ? "Close activity" : "View activity"}</span>
+            <motion.span
+              animate={{ rotate: viewerOpen ? 180 : 0 }}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 260, damping: 30 }
+              }
+              className="flex"
+            >
+              {viewerOpen ? (
+                <>
+                  <PanelTopClose aria-hidden="true" className="h-4 w-4 lg:hidden" />
+                  <PanelLeftClose aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+                </>
+              ) : (
+                <>
+                  <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
+                  <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+                </>
+              )}
+            </motion.span>
+            <span className="flex min-w-0">
+              <AnimatePresence initial={false} mode="wait">
+                <motion.span
+                  key={viewerOpen ? "close-activity" : "view-activity"}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.15, ease: "easeInOut" }}
+                  className="flex items-center whitespace-nowrap"
+                >
+                  {viewerOpen ? "Close activity" : "View activity"}
+                </motion.span>
+              </AnimatePresence>
+            </span>
           </motion.button>
         </div>
       </div>
@@ -194,7 +201,6 @@ export default function CreditCardUtilization({
                     expandedCard === account.name ? null : account.name,
                   )
             }
-            onViewActivity={() => viewActivity(account.name)}
             viewerOpen={viewerOpen}
             selected={selectedCard === account.name}
             cycleView={cycleView}

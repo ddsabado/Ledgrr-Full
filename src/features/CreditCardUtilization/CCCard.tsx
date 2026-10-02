@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useId } from "react";
 
@@ -23,7 +23,6 @@ interface CCCardProps {
   privacyMode: boolean;
   isExpanded: boolean;
   onToggle: () => void;
-  onViewActivity: () => void;
   cycleView: "statement" | "all";
   onCycleViewChange: (view: "statement" | "all") => void;
   cycleIndex: number;
@@ -43,7 +42,6 @@ export default function CCCard({
   privacyMode,
   isExpanded,
   onToggle,
-  onViewActivity,
   cycleView,
   onCycleViewChange,
   cycleIndex,
@@ -95,12 +93,6 @@ export default function CCCard({
     account.statementDay !== null ? String(account.statementDay) : "—";
   const dueDayDisplay = account.dueDay !== null ? String(account.dueDay) : "—";
 
-  // Amount due (current cycle, PHP).
-  const amountDueDisplay = privacyMode
-    ? PRIVACY_MASK
-    : formatCurrency(account.amountDue, "PHP");
-  const isDueActionable =
-    account.daysUntilDue !== null && account.daysUntilDue <= 7;
   const dueStatus =
     account.daysUntilDue === null
       ? null
@@ -215,33 +207,6 @@ export default function CCCard({
         </div>
       </button>
 
-      <div className="border-t border-border px-4 py-3">
-        <div
-          className={`flex min-h-11 items-center justify-between gap-3 rounded-md px-3 py-2 ${
-            isDueActionable ? "bg-surface2" : ""
-          }`}
-        >
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-muted">Amount due</p>
-            <p className="text-sm font-semibold text-text tabular-nums">
-              {amountDueDisplay}
-              {isDueActionable && dueStatus && (
-                <span className="ml-2 text-xs font-medium text-muted">{dueStatus}</span>
-              )}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onViewActivity}
-            aria-current={viewerOpen && selected ? "page" : undefined}
-            className="group inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <span>{viewerOpen && selected ? "Viewing activity" : "View activity"}</span>
-            <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" />
-          </button>
-        </div>
-      </div>
-
       {/* ─── Expanded panel ─────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>
         {!viewerOpen && isExpanded && (
@@ -253,7 +218,7 @@ export default function CCCard({
             transition={{ type: "tween", duration: 0.2, ease: "easeInOut" }}
             style={{ overflow: "hidden" }}
           >
-            <div className="px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-border">
+            <div className="px-4 pb-4 pt-2 flex flex-col gap-3 border-t border-border">
               {/* View mode tabs — single persistent highlight that slides
                   horizontally between the two equal-width cells (R6). */}
               <div
@@ -286,7 +251,7 @@ export default function CCCard({
                       role="tab"
                       aria-selected={isSelected}
                       onClick={() => onCycleViewChange(tab.id)}
-                      className={`relative z-10 min-h-11 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      className={`relative z-10 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                         isSelected ? "text-text" : "text-muted hover:text-text"
                       }`}
                     >
