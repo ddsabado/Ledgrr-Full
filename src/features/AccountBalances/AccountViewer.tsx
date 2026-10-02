@@ -33,33 +33,35 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
   })
   const reduceMotion = useReducedMotion()
   const active = Object.values(filters).some((value) => Boolean(value))
+  const activeCount = Object.values(filters).filter((value) => Boolean(value)).length
   const set = (patch: Partial<AccountTransactionFilters>) => setFilters((current) => ({ ...current, ...patch }))
 
   return (
     <motion.section layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="h-full rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-none lg:h-full">
-      <header className="shrink-0 flex items-start justify-between gap-3">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">{accountName}</h2>
-        <div className="flex items-center gap-1">
-          {account && <button type="button" aria-label="Adjust balance" onClick={() => { adjustment.reset(); setAdjustOpen(true) }} className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Wrench aria-hidden="true" className="h-4 w-4" /></button>}
+      <header className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <h2 className="min-w-0 font-display text-xl font-semibold tracking-tight text-text truncate">{accountName}</h2>
+        <div className="flex flex-wrap items-center gap-1">
+          {account && <button type="button" aria-label="Adjust balance" title="Adjust balance" onClick={() => { adjustment.reset(); setAdjustOpen(true) }} className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Wrench aria-hidden="true" className="h-4 w-4" /><span>Adjust balance</span></button>}
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" aria-label="Filter transactions" className="relative rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              <button type="button" aria-label={active ? `Filter transactions, ${activeCount} active` : 'Filter transactions'} title="Filter transactions" className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                 <ListFilter aria-hidden="true" className="h-4 w-4" />
-                {active && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent" />}
+                <span>Filters</span>
+                {active && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-text">{activeCount} active</span>}
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="flex max-h-[70vh] w-72 flex-col gap-3 overflow-y-auto">
             <div className="flex items-center justify-between">
               <span className="font-display text-xs font-semibold tracking-widest uppercase text-muted">Transaction filters</span>
-              {active && <button type="button" onClick={() => setFilters({})} className="flex items-center gap-1 text-xs text-muted hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X className="h-3 w-3" />Clear</button>}
+              {active && <button type="button" onClick={() => setFilters({})} className="flex min-h-11 items-center gap-1 rounded px-1 text-xs text-muted hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X aria-hidden="true" className="h-3 w-3" />Clear</button>}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1 text-xs text-muted">Min amount<input type="number" inputMode="decimal" value={filters.minAmount ?? ''} onChange={(e) => set({ minAmount: e.target.value })} className="rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text" /></label>
-              <label className="flex flex-col gap-1 text-xs text-muted">Max amount<input type="number" inputMode="decimal" value={filters.maxAmount ?? ''} onChange={(e) => set({ maxAmount: e.target.value })} className="rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text" /></label>
+              <label className="flex flex-col gap-1 text-xs text-muted">Min amount<input type="number" inputMode="decimal" value={filters.minAmount ?? ''} onChange={(e) => set({ minAmount: e.target.value })} className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" /></label>
+              <label className="flex flex-col gap-1 text-xs text-muted">Max amount<input type="number" inputMode="decimal" value={filters.maxAmount ?? ''} onChange={(e) => set({ maxAmount: e.target.value })} className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" /></label>
             </div>
             <label className="flex flex-col gap-1 text-xs text-muted">Date range<DateRangePicker value={filters.range} onChange={(range) => set({ range })} /></label>
-            <label className="flex flex-col gap-1 text-xs text-muted">Type<select value={filters.type ?? ''} onChange={(e) => set({ type: e.target.value || undefined })} className="rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text"><option value="">Any</option>{types.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
-            <label className="flex flex-col gap-1 text-xs text-muted">Note<input type="search" value={filters.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="Search notes" className="rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text placeholder:text-muted" /></label>
+            <label className="flex flex-col gap-1 text-xs text-muted">Type<select value={filters.type ?? ''} onChange={(e) => set({ type: e.target.value || undefined })} className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><option value="">Any</option>{types.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+            <label className="flex flex-col gap-1 text-xs text-muted">Note<input type="search" value={filters.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="Search notes" className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" /></label>
             </PopoverContent>
           </Popover>
         </div>

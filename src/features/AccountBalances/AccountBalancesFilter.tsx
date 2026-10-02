@@ -12,6 +12,10 @@ export function isAccountBalanceFilterActive(filters: AccountBalanceFilters): bo
   return Boolean(filters.name?.trim() || filters.currency || filters.category)
 }
 
+export function accountBalanceFilterCount(filters: AccountBalanceFilters): number {
+  return [filters.name?.trim(), filters.currency, filters.category].filter(Boolean).length
+}
+
 interface AccountBalancesFilterProps {
   filters: AccountBalanceFilters
   onChange: (next: AccountBalanceFilters) => void
@@ -27,6 +31,7 @@ export default function AccountBalancesFilter({
   categories,
 }: AccountBalancesFilterProps) {
   const active = isAccountBalanceFilterActive(filters)
+  const activeCount = accountBalanceFilterCount(filters)
 
   const set = (patch: Partial<AccountBalanceFilters>) => onChange({ ...filters, ...patch })
 
@@ -35,20 +40,16 @@ export default function AccountBalancesFilter({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="Filter account balances"
-          className="relative rounded-md p-1 text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label={active ? `Filter account balances, ${activeCount} active` : 'Filter account balances'}
+          title="Filter account balances"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ListFilter aria-hidden="true" className="h-4 w-4" />
-          {active && (
-            <span
-              aria-hidden="true"
-              data-testid="account-balances-filter-active"
-              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"
-            />
-          )}
+          <span>Filters</span>
+          {active && <span data-testid="account-balances-filter-active" className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-text">{activeCount} active</span>}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="flex flex-col gap-3">
+      <PopoverContent align="center" className="flex w-[calc(100vw-2.5rem)] max-w-72 flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="font-display text-xs font-semibold tracking-widest uppercase text-muted">Filters</span>
           {active && (
@@ -69,7 +70,7 @@ export default function AccountBalancesFilter({
             value={filters.name ?? ''}
             onChange={(event) => set({ name: event.target.value })}
             placeholder="Search account"
-            className="rounded-md border border-border bg-surface2 px-3 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="min-h-11 rounded-md border border-border bg-surface2 px-3 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           />
         </label>
 
@@ -78,7 +79,7 @@ export default function AccountBalancesFilter({
           <select
             value={filters.currency ?? ''}
             onChange={(event) => set({ currency: event.target.value || undefined })}
-            className="rounded-md border border-border bg-surface2 px-3 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="min-h-11 rounded-md border border-border bg-surface2 px-3 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <option value="">Any</option>
             {currencies.map((currency) => (
@@ -92,7 +93,7 @@ export default function AccountBalancesFilter({
           <select
             value={filters.category ?? ''}
             onChange={(event) => set({ category: event.target.value || undefined })}
-            className="rounded-md border border-border bg-surface2 px-3 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="min-h-11 rounded-md border border-border bg-surface2 px-3 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <option value="">Any</option>
             {categories.map((category) => (

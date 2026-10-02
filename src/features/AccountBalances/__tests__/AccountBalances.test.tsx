@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import type { AccountBalance } from '@/types/accounts'
@@ -105,7 +105,34 @@ describe('AccountBalances filters', () => {
 
     expect(screen.getAllByText('BPI Savings').length).toBeGreaterThan(0)
     expect(screen.queryByText('GCash')).not.toBeInTheDocument()
-    expect(screen.getByTestId('account-balances-filter-active')).toBeInTheDocument()
+    expect(screen.getByTestId('account-balances-filter-active')).toHaveTextContent('1 active')
+  })
+
+  it('makes account activity actions explicit and preserves row keyboard activation', async () => {
+    hookState.value.data = [acct({ name: 'Cash', phpEquivalent: 500 })]
+    const onSelectAccount = vi.fn()
+    const onToggleViewer = vi.fn()
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <AccountBalances
+        privacyMode={false}
+        onSelectAccount={onSelectAccount}
+        onToggleViewer={onToggleViewer}
+      />,
+    )
+
+    const row = screen.getByRole('option', { name: 'View activity for Cash' })
+    await user.click(row)
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(onSelectAccount).toHaveBeenCalledTimes(3)
+    expect(onToggleViewer).toHaveBeenCalledTimes(3)
+    expect(screen.getByRole('button', { name: 'View account activity' })).toHaveTextContent('View activity')
+
+    rerender(<AccountBalances privacyMode={false} viewerOpen selectedAccount="Cash" />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Close account activity' })).toHaveTextContent('Close activity')
+    })
   })
 
   it('filters accounts by currency and can clear the active filters', async () => {

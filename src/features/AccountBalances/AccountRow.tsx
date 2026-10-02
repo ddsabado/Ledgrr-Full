@@ -1,5 +1,6 @@
 import type { AccountBalance } from "@/types/accounts";
 import { formatCurrency } from "@/utils/currency";
+import { ChevronRight } from "lucide-react";
 
 const PRIVACY_MASK = "••••••";
 
@@ -43,7 +44,9 @@ export default function AccountRow({
         }
       }}
       aria-selected={selected}
-      className={`flex w-full items-start justify-between gap-3 rounded-md px-2 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      aria-label={`View activity for ${account.name}`}
+      title={`View activity for ${account.name}`}
+      className={`group flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         selected ? "bg-accent ring-1 ring-accent/60" : "hover:bg-surface2"
       }`}
     >
@@ -60,7 +63,8 @@ export default function AccountRow({
       </div>
 
       {/* Right: balances */}
-      <div className="flex flex-col items-end shrink-0 text-right">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-col items-end text-right">
         <span className="text-sm text-text font-medium tabular-nums">
           {phpDisplay}
         </span>
@@ -69,6 +73,11 @@ export default function AccountRow({
             {nativeDisplay}
           </span>
         )}
+        </div>
+        <span className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-muted" aria-hidden="true">
+          <span>View</span>
+          <ChevronRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" />
+        </span>
       </div>
     </div>
   );
