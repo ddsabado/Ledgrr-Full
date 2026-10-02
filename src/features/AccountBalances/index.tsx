@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen } from "lucide-react";
 
@@ -33,6 +33,8 @@ export default function AccountBalances({
   // Collapsed category names; empty set = all groups expanded (default).
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [filters, setFilters] = useState<AccountBalanceFilters>({});
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null);
+  const accountListRef = useRef<HTMLDivElement>(null);
   const toggleGroup = (cat: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -96,6 +98,39 @@ export default function AccountBalances({
     return order.map((cat) => [cat, byCat.get(cat)!] as const);
   }, [filteredAccounts]);
 
+  useEffect(() => {
+    if (!scrollTarget) return;
+
+    const account = filteredAccounts.find(({ name }) => name === scrollTarget);
+    if (!account) {
+      setScrollTarget(null);
+      return;
+    }
+
+    const category = account.category?.trim() || "Uncategorized";
+    if (collapsed.has(category)) {
+      setCollapsed((previous) => {
+        const next = new Set(previous);
+        next.delete(category);
+        return next;
+      });
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const row = Array.from(
+        accountListRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [],
+      ).find((element) => element.getAttribute("aria-label") === `View activity for ${scrollTarget}`);
+      row?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "nearest",
+      });
+      setScrollTarget(null);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [collapsed, filteredAccounts, reduceMotion, scrollTarget]);
+
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -141,7 +176,8 @@ export default function AccountBalances({
       onSelectAccount(filteredAccounts[0].name);
     onToggleViewer();
   };
-  const selectAccount = (name: string) => {
+  const selectAccount = (name: string, scrollToRow = false) => {
+    if (scrollToRow) setScrollTarget(name);
     if (viewerOpen && selectedAccount === name) {
       onToggleViewer();
       return;
@@ -204,7 +240,7 @@ export default function AccountBalances({
                 </>
               )}
             </motion.span>
-            <span className="relative min-w-[5.75rem] self-stretch">
+            <span className="flex min-w-0">
               <AnimatePresence initial={false} mode="wait">
                 <motion.span
                   key={viewerOpen ? "close-activity" : "view-activity"}
@@ -212,7 +248,7 @@ export default function AccountBalances({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: reduceMotion ? 0 : 0.15, ease: "easeInOut" }}
-                  className="absolute inset-y-0 left-0 flex items-center whitespace-nowrap"
+                  className="flex items-center whitespace-nowrap"
                 >
                   {viewerOpen ? "Close activity" : "View activity"}
                 </motion.span>
@@ -223,8 +259,14 @@ export default function AccountBalances({
       </div>
 
       {/* Donut chart */}
-      <div key={viewerOpen ? 'balances-chart-compact' : 'balances-chart-full'} className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
-        <BalanceChart accounts={filteredAccounts} privacyMode={privacyMode} />
+      <div className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
+        <BalanceChart
+          accounts={filteredAccounts}
+          privacyMode={privacyMode}
+          selectedAccount={viewerOpen ? selectedAccount : null}
+          onSelectAccount={(name) => selectAccount(name, true)}
+          emptyLabel="No matching accounts to chart"
+        />
       </div>
 
       {/* Total row */}
@@ -236,7 +278,7 @@ export default function AccountBalances({
       </div>
 
       {/* Account groups — scrollable; grouped by category, expanded by default */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-1 py-1 flex flex-col gap-2 scrollbar-gutter-stable">
+      <div ref={accountListRef} className="flex-1 min-h-0 overflow-y-auto px-1 py-1 flex flex-col gap-2 scrollbar-gutter-stable">
         {groups.length === 0 ? (
           <p className="flex-1 py-6 px-2 text-center text-sm text-muted">
             No matching accounts.

@@ -61,7 +61,7 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
             </div>
             <label className="flex flex-col gap-1 text-xs text-muted">Date range<DateRangePicker value={filters.range} onChange={(range) => set({ range })} /></label>
             <label className="flex flex-col gap-1 text-xs text-muted">Type<select value={filters.type ?? ''} onChange={(e) => set({ type: e.target.value || undefined })} className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><option value="">Any</option>{types.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
-            <label className="flex flex-col gap-1 text-xs text-muted">Note<input type="search" value={filters.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="Search notes" className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" /></label>
+            <label className="flex flex-col gap-1 text-xs text-muted">Note<input type="text" value={filters.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="Search notes" className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" /></label>
             </PopoverContent>
           </Popover>
         </div>

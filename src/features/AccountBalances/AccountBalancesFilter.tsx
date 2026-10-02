@@ -66,7 +66,7 @@ export default function AccountBalancesFilter({
         <label className="flex flex-col gap-1">
           <span className="text-xs text-muted">Account name</span>
           <input
-            type="search"
+            type="text"
             value={filters.name ?? ''}
             onChange={(event) => set({ name: event.target.value })}
             placeholder="Search account"
