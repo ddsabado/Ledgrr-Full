@@ -74,7 +74,7 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
   const filterDescription = describeFilters(filters, privacyMode)
 
   return (
-    <motion.section layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="h-full min-h-0 max-h-none overflow-hidden rounded-xl border border-border bg-surface p-5 flex flex-col gap-3 lg:h-full">
+    <motion.section layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="h-full min-h-0 max-h-none overflow-x-hidden overflow-y-hidden rounded-xl border border-border bg-surface p-5 flex flex-col gap-3 lg:h-full">
       <AnimatePresence initial={false} mode="wait">
       <motion.div
         key={accountName}
@@ -90,15 +90,15 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
           {account && <dl aria-label="Account summary" className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-1 border-t border-border pt-2 text-xs leading-5 sm:flex sm:flex-wrap sm:items-end sm:gap-x-5">
             <div className="min-w-0"><dt className="text-muted">PHP equivalent</dt><dd className="font-medium tabular-nums text-text">{summaryBalance}</dd></div>
             {nativeBalance && <div className="text-right sm:text-left"><dt className="text-muted">Native · {account.currency}</dt><dd className="font-medium tabular-nums text-text">{nativeBalance}</dd></div>}
-            <div className="col-span-2 flex flex-wrap gap-x-2 text-muted sm:col-span-1"><dt className="sr-only">Account details</dt><dd>{account.category} · {account.currency}</dd><span aria-hidden="true">•</span><dt className="sr-only">Visible result count</dt><dd>{resultLabel}</dd></div>
+            <div className="col-span-2 flex min-w-0 flex-wrap gap-x-2 text-muted sm:col-span-1"><dt className="sr-only">Account details</dt><dd className="min-w-0 break-words">{account.category} · {account.currency}</dd><span aria-hidden="true">•</span><dt className="sr-only">Visible result count</dt><dd>{resultLabel}</dd></div>
           </dl>}
           <p aria-live="polite" aria-atomic="true" className="sr-only">{resultLabel}{active ? `. Filters active: ${filterDescription}` : ''}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1 self-start">
-          {account && <button type="button" aria-label="Adjust balance" title="Adjust balance" onClick={() => { adjustment.reset(); setAdjustOpen(true) }} className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Wrench aria-hidden="true" className="h-4 w-4" /><span>Adjust balance</span></button>}
+          {account && <button type="button" aria-label="Adjust balance" title="Adjust balance" onClick={() => { adjustment.reset(); setAdjustOpen(true) }} className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Wrench aria-hidden="true" className="h-4 w-4" /><span>Adjust balance</span></button>}
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" aria-label={active ? `Filter transactions, ${activeCount} active` : 'Filter transactions'} title="Filter transactions" className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              <button type="button" aria-label={active ? `Filter transactions, ${activeCount} active` : 'Filter transactions'} title="Filter transactions" className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                 <ListFilter aria-hidden="true" className="h-4 w-4" />
                 <span>Filters</span>
                 {active && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-text">{activeCount} active</span>}
