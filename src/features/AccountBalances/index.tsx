@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { ChevronDown, PanelLeftOpen, PanelTopOpen } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen } from "lucide-react";
 
 import { useAccountBalances } from "@/hooks/useAccountBalances";
 import { formatCurrency } from "@/utils/currency";
@@ -159,8 +159,8 @@ export default function AccountBalances({
       className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
     >
       {/* Heading + filter */}
-      <div className="shrink-0 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
+        <div className="flex min-w-0 basis-full items-center gap-2 lg:flex-1 lg:basis-auto">
           <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
             Account Balances
           </p>
@@ -175,21 +175,49 @@ export default function AccountBalances({
           <motion.button
             type="button"
             aria-label={
-              viewerOpen ? "Close account viewer" : "Open account viewer"
+              viewerOpen ? "Close account activity" : "View account activity"
             }
+            title={viewerOpen ? "Close account activity" : "View account activity"}
             onClick={toggleViewer}
-            animate={{ rotate: viewerOpen ? 180 : 0 }}
-            transition={
-              reduceMotion
-                ? { duration: 0 }
-                : { type: "spring", stiffness: 260, damping: 30 }
-            }
             whileHover={NAV_TOGGLE_HOVER}
             whileTap={NAV_TOGGLE_TAP}
-            className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
-            <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+            <motion.span
+              animate={{ rotate: viewerOpen ? 180 : 0 }}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 260, damping: 30 }
+              }
+              className="flex"
+            >
+              {viewerOpen ? (
+                <>
+                <PanelTopClose aria-hidden="true" className="h-4 w-4 lg:hidden" />
+                <PanelLeftClose aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+                </>
+              ) : (
+                <>
+                <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
+                <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+                </>
+              )}
+            </motion.span>
+            <span className="relative min-w-[5.75rem] self-stretch">
+              <AnimatePresence initial={false} mode="wait">
+                <motion.span
+                  key={viewerOpen ? "close-activity" : "view-activity"}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.15, ease: "easeInOut" }}
+                  className="absolute inset-y-0 left-0 flex items-center whitespace-nowrap"
+                >
+                  {viewerOpen ? "Close activity" : "View activity"}
+                </motion.span>
+              </AnimatePresence>
+            </span>
           </motion.button>
         </div>
       </div>
