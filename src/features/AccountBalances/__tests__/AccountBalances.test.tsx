@@ -34,6 +34,20 @@ afterEach(() => {
 })
 
 describe('AccountBalances — percentage masking (R3)', () => {
+  it('announces loading, error, and empty inventory states', () => {
+    hookState.value = { data: [], isLoading: true, isError: false }
+    const { rerender } = render(<AccountBalances privacyMode={false} />)
+    expect(screen.getByRole('status')).toHaveTextContent('Loading account balances.')
+
+    hookState.value = { data: [], isLoading: false, isError: true }
+    rerender(<AccountBalances privacyMode={false} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load account balances')
+
+    hookState.value = { data: [], isLoading: false, isError: false }
+    rerender(<AccountBalances privacyMode={false} />)
+    expect(screen.getByRole('status')).toHaveTextContent('No accounts found.')
+  })
+
   it('masks the percentage in privacy mode and shows it when off (R3.1, R3.2)', () => {
     hookState.value.data = [
       acct({ name: 'A', phpEquivalent: 700 }),
@@ -74,6 +88,37 @@ describe('AccountBalances — percentage masking (R3)', () => {
     expect(screen.getAllByText('BPI').length).toBeGreaterThan(0)
     expect(screen.getAllByText('GCash').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Wallet').length).toBeGreaterThan(0)
+  })
+
+  it('keeps category order while sorting 20+ accounts by PHP equivalent within each category', () => {
+    hookState.value.data = Array.from({ length: 22 }, (_, index) =>
+      acct({
+        name: `Account ${String(index + 1).padStart(2, '0')}`,
+        category: index < 20 ? 'Everyday accounts' : 'Foreign currency',
+        currency: index > 19 ? 'USD' : 'PHP',
+        currentBalance: index > 19 ? index + 1 : 1_000 - index,
+        phpEquivalent: index < 20 ? index + 1 : (index + 1) * 100,
+      }),
+    )
+    render(<AccountBalances privacyMode={false} />)
+
+    expect(screen.getByRole('button', { name: /^Everyday accounts$/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('option').slice(0, 3).map((row) => row.getAttribute('aria-label'))).toEqual([
+      'View activity for Account 20',
+      'View activity for Account 19',
+      'View activity for Account 18',
+    ])
+    expect(screen.getByRole('option', { name: 'View activity for Account 22' })).toHaveTextContent('$22.00')
+  })
+
+  it('renders a five-account inventory without collapsing or omitting rows', () => {
+    hookState.value.data = Array.from({ length: 5 }, (_, index) =>
+      acct({ name: `Five ${index + 1}`, phpEquivalent: index + 1 }),
+    )
+    render(<AccountBalances privacyMode={false} />)
+
+    expect(screen.getAllByRole('option')).toHaveLength(5)
+    expect(screen.getByRole('button', { name: /^Cash$/ })).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('collapsing a group hides its accounts and leaves others (R4.3)', async () => {
@@ -165,6 +210,31 @@ describe('AccountBalances filters', () => {
       expect(screen.getByRole('button', { name: 'Close account activity' })).toHaveTextContent('Close activity')
     })
     expect(container.querySelector('.recharts-wrapper')).toBe(chartBeforeOpeningActivity)
+  })
+
+  it('exposes selected account and filter state without relying on the visual indicator', async () => {
+    hookState.value.data = [
+      acct({ name: 'Long account name that must truncate safely on a narrow mobile screen', category: 'A very long account category name', currency: 'USD', currentBalance: 20, phpEquivalent: 1120 }),
+      acct({ name: 'Cash', phpEquivalent: 10 }),
+    ]
+    const user = userEvent.setup()
+    const { rerender } = render(<AccountBalances privacyMode={true} viewerOpen selectedAccount="Long account name that must truncate safely on a narrow mobile screen" />)
+
+    const selectedRow = screen.getByRole('option', { name: 'View activity for Long account name that must truncate safely on a narrow mobile screen' })
+    expect(selectedRow).toHaveAttribute('aria-selected', 'true')
+    expect(selectedRow).toHaveClass('min-h-11')
+    const description = document.getElementById(selectedRow.getAttribute('aria-describedby') ?? '')
+    expect(description).toHaveTextContent('Balances hidden while Privacy Mode is on')
+    expect(description).not.toHaveTextContent('$20.00')
+    expect(selectedRow.querySelector('.truncate.text-sm')).toHaveTextContent('Long account name that must truncate safely on a narrow mobile screen')
+    expect(screen.getByRole('button', { name: /^A very long account category name$/ })).toHaveClass('min-h-11')
+    expect(screen.getByRole('button', { name: 'Close account activity' })).toHaveClass('min-w-11')
+
+    rerender(<AccountBalances privacyMode={false} />)
+    await user.click(screen.getByRole('button', { name: /filter account balances/i }))
+    await user.type(screen.getByPlaceholderText(/search account/i), 'does not exist')
+    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('No matching accounts.'))).toBe(true)
+    expect(screen.getByRole('button', { name: /filter account balances, 1 active/i })).toHaveClass('min-w-11')
   })
 
   it('filters accounts by currency and can clear the active filters', async () => {

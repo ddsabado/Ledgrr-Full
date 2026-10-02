@@ -42,7 +42,7 @@ export default function AccountBalancesFilter({
           type="button"
           aria-label={active ? `Filter account balances, ${activeCount} active` : 'Filter account balances'}
           title="Filter account balances"
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ListFilter aria-hidden="true" className="h-4 w-4" />
           <span>Filters</span>
@@ -56,7 +56,7 @@ export default function AccountBalancesFilter({
             <button
               type="button"
               onClick={() => onChange({})}
-              className="flex items-center gap-1 rounded text-xs text-muted transition-colors hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="flex min-h-11 min-w-11 items-center justify-center gap-1 rounded px-2 text-xs text-muted transition-colors hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <X aria-hidden="true" className="h-3 w-3" /> Clear
             </button>

@@ -55,6 +55,8 @@ describe('AccountViewer context', () => {
     expect(screen.getByLabelText('Account summary')).toHaveTextContent('e-Wallets · USD')
     expect(screen.getByLabelText('Account summary')).toHaveTextContent('0 transactions in this account')
     expect(screen.getByText('This account has no transactions yet.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Adjust balance' })).toHaveClass('min-h-11', 'min-w-11')
+    expect(screen.getByRole('button', { name: 'Filter transactions' })).toHaveClass('min-h-11', 'min-w-11')
   })
 
   it('explains an empty filtered result and clears filters in place', async () => {

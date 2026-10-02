@@ -78,9 +78,15 @@ export default function AccountBalances({
     (sum, account) => sum + account.phpEquivalent,
     0,
   );
+  const activeFilterCount = [
+    filters.name?.trim(),
+    filters.currency,
+    filters.category,
+  ].filter(Boolean).length;
   const reduceMotion = useReducedMotion();
-  // Group accounts by category (first-appearance order), carrying each
-  // account's GLOBAL index so colors and percentages stay stable across groups.
+  // Keep category order stable, but make large groups easy to scan: their
+  // largest PHP-equivalent balances are always first. The global index remains
+  // attached so chart colors stay consistent with the unmodified chart input.
   const groups = useMemo(() => {
     const order: string[] = [];
     const byCat = new Map<
@@ -95,7 +101,20 @@ export default function AccountBalances({
       }
       byCat.get(cat)!.push({ account, index });
     });
-    return order.map((cat) => [cat, byCat.get(cat)!] as const);
+    return order.map(
+      (cat) =>
+        [
+          cat,
+          byCat
+            .get(cat)!
+            .slice()
+            .sort(
+              (left, right) =>
+                right.account.phpEquivalent - left.account.phpEquivalent ||
+                left.account.name.localeCompare(right.account.name),
+            ),
+        ] as const,
+    );
   }, [filteredAccounts]);
 
   useEffect(() => {
@@ -134,7 +153,8 @@ export default function AccountBalances({
   // ─── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full">
+      <div aria-busy="true" className="rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full">
+        <p role="status" aria-live="polite" className="sr-only">Loading account balances.</p>
         <div className="h-3 w-32 bg-surface2 rounded animate-pulse" />
         <div className="h-48 bg-surface2 rounded-lg animate-pulse" />
         {[1, 2, 3].map((i) => (
@@ -151,7 +171,7 @@ export default function AccountBalances({
   if (isError) {
     return (
       <div className="rounded-xl bg-surface border border-border p-5">
-        <p className="text-sm text-muted text-center">
+        <p role="alert" className="text-sm text-muted text-center">
           Could not load account balances. Please try again later.
         </p>
       </div>
@@ -162,7 +182,7 @@ export default function AccountBalances({
   if (data.length === 0) {
     return (
       <div className="rounded-xl bg-surface border border-border p-5">
-        <p className="text-sm text-muted text-center">No accounts found.</p>
+        <p role="status" className="text-sm text-muted text-center">No accounts found.</p>
       </div>
     );
   }
@@ -192,13 +212,16 @@ export default function AccountBalances({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: "easeInOut" }}
-      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
+      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-x-hidden overflow-y-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
     >
       {/* Heading + filter */}
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
         <div className="flex min-w-0 basis-full items-center gap-2 lg:flex-1 lg:basis-auto">
           <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
             Account Balances
+          </p>
+          <p aria-live="polite" aria-atomic="true" className="sr-only">
+            {filteredAccounts.length} of {data.length} account{data.length === 1 ? "" : "s"} shown{activeFilterCount ? `. ${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active.` : ". No filters active."}{viewerOpen && selectedAccount ? ` Selected account: ${selectedAccount}.` : ""}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -217,7 +240,7 @@ export default function AccountBalances({
             onClick={toggleViewer}
             whileHover={NAV_TOGGLE_HOVER}
             whileTap={NAV_TOGGLE_TAP}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <motion.span
               animate={{ rotate: viewerOpen ? 180 : 0 }}
@@ -280,25 +303,27 @@ export default function AccountBalances({
       {/* Account groups — scrollable; grouped by category, expanded by default */}
       <div ref={accountListRef} className="flex-1 min-h-0 overflow-y-auto px-1 py-1 flex flex-col gap-2 scrollbar-gutter-stable">
         {groups.length === 0 ? (
-          <p className="flex-1 py-6 px-2 text-center text-sm text-muted">
+          <p role="status" aria-live="polite" className="flex-1 py-6 px-2 text-center text-sm text-muted">
             No matching accounts.
           </p>
         ) : (
-          groups.map(([category, items]) => {
+          groups.map(([category, items], groupIndex) => {
             const isCollapsed = collapsed.has(category);
+            const groupId = `account-balance-group-${groupIndex}`;
             return (
               <div key={category} className="flex flex-col">
                 <button
                   type="button"
                   onClick={() => toggleGroup(category)}
                   aria-expanded={!isCollapsed}
-                  className="w-full flex items-center gap-1.5 py-1 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
+                  aria-controls={groupId}
+                  className="w-full min-h-11 flex items-center gap-1.5 px-1 py-2 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
                 >
                   <ChevronDown
                     aria-hidden="true"
                     className={`shrink-0 w-3.5 h-3.5 text-muted transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
                   />
-                  <span className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+                  <span className="min-w-0 truncate font-display text-xs font-semibold tracking-widest uppercase text-muted">
                     {category}
                   </span>
                 </button>
@@ -316,6 +341,7 @@ export default function AccountBalances({
                       style={{ overflow: "hidden" }}
                     >
                       <div
+                        id={groupId}
                         role="listbox"
                         aria-label="Account balances"
                         className="flex flex-col divide-y divide-border px-1"
