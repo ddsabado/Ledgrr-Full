@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -26,6 +26,11 @@ function acct(o: Partial<AccountBalance> = {}): AccountBalance {
 
 beforeEach(() => {
   hookState.value = { data: [], isLoading: false, isError: false }
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
 })
 
 describe('AccountBalances — percentage masking (R3)', () => {
@@ -62,7 +67,7 @@ describe('AccountBalances — percentage masking (R3)', () => {
     render(<AccountBalances privacyMode={false} />)
     // Category headers present (as collapse/expand buttons, all expanded)
     for (const cat of ['Bank Accounts', 'e-Wallets', 'Cash']) {
-      const header = screen.getByRole('button', { name: new RegExp(cat) })
+      const header = screen.getByRole('button', { name: new RegExp(`^${cat}$`) })
       expect(header).toHaveAttribute('aria-expanded', 'true')
     }
     // All accounts visible (names may also appear in the chart legend)
@@ -101,11 +106,36 @@ describe('AccountBalances filters', () => {
     render(<AccountBalances privacyMode={false} />)
 
     await user.click(screen.getByRole('button', { name: /filter account balances/i }))
-    await user.type(screen.getByPlaceholderText(/search account/i), 'bpi')
+    const accountSearch = screen.getByPlaceholderText(/search account/i)
+    expect(accountSearch).toHaveAttribute('type', 'text')
+    await user.type(accountSearch, 'bpi')
 
     expect(screen.getAllByText('BPI Savings').length).toBeGreaterThan(0)
     expect(screen.queryByText('GCash')).not.toBeInTheDocument()
     expect(screen.getByTestId('account-balances-filter-active')).toHaveTextContent('1 active')
+  })
+
+  it('updates the compact chart legend and its remainder cue for the filtered set', async () => {
+    hookState.value.data = [
+      acct({ name: 'Alpha', phpEquivalent: 700 }),
+      acct({ name: 'Bravo', phpEquivalent: 600 }),
+      acct({ name: 'Charlie', phpEquivalent: 500 }),
+      acct({ name: 'Delta', phpEquivalent: 400 }),
+      acct({ name: 'Echo', phpEquivalent: 300 }),
+      acct({ name: 'Foxtrot', phpEquivalent: 200 }),
+      acct({ name: 'Golf', phpEquivalent: 100 }),
+      acct({ name: 'Hotel', phpEquivalent: 50 }),
+    ]
+    const user = userEvent.setup()
+    render(<AccountBalances privacyMode={false} />)
+
+    expect(screen.getByText('+ 1 more account')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /filter account balances/i }))
+    await user.type(screen.getByPlaceholderText(/search account/i), 'foxtrot')
+
+    expect(screen.getByRole('button', { name: 'View activity for Foxtrot' })).toBeInTheDocument()
+    expect(screen.queryByText(/more account/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('₱200.00')).toHaveLength(2)
   })
 
   it('makes account activity actions explicit and preserves row keyboard activation', async () => {
@@ -113,7 +143,7 @@ describe('AccountBalances filters', () => {
     const onSelectAccount = vi.fn()
     const onToggleViewer = vi.fn()
     const user = userEvent.setup()
-    const { rerender } = render(
+    const { container, rerender } = render(
       <AccountBalances
         privacyMode={false}
         onSelectAccount={onSelectAccount}
@@ -128,11 +158,13 @@ describe('AccountBalances filters', () => {
     expect(onSelectAccount).toHaveBeenCalledTimes(3)
     expect(onToggleViewer).toHaveBeenCalledTimes(3)
     expect(screen.getByRole('button', { name: 'View account activity' })).toHaveTextContent('View activity')
+    const chartBeforeOpeningActivity = container.querySelector('.recharts-wrapper')
 
     rerender(<AccountBalances privacyMode={false} viewerOpen selectedAccount="Cash" />)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Close account activity' })).toHaveTextContent('Close activity')
     })
+    expect(container.querySelector('.recharts-wrapper')).toBe(chartBeforeOpeningActivity)
   })
 
   it('filters accounts by currency and can clear the active filters', async () => {
@@ -166,5 +198,31 @@ describe('AccountBalances filters', () => {
 
     expect(screen.getAllByText('GCash').length).toBeGreaterThan(0)
     expect(screen.queryByText('BPI Savings')).not.toBeInTheDocument()
+  })
+})
+
+describe('AccountBalances chart selection', () => {
+  it('scrolls the selected legend account into the grouped list', async () => {
+    hookState.value.data = [
+      acct({ name: 'Cash', category: 'Cash', phpEquivalent: 900 }),
+      acct({ name: 'Savings', category: 'Bank Accounts', phpEquivalent: 800 }),
+    ]
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    })
+    const user = userEvent.setup()
+    render(<AccountBalances privacyMode={false} />)
+
+    const bankAccounts = screen.getByRole('button', { name: /^Bank Accounts$/ })
+    await user.click(bankAccounts)
+    expect(bankAccounts).toHaveAttribute('aria-expanded', 'false')
+    await user.click(screen.getByRole('button', { name: 'View activity for Savings' }))
+
+    await waitFor(() => {
+      expect(bankAccounts).toHaveAttribute('aria-expanded', 'true')
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+    })
   })
 })

@@ -10,6 +10,7 @@ import type { AccountBalance } from '@/types/accounts'
 import ChartPlaceholder from '@/components/ChartPlaceholder'
 
 const PRIVACY_MASK = '••••••'
+export const MAX_LEGEND_ACCOUNTS = 7
 
 /**
  * Categorical chart color generator: evenly-spaced HSL hues around the wheel,
@@ -43,23 +44,53 @@ function sanitizeKey(name: string): string {
 }
 
 interface LegendPayloadItem {
+  account: AccountBalance
   value: string
   color: string
 }
 
-function CustomLegend({ payload }: { payload?: LegendPayloadItem[] }) {
+export function getLegendAccounts(accounts: AccountBalance[]): AccountBalance[] {
+  return [...accounts]
+    .sort((a, b) => b.phpEquivalent - a.phpEquivalent)
+    .slice(0, MAX_LEGEND_ACCOUNTS)
+}
+
+function CustomLegend({
+  payload,
+  hiddenCount,
+  selectedAccount,
+  onSelectAccount,
+}: {
+  payload?: LegendPayloadItem[]
+  hiddenCount: number
+  selectedAccount: string | null
+  onSelectAccount?: (name: string) => void
+}) {
   if (!payload?.length) return null
   return (
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 pt-3 px-2">
-      {payload.map((entry, i) => (
-        <div key={i} className="flex items-center gap-1.5">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 px-2 pt-3" aria-label="Largest account balances">
+      {payload.map((entry) => (
+        <button
+          key={entry.account.name}
+          type="button"
+          onClick={() => onSelectAccount?.(entry.account.name)}
+          aria-pressed={selectedAccount === entry.account.name}
+          aria-label={`View activity for ${entry.account.name}`}
+          title={`View activity for ${entry.account.name}`}
+          className="flex min-h-8 max-w-full items-center gap-1.5 rounded-md px-1.5 text-left transition-colors hover:bg-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
           <div
             className="h-2 w-2 shrink-0 rounded-[2px]"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-xs text-muted leading-none">{entry.value}</span>
-        </div>
+          <span className="truncate text-xs leading-none text-muted">{entry.value}</span>
+        </button>
       ))}
+      {hiddenCount > 0 && (
+        <span className="flex min-h-8 items-center px-1.5 text-xs text-muted" aria-label={`${hiddenCount} more accounts appear in the account list`}>
+          + {hiddenCount} more {hiddenCount === 1 ? 'account' : 'accounts'}
+        </span>
+      )}
     </div>
   )
 }
@@ -67,11 +98,20 @@ function CustomLegend({ payload }: { payload?: LegendPayloadItem[] }) {
 interface BalanceChartProps {
   accounts:    AccountBalance[]
   privacyMode: boolean
+  selectedAccount?: string | null
+  onSelectAccount?: (name: string) => void
+  emptyLabel?: string
 }
 
-export default function BalanceChart({ accounts, privacyMode }: BalanceChartProps) {
+export default function BalanceChart({
+  accounts,
+  privacyMode,
+  selectedAccount = null,
+  onSelectAccount,
+  emptyLabel,
+}: BalanceChartProps) {
   // No data to chart -> reserve the same height with a placeholder (no misleading empty donut).
-  if (accounts.length === 0) return <ChartPlaceholder height="h-64" />
+  if (accounts.length === 0) return <ChartPlaceholder height="h-64" label={emptyLabel} />
 
   const chartData = accounts.map((a, i) => ({
     name:  a.name,
@@ -85,6 +125,15 @@ export default function BalanceChart({ accounts, privacyMode }: BalanceChartProp
       { label: a.name, color: chartColor(i, accounts.length) },
     ])
   )
+  const legendAccounts = getLegendAccounts(accounts)
+  const legendPayload = legendAccounts.map((account) => {
+    const index = accounts.indexOf(account)
+    return {
+      account,
+      value: account.name,
+      color: chartColor(index, accounts.length),
+    }
+  })
 
   return (
     <div className="flex w-full flex-col">
@@ -114,6 +163,7 @@ export default function BalanceChart({ accounts, privacyMode }: BalanceChartProp
             outerRadius={70}
             strokeWidth={2}
             stroke="transparent"
+            onClick={(_, index) => onSelectAccount?.(chartData[index].name)}
           >
             {chartData.map((_, i) => (
               <Cell key={i} fill={chartColor(i, chartData.length)} />
@@ -121,7 +171,12 @@ export default function BalanceChart({ accounts, privacyMode }: BalanceChartProp
           </Pie>
         </PieChart>
       </ChartContainer>
-      <CustomLegend payload={chartData.map(({ name, fill }) => ({ value: name, color: fill }))} />
+      <CustomLegend
+        payload={legendPayload}
+        hiddenCount={accounts.length - legendAccounts.length}
+        selectedAccount={selectedAccount}
+        onSelectAccount={onSelectAccount}
+      />
     </div>
   )
 }
