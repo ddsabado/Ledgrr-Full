@@ -54,8 +54,8 @@ describe('Budgets panel', () => {
     render(<Budgets privacyMode={false} />)
     const list = within(screen.getByTestId('budgets-list'))
     expect(list.getByText('Needs')).toBeInTheDocument()
-    expect(list.getByText(/₱9,000\.00 \/ ₱18,000\.00/)).toBeInTheDocument()
-    expect(list.getByText('50.0%')).toBeInTheDocument()
+    expect(list.getByText('₱9,000.00')).toBeInTheDocument()
+    expect(list.getByText('of ₱18,000.00')).toBeInTheDocument()
     expect(list.getByText('1 transaction')).toBeInTheDocument()
     expect(list.getByText(/₱9,000\.00 left/)).toBeInTheDocument()
   })
@@ -66,8 +66,8 @@ describe('Budgets panel', () => {
     render(<Budgets privacyMode={false} />)
     const list = within(screen.getByTestId('budgets-list'))
     expect(list.getByText(/Over by ₱500\.00/)).toBeInTheDocument()
-    const pct = list.getByText('150.0%')
-    expect(pct.className).toMatch(/text-red-500/)
+    const status = list.getByText(/Over by ₱500\.00/)
+    expect(status.className).toMatch(/text-red-500/)
   })
 
   it('expands to reveal transactions and collapses; one at a time (R5.7, R5.8, R5.9, R5.10)', () => {
@@ -83,11 +83,12 @@ describe('Budgets panel', () => {
     // expand Needs
     fireEvent.click(needsBtn)
     expect(needsBtn).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('1 transaction in Jun 2026')).toBeInTheDocument()
     expect(screen.getByText(/Lunch order/)).toBeInTheDocument()
     expect(screen.getByText((_, element) =>
-      element?.tagName === 'P' && element.textContent?.includes('Food · Grab Food · Chinabank CC') === true,
+      element?.tagName === 'P' && element.textContent?.includes('Food · Grab Food') === true,
     )).toBeInTheDocument()
-    expect(screen.getByText('Jun 02 12:00 AM')).toBeInTheDocument()
+    expect(screen.getByText('Jun 02 12:00 AM · Chinabank CC')).toBeInTheDocument()
 
     // expand Sink → Needs collapses (one-at-a-time, verified via aria-expanded)
     fireEvent.click(sinkBtn)
@@ -138,7 +139,7 @@ describe('Budgets panel', () => {
     hookState.value.candidateTxs = [] // no matching txs
     render(<Budgets privacyMode={false} />)
     fireEvent.click(screen.getByRole('button', { name: /Travel/ }))
-    expect(screen.getByText(/no transactions for this month/i)).toBeInTheDocument()
+    expect(screen.getByText(/no transactions for jun 2026/i)).toBeInTheDocument()
   })
 
   it('masks amounts under privacy mode (R5.12)', () => {
@@ -146,8 +147,9 @@ describe('Budgets panel', () => {
     hookState.value.candidateTxs = [tx({ budget: 'Needs', amount: 9000, currency: 'PHP', resolvedAmount: null, date: '6/2/2026 0:00:00' })]
     render(<Budgets privacyMode={true} />)
     const list = within(screen.getByTestId('budgets-list'))
-    // spent/allotted render in one node; remaining in another — all masked.
-    expect(list.getByText(/•••••• \/ ••••••/)).toBeInTheDocument()
+    // Primary spent amount, supporting allotted amount, and remaining status are all masked.
+    expect(list.getByText('••••••')).toBeInTheDocument()
+    expect(list.getByText('of ••••••')).toBeInTheDocument()
     expect(list.getByText(/•••••• left/)).toBeInTheDocument()
     expect(list.queryByText(/₱9,000/)).not.toBeInTheDocument()
   })
@@ -158,13 +160,13 @@ describe('Budgets panel', () => {
     render(<Budgets privacyMode={false} />)
     // expand in Jun
     fireEvent.click(screen.getByRole('button', { name: /Needs/ }))
-    expect(within(screen.getByTestId('budgets-list')).getByText('50.0%')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Needs: ₱9,000\.00 spent of ₱18,000\.00/ })).toBeInTheDocument()
     // next → Jul: no txs → 0.0%, expander collapsed
     fireEvent.click(screen.getByRole('button', { name: /next month/i }))
     expect(screen.getByText('Jul 2026')).toBeInTheDocument()
     const list = within(screen.getByTestId('budgets-list'))
-    expect(list.getByText('0.0%')).toBeInTheDocument()
-    expect(list.getByText(/₱0\.00 \/ ₱18,000\.00/)).toBeInTheDocument()
+    expect(list.getByText('₱0.00')).toBeInTheDocument()
+    expect(list.getByText('of ₱18,000.00')).toBeInTheDocument()
     expect(list.getByText('0 transactions')).toBeInTheDocument()
   })
 

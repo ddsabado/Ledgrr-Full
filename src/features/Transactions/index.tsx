@@ -196,10 +196,14 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       transition={{ duration: 0.15, ease: 'easeInOut' }}
       className={cardShell}
     >
-      {/* Heading */}
-      <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">
-        Transactions by Period
-      </p>
+      {/* Header — matches the responsive dashboard-card header rhythm. */}
+      <header className="shrink-0 flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
+        <div className="flex min-w-0 basis-full items-center gap-2 lg:flex-1 lg:basis-auto">
+          <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+            Transactions by Period
+          </p>
+        </div>
+      </header>
 
       {/* Time-window tabs */}
       <LayoutGroup>
