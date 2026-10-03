@@ -1,19 +1,6 @@
 import { useEffect, useRef, useState, type TouchEvent } from 'react'
 
 const MOBILE_QUERY = '(max-width: 1023px) and (pointer: coarse)'
-const INTERACTIVE_TARGETS = [
-  'a',
-  'button',
-  'input',
-  'textarea',
-  'select',
-  '[contenteditable="true"]',
-  '[role="button"]',
-  '[role="dialog"]',
-  '[role="tab"]',
-  '[data-dashboard-swipe-exclude]',
-].join(',')
-
 const DIRECTION_LOCK_DISTANCE = 12
 const SWIPE_THRESHOLD = 48
 
@@ -45,9 +32,9 @@ const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
- * A deliberately conservative swipe accelerator for a dashboard card. It
- * ignores controls and marked scroll regions, locks the gesture direction
- * before the threshold, and leaves vertical scrolling fully native.
+ * A deliberate swipe accelerator for a dashboard card. It accepts gestures
+ * from the entire card, locks direction before the threshold, and leaves
+ * vertical scrolling fully native.
  */
 export function useMobileCardSwipe({
   enabled,
@@ -70,12 +57,10 @@ export function useMobileCardSwipe({
   }
 
   const onTouchStart = (event: TouchEvent<HTMLElement>) => {
-    const target = event.target as Element | null
     if (
       !enabled ||
       !isMobileTouchViewport() ||
-      event.touches.length !== 1 ||
-      target?.closest(INTERACTIVE_TARGETS)
+      event.touches.length !== 1
     ) {
       reset()
       return

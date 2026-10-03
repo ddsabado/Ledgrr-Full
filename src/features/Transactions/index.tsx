@@ -123,6 +123,8 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
     onNext: goToNextPeriod,
   })
   const { feedback: swipeFeedback, ...periodSwipeHandlers } = periodSwipe
+  const swipeContentOffset =
+    swipeFeedback === 'previous' ? -12 : swipeFeedback === 'next' ? 12 : 0
 
   const handleCategoryClick = (category: string) => {
     const hasSubcats = Object.keys(typeData[category]?.subcats ?? {}).length > 0
@@ -208,14 +210,10 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{
-        opacity: 1,
-        x: swipeFeedback === 'previous' ? 6 : swipeFeedback === 'next' ? -6 : 0,
-      }}
+      animate={{ opacity: 1 }}
       transition={{ duration: reducedMotion ? 0 : 0.15, ease: 'easeInOut' }}
       className={cardShell}
       data-testid="transactions-card"
-      data-swipe-feedback={swipeFeedback ?? undefined}
       {...periodSwipeHandlers}
     >
       {/* Header — matches the responsive dashboard-card header rhythm. */}
@@ -269,12 +267,6 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
         canGoPrevious={canGoPrevious}
         canGoNext={canGoNext}
       />
-
-      {view.type === 'categories' && periods.length > 1 && (
-        <p className="shrink-0 text-center text-[10px] text-muted lg:hidden">
-          Swipe left or right to change period
-        </p>
-      )}
 
       {/* Flow tabs */}
       <LayoutGroup>
@@ -347,12 +339,18 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       {/* Drill-down list — the only scroll region. Keyed motion.div remounts on
           each view change for a clean fade-in (no AnimatePresence: exits don't
           resolve in jsdom and would leave stale nodes mounted). */}
-      <div data-dashboard-swipe-exclude className="flex-1 overflow-y-auto min-h-0 scrollbar-gutter-stable">
+      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-gutter-stable">
         <motion.div
           key={`${periodMode}-${currentPeriod?.key ?? ''}-${flow}-${view.type}-${view.category ?? ''}-${view.subcategory ?? ''}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.15, ease: 'easeInOut' }}
+          initial={{
+            opacity: 0,
+            x: reducedMotion ? 0 : swipeContentOffset,
+            filter: reducedMotion ? 'none' : 'blur(2px)',
+          }}
+          animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+          transition={{ duration: reducedMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+          data-testid="transactions-content"
+          data-swipe-feedback={swipeFeedback ?? undefined}
         >
           {view.type === 'categories' && (
             <CategoriesList

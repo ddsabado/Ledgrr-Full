@@ -16,16 +16,16 @@ function SwipeFixture({ enabled = true }: { enabled?: boolean }) {
   return (
     <div {...handlers} data-testid="card">
       <button type="button">Control</button>
-      <div data-swipe-exclude>Scrollable list</div>
+      <div>Scrollable list</div>
       <output>{`${left}/${right}`}</output>
     </div>
   )
 }
 
 function swipe(target: Element, fromX: number, toX: number, toY = 10) {
-  fireEvent.pointerDown(target, { pointerId: 1, pointerType: 'touch', clientX: fromX, clientY: 10 })
-  fireEvent.pointerMove(target, { pointerId: 1, pointerType: 'touch', clientX: toX, clientY: toY })
-  fireEvent.pointerUp(target, { pointerId: 1, pointerType: 'touch', clientX: toX, clientY: toY })
+  fireEvent.touchStart(target, { touches: [{ clientX: fromX, clientY: 10 }] })
+  fireEvent.touchMove(target, { touches: [{ clientX: toX, clientY: toY }] })
+  fireEvent.touchEnd(target, { changedTouches: [{ clientX: toX, clientY: toY }] })
 }
 
 describe('useMobileCardSwipe', () => {
@@ -56,7 +56,7 @@ describe('useMobileCardSwipe', () => {
     expect(screen.getByText('1/1')).toBeInTheDocument()
   })
 
-  it('does not activate during vertical scrolling or from controls and excluded list regions', () => {
+  it('does not activate during vertical scrolling, but works from card content', () => {
     render(<SwipeFixture />)
     const card = screen.getByTestId('card')
 
@@ -64,7 +64,7 @@ describe('useMobileCardSwipe', () => {
     swipe(screen.getByRole('button', { name: 'Control' }), 200, 110)
     swipe(screen.getByText('Scrollable list'), 200, 110)
 
-    expect(screen.getByText('0/0')).toBeInTheDocument()
+    expect(screen.getByText('2/0')).toBeInTheDocument()
   })
 
   it('stays inactive outside the mobile breakpoint and when disabled', () => {
