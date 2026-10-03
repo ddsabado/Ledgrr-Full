@@ -11,6 +11,7 @@ import AccountBalancesFilter, {
   type AccountBalanceFilters,
 } from "./AccountBalancesFilter";
 import { NAV_TOGGLE_HOVER, NAV_TOGGLE_TAP } from "@/components/navToggle";
+import { useMobileCardSwipe } from "@/hooks/useMobileCardSwipe";
 
 const PRIVACY_MASK = "••••••";
 
@@ -84,6 +85,10 @@ export default function AccountBalances({
     filters.category,
   ].filter(Boolean).length;
   const reduceMotion = useReducedMotion();
+  const swipeHandlers = useMobileCardSwipe({
+    enabled: viewerOpen,
+    onSwipeRight: onToggleViewer,
+  });
   // Keep category order stable, but make large groups easy to scan: their
   // largest PHP-equivalent balances are always first. The global index remains
   // attached so chart colors stay consistent with the unmodified chart input.
@@ -208,11 +213,12 @@ export default function AccountBalances({
 
   return (
     <motion.div
+      {...swipeHandlers}
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: "easeInOut" }}
-      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-x-hidden overflow-y-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
+      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-x-hidden overflow-y-hidden touch-pan-y lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
     >
       {/* Heading + filter */}
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
@@ -280,6 +286,11 @@ export default function AccountBalances({
           </motion.button>
         </div>
       </div>
+      {viewerOpen && (
+        <p data-swipe-affordance className="-mt-2 text-xs text-muted lg:hidden">
+          Swipe right to close activity.
+        </p>
+      )}
 
       {/* Donut chart */}
       <div className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
@@ -301,7 +312,7 @@ export default function AccountBalances({
       </div>
 
       {/* Account groups — scrollable; grouped by category, expanded by default */}
-      <div ref={accountListRef} className="flex-1 min-h-0 overflow-y-auto px-1 py-1 flex flex-col gap-2 scrollbar-gutter-stable">
+      <div ref={accountListRef} data-swipe-exclude className="flex-1 min-h-0 overflow-y-auto px-1 py-1 flex flex-col gap-2 scrollbar-gutter-stable">
         {groups.length === 0 ? (
           <p role="status" aria-live="polite" className="flex-1 py-6 px-2 text-center text-sm text-muted">
             No matching accounts.

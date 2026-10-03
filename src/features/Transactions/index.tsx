@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import { motion, LayoutGroup } from 'motion/react'
+import { motion, LayoutGroup, useReducedMotion } from 'motion/react'
 
 import { useAuth } from '@/context/AuthContext'
 import { formatCurrency } from '@/utils/currency'
@@ -8,6 +8,7 @@ import { useTransactionsByPeriod } from './useTransactionsByPeriod'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { findPeriodIndexForSwitch, signedAmount, type PeriodMode } from './groupTransactions'
 import PeriodNavigator from './PeriodNavigator'
+import { useMobileCardSwipe } from './useMobileCardSwipe'
 import CategoryDonut from './CategoryDonut'
 import ChartPlaceholder from '@/components/ChartPlaceholder'
 import { chartColor } from '@/features/AccountBalances/BalanceChart'
@@ -53,6 +54,7 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
   const [periodIdx, setPeriodIdx] = useState<number>(-1) // -1 = uninitialised
   const [flow, setFlow] = useState<FlowType>('Expense')
   const [view, setView] = useState<ViewState>({ type: 'categories' })
+  const reducedMotion = useReducedMotion() ?? false
 
   const active = grouped[periodMode]
   const periods = active.periods
@@ -107,6 +109,20 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
     setPeriodIdx(idx)
     setView({ type: 'categories' })
   }
+
+  const canGoPrevious = safeIdx > 0
+  const canGoNext = safeIdx < periods.length - 1
+  const goToPreviousPeriod = () => goToPeriod(Math.max(0, safeIdx - 1))
+  const goToNextPeriod = () => goToPeriod(Math.min(periods.length - 1, safeIdx + 1))
+  const periodSwipe = useMobileCardSwipe({
+    enabled: view.type === 'categories' && periods.length > 1,
+    reducedMotion,
+    canGoPrevious,
+    canGoNext,
+    onPrevious: goToPreviousPeriod,
+    onNext: goToNextPeriod,
+  })
+  const { feedback: swipeFeedback, ...periodSwipeHandlers } = periodSwipe
 
   const handleCategoryClick = (category: string) => {
     const hasSubcats = Object.keys(typeData[category]?.subcats ?? {}).length > 0
@@ -192,9 +208,15 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.15, ease: 'easeInOut' }}
+      animate={{
+        opacity: 1,
+        x: swipeFeedback === 'previous' ? 6 : swipeFeedback === 'next' ? -6 : 0,
+      }}
+      transition={{ duration: reducedMotion ? 0 : 0.15, ease: 'easeInOut' }}
       className={cardShell}
+      data-testid="transactions-card"
+      data-swipe-feedback={swipeFeedback ?? undefined}
+      {...periodSwipeHandlers}
     >
       {/* Header — matches the responsive dashboard-card header rhythm. */}
       <header className="shrink-0 flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
@@ -242,11 +264,17 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       {/* Period navigator */}
       <PeriodNavigator
         label={currentPeriod?.label ?? '—'}
-        onPrevious={() => goToPeriod(Math.max(0, safeIdx - 1))}
-        onNext={() => goToPeriod(Math.min(periods.length - 1, safeIdx + 1))}
-        canGoPrevious={safeIdx > 0}
-        canGoNext={safeIdx < periods.length - 1}
+        onPrevious={goToPreviousPeriod}
+        onNext={goToNextPeriod}
+        canGoPrevious={canGoPrevious}
+        canGoNext={canGoNext}
       />
+
+      {view.type === 'categories' && periods.length > 1 && (
+        <p className="shrink-0 text-center text-[10px] text-muted lg:hidden">
+          Swipe left or right to change period
+        </p>
+      )}
 
       {/* Flow tabs */}
       <LayoutGroup>
@@ -319,7 +347,7 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
       {/* Drill-down list — the only scroll region. Keyed motion.div remounts on
           each view change for a clean fade-in (no AnimatePresence: exits don't
           resolve in jsdom and would leave stale nodes mounted). */}
-      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-gutter-stable">
+      <div data-dashboard-swipe-exclude className="flex-1 overflow-y-auto min-h-0 scrollbar-gutter-stable">
         <motion.div
           key={`${periodMode}-${currentPeriod?.key ?? ''}-${flow}-${view.type}-${view.category ?? ''}-${view.subcategory ?? ''}`}
           initial={{ opacity: 0 }}

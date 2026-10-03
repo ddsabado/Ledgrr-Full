@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { mockAuth, mockSession, mockUser } from '@/test/mocks/supabase'
@@ -42,10 +42,15 @@ vi.mock('@/features/DebtsReceivables/useDebtsReceivables', () => ({
 }))
 
 vi.mock('@/features/Transactions/useTransactionsByPeriod', () => {
+  const periods = [
+    { key: '2026-09', label: 'September 2026', Expense: {}, Income: {} },
+    { key: '2026-10', label: 'October 2026', Expense: {}, Income: {} },
+  ]
+  const populated = { periods, currentIndex: 1 }
   const empty = { periods: [], currentIndex: 0 }
   return {
     useTransactionsByPeriod: () => ({
-      grouped: { month: empty, week: empty, day: empty },
+      grouped: { month: populated, week: empty, day: empty },
       isLoading: false,
       isError: false,
     }),
@@ -72,6 +77,10 @@ describe('DashboardPage', () => {
     mockAuth.onAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('renders the Ledgrr brand in nav', () => {
@@ -146,5 +155,51 @@ describe('DashboardPage', () => {
     // Sign out is the text-button variant: hover background + focus ring.
     expect(signOut.className).toMatch(/hover:bg-surface2/)
     expect(signOut.className).toMatch(/focus-visible:ring-2/)
+  })
+
+  it('uses a deliberate mobile horizontal swipe to activate the existing period control', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    renderDashboard()
+    const card = await screen.findByTestId('transactions-card')
+
+    expect(screen.getByText('October 2026')).toBeInTheDocument()
+    fireEvent.touchStart(card, { touches: [{ clientX: 220, clientY: 100 }] })
+    fireEvent.touchMove(card, { touches: [{ clientX: 300, clientY: 104 }] })
+    fireEvent.touchEnd(card, { changedTouches: [{ clientX: 300, clientY: 104 }] })
+
+    expect(screen.getByText('September 2026')).toBeInTheDocument()
+    expect(screen.getByText('Swipe left or right to change period')).toBeInTheDocument()
+  })
+
+  it('does not activate the period control for vertical gestures, short drags, or desktop', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    renderDashboard()
+    const card = await screen.findByTestId('transactions-card')
+
+    fireEvent.touchStart(card, { touches: [{ clientX: 220, clientY: 100 }] })
+    fireEvent.touchMove(card, { touches: [{ clientX: 215, clientY: 180 }] })
+    fireEvent.touchEnd(card, { changedTouches: [{ clientX: 215, clientY: 180 }] })
+    fireEvent.touchStart(card, { touches: [{ clientX: 220, clientY: 100 }] })
+    fireEvent.touchMove(card, { touches: [{ clientX: 180, clientY: 102 }] })
+    fireEvent.touchEnd(card, { changedTouches: [{ clientX: 180, clientY: 102 }] })
+    expect(screen.getByText('October 2026')).toBeInTheDocument()
+
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    fireEvent.touchStart(card, { touches: [{ clientX: 220, clientY: 100 }] })
+    fireEvent.touchMove(card, { touches: [{ clientX: 140, clientY: 104 }] })
+    fireEvent.touchEnd(card, { changedTouches: [{ clientX: 140, clientY: 104 }] })
+    expect(screen.getByText('October 2026')).toBeInTheDocument()
+  })
+
+  it('does not handle swipes that begin in the transaction list scroll region', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    renderDashboard()
+    const list = (await screen.findByTestId('transactions-card')).querySelector('[data-dashboard-swipe-exclude]')
+    expect(list).not.toBeNull()
+
+    fireEvent.touchStart(list!, { touches: [{ clientX: 220, clientY: 100 }] })
+    fireEvent.touchMove(list!, { touches: [{ clientX: 140, clientY: 104 }] })
+    fireEvent.touchEnd(list!, { changedTouches: [{ clientX: 140, clientY: 104 }] })
+    expect(screen.getByText('October 2026')).toBeInTheDocument()
   })
 })
