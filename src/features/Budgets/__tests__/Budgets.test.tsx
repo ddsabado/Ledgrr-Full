@@ -37,9 +37,24 @@ beforeEach(() => {
   vi.setSystemTime(new Date(2026, 5, 15)) // Jun 15 2026
   hookState.value = { budgets: [], candidateTxs: [], fxMap: FX, isLoading: false, isError: false }
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('Budgets panel', () => {
+  it('changes months when swiping anywhere on the card on mobile', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    render(<Budgets privacyMode={false} />)
+    const list = screen.getByTestId('budgets-list')
+
+    fireEvent.touchStart(list, { touches: [{ clientX: 220, clientY: 100 }] })
+    fireEvent.touchMove(list, { touches: [{ clientX: 120, clientY: 104 }] })
+    fireEvent.touchEnd(list, { changedTouches: [{ clientX: 120, clientY: 104 }] })
+
+    expect(screen.getByText('Jul 2026')).toBeInTheDocument()
+  })
+
   it('renders the title and defaults to the current month (R5.1, R5.2, R5.3)', () => {
     render(<Budgets privacyMode={false} />)
     expect(screen.getByText('Budgets')).toBeInTheDocument()

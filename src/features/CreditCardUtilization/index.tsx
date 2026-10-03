@@ -12,7 +12,6 @@ import { createCreditCard } from "@/services/api";
 import { queryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { NAV_TOGGLE_HOVER, NAV_TOGGLE_TAP } from "@/components/navToggle";
-import { useMobileCardSwipe } from "@/hooks/useMobileCardSwipe";
 import CCCard from "./CCCard";
 import NewCreditCardDialog from "./NewCreditCardDialog";
 
@@ -38,10 +37,6 @@ export default function CreditCardUtilization({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
-  const swipeHandlers = useMobileCardSwipe({
-    enabled: viewerOpen,
-    onSwipeRight: onToggleViewer,
-  });
 
   // Guard: selecting the already-active view is a no-op (R6.6) — prevents a
   // spurious pill transition when the current option is re-clicked.
@@ -128,11 +123,10 @@ export default function CreditCardUtilization({
 
   return (
     <motion.div
-      {...swipeHandlers}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: "easeInOut" }}
-      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden touch-pan-y lg:max-h-none lg:h-full ${viewerOpen ? "h-full max-h-none" : "max-h-[calc(100vh-8rem)]"}`}
+      className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden lg:max-h-none lg:h-full ${viewerOpen ? "h-full max-h-none" : "max-h-[calc(100vh-8rem)]"}`}
     >
       <div className="shrink-0 flex items-center justify-between gap-2">
         <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
@@ -189,15 +183,9 @@ export default function CreditCardUtilization({
           </motion.button>
         </div>
       </div>
-      {viewerOpen && (
-        <p data-swipe-affordance className="-mt-2 text-xs text-muted lg:hidden">
-          Swipe right to close activity.
-        </p>
-      )}
-
       {/* CC cards — scrollable list; cards keep natural height (shrink-0) so
           expanding one scrolls the list rather than compressing siblings. */}
-      <div data-swipe-exclude className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1 scrollbar-gutter-stable">
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1 scrollbar-gutter-stable">
         {sorted.length === 0 ? <p className="py-6 text-center text-sm text-muted">No credit cards found.</p> : sorted.map((account) => (
           <CCCard
             key={account.name}

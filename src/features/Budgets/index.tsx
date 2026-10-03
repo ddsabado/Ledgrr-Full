@@ -16,6 +16,7 @@ import {
 import { computeBudgets, resolvePhp, type BudgetRow, type ProgressColor } from './computeBudgets'
 import { useBudgets } from './useBudgets'
 import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
+import { useMobileCardSwipe } from '@/hooks/useMobileCardSwipe'
 
 const PRIVACY_MASK = '••••••'
 
@@ -51,6 +52,10 @@ export default function Budgets({ privacyMode }: BudgetsProps) {
     setSelectedMonth((m) => shiftMonth(m, delta))
     setExpanded(null) // collapse on month change (R6.4)
   }
+  const swipeHandlers = useMobileCardSwipe({
+    onSwipeLeft: () => changeMonth(1),
+    onSwipeRight: () => changeMonth(-1),
+  })
 
   const cardShell =
     'rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-hidden max-h-[calc(100vh-8rem)] lg:max-h-none lg:h-full'
@@ -86,10 +91,12 @@ export default function Budgets({ privacyMode }: BudgetsProps) {
 
   return (
     <motion.div
+      {...swipeHandlers}
+      data-testid="budgets-card"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: 'easeInOut' }}
-      className={cardShell}
+      className={`${cardShell} touch-pan-y`}
     >
       {/* Heading */}
       <p className="shrink-0 font-display text-xs font-semibold tracking-widest uppercase text-muted">

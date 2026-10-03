@@ -123,10 +123,6 @@ export default function InstallmentsRecurring({
         onPrevious={() => setSelectedMonth((m) => shiftMonth(m, -1))}
         onNext={() => setSelectedMonth((m) => shiftMonth(m, 1))}
       />
-      <p data-swipe-affordance className="-mt-2 text-center text-xs text-muted lg:hidden">
-        Swipe left or right to change month.
-      </p>
-
       {/* Monthly total */}
       <div className="shrink-0 flex items-center justify-between border-t border-border pt-3">
         <span className="text-sm font-medium text-muted">Monthly total</span>
@@ -136,7 +132,7 @@ export default function InstallmentsRecurring({
       </div>
 
       {/* List — the only scroll region; keyed motion.div fades in per month */}
-      <div data-swipe-exclude className="flex-1 min-h-0 overflow-y-auto pl-2 pr-1 py-1 scrollbar-gutter-stable">
+      <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-1 py-1 scrollbar-gutter-stable">
         <motion.div
           key={`${selectedMonth.year}-${selectedMonth.month}`}
           data-testid="ir-list"

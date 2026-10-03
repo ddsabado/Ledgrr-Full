@@ -168,7 +168,7 @@ describe('DashboardPage', () => {
     fireEvent.touchEnd(card, { changedTouches: [{ clientX: 300, clientY: 104 }] })
 
     expect(screen.getByText('September 2026')).toBeInTheDocument()
-    expect(screen.getByText('Swipe left or right to change period')).toBeInTheDocument()
+    expect(screen.queryByText(/Swipe left or right to change period/i)).not.toBeInTheDocument()
   })
 
   it('does not activate the period control for vertical gestures, short drags, or desktop', async () => {
@@ -191,15 +191,15 @@ describe('DashboardPage', () => {
     expect(screen.getByText('October 2026')).toBeInTheDocument()
   })
 
-  it('does not handle swipes that begin in the transaction list scroll region', async () => {
+  it('handles horizontal swipes that begin in the transaction list scroll region', async () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
     renderDashboard()
-    const list = (await screen.findByTestId('transactions-card')).querySelector('[data-dashboard-swipe-exclude]')
+    const list = (await screen.findByTestId('transactions-card')).querySelector('.overflow-y-auto')
     expect(list).not.toBeNull()
 
-    fireEvent.touchStart(list!, { touches: [{ clientX: 220, clientY: 100 }] })
-    fireEvent.touchMove(list!, { touches: [{ clientX: 140, clientY: 104 }] })
-    fireEvent.touchEnd(list!, { changedTouches: [{ clientX: 140, clientY: 104 }] })
-    expect(screen.getByText('October 2026')).toBeInTheDocument()
+    fireEvent.touchStart(list!, { touches: [{ clientX: 140, clientY: 100 }] })
+    fireEvent.touchMove(list!, { touches: [{ clientX: 220, clientY: 104 }] })
+    fireEvent.touchEnd(list!, { changedTouches: [{ clientX: 220, clientY: 104 }] })
+    expect(screen.getByText('September 2026')).toBeInTheDocument()
   })
 })

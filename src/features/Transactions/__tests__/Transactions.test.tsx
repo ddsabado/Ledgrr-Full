@@ -231,7 +231,7 @@ describe('Transactions panel', () => {
     swipe(card, 140, 220)
 
     expect(screen.getByText('Sep 2026')).toBeInTheDocument()
-    expect(card).not.toHaveAttribute('data-swipe-feedback')
+    expect(screen.getByTestId('transactions-content')).not.toHaveAttribute('data-swipe-feedback')
   })
 
   it('gives successful non-reduced-motion swipes restrained directional feedback', () => {
@@ -242,6 +242,6 @@ describe('Transactions panel', () => {
 
     swipe(card, 140, 220)
 
-    expect(card).toHaveAttribute('data-swipe-feedback', 'previous')
+    expect(screen.getByTestId('transactions-content')).toHaveAttribute('data-swipe-feedback', 'previous')
   })
 })
