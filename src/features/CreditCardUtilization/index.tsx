@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen, Settings } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen, Plus } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useCCAccounts } from "@/hooks/useCCAccounts";
@@ -133,8 +133,9 @@ export default function CreditCardUtilization({
           Credit Cards
         </p>
         <div className="flex items-center gap-1">
-          <button type="button" aria-label="Add credit card" onClick={() => { setSubmitError(null); setNewCardOpen(true); }} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-            <Settings aria-hidden="true" className="h-4 w-4" />
+          <button type="button" aria-label="Add credit card" title="Add credit card" onClick={() => { setSubmitError(null); setNewCardOpen(true); }} className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <Plus aria-hidden="true" className="h-4 w-4" />
+            <span>Add</span>
           </button>
           <motion.button
             type="button"
