@@ -123,6 +123,7 @@ export default function Budgets({ privacyMode }: BudgetsProps) {
                 key={row.name}
                 row={row}
                 fxMap={fxMap}
+                monthLabel={formatMonth(selectedMonth)}
                 isExpanded={expanded === row.name}
                 onToggle={() =>
                   setExpanded((prev) => (prev === row.name ? null : row.name))
@@ -140,15 +141,21 @@ export default function Budgets({ privacyMode }: BudgetsProps) {
 interface BudgetRowViewProps {
   row:        BudgetRow
   fxMap:      import('@/types/accounts').CurrencyData
+  monthLabel: string
   isExpanded: boolean
   onToggle:   () => void
   mask:       (amount: number, currency?: string) => string
 }
 
-function BudgetRowView({ row, fxMap, isExpanded, onToggle, mask }: BudgetRowViewProps) {
+function BudgetRowView({ row, fxMap, monthLabel, isExpanded, onToggle, mask }: BudgetRowViewProps) {
   const { name, allotted, spent, remaining, percentage, color, transactions, count, currency } = row
   const overspent = spent > allotted
   const barWidth = Math.min(percentage, 100)
+  const spentDisplay = mask(spent, currency)
+  const allottedDisplay = mask(allotted, currency)
+  const statusDisplay = overspent
+    ? `Over by ${mask(spent - allotted, currency)}`
+    : `${mask(remaining, currency)} left`
 
   return (
     <div className="flex flex-col gap-2">
@@ -156,9 +163,10 @@ function BudgetRowView({ row, fxMap, isExpanded, onToggle, mask }: BudgetRowView
         type="button"
         onClick={onToggle}
         aria-expanded={isExpanded}
+        aria-label={`${name}: ${spentDisplay} spent of ${allottedDisplay}. ${statusDisplay}. ${count} transaction${count !== 1 ? 's' : ''}.`}
         className="w-full text-left flex flex-col gap-1.5 rounded-lg p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors hover:bg-surface2"
       >
-        {/* Name + spent/allotted + remaining/over */}
+        {/* Name + primary spending amount */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-1.5 min-w-0">
             <ChevronDown
@@ -169,15 +177,9 @@ function BudgetRowView({ row, fxMap, isExpanded, onToggle, mask }: BudgetRowView
             />
             <span className="text-sm font-medium text-text truncate">{name}</span>
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-sm text-muted tabular-nums">
-              {mask(spent, currency)} / {mask(allotted, currency)}
-            </div>
-            <div className="text-xs tabular-nums text-muted">
-              {overspent
-                ? `Over by ${mask(spent - allotted, currency)}`
-                : `${mask(remaining, currency)} left`}
-            </div>
+          <div className="shrink-0 text-right tabular-nums">
+            <div className="text-sm font-semibold text-text">{spentDisplay}</div>
+            <div className="mt-0.5 text-xs text-muted">of {allottedDisplay}</div>
           </div>
         </div>
 
@@ -191,14 +193,16 @@ function BudgetRowView({ row, fxMap, isExpanded, onToggle, mask }: BudgetRowView
           />
         </div>
 
-        {/* Percentage + transaction count */}
+        {/* One concise status line; bar conveys percentage visually. */}
         <div className="flex items-center justify-between text-xs">
-          <span className={`tabular-nums ${TEXT_COLOR[color]}`}>
-            {percentage.toFixed(1)}%
+          <span className={`font-medium tabular-nums ${TEXT_COLOR[color]}`}>
+            {statusDisplay}
           </span>
-          <span className="text-muted tabular-nums">
-            {count} transaction{count !== 1 ? 's' : ''}
-          </span>
+          {!isExpanded && (
+            <span className="text-muted">
+              {count} transaction{count !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </button>
 
@@ -212,25 +216,25 @@ function BudgetRowView({ row, fxMap, isExpanded, onToggle, mask }: BudgetRowView
             transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="max-h-40 overflow-y-auto overflow-x-hidden pr-1 scrollbar-gutter-stable">
+            <div className="max-h-40 overflow-y-auto overflow-x-hidden pr-1 scrollbar-gutter-stable" role="region" aria-label={`${name} transactions for ${monthLabel}`}>
               {count === 0 ? (
                 <p className="py-3 text-xs text-center text-muted">
-                  No transactions for this month.
+                  No transactions for {monthLabel}.
                 </p>
               ) : (
                 <div className="flex flex-col divide-y divide-border">
+                  <p className="py-2 text-xs font-medium text-muted">
+                    {count} transaction{count !== 1 ? 's' : ''} in {monthLabel}
+                  </p>
                   {transactions.map((tx) => (
                     <div key={tx.key} className="flex items-start justify-between py-2 gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm text-text truncate">
-                          <span className="text-xs text-muted">
-                            {formatCreditCardTransactionDate(tx.date)}
-                          </span>
-                          <span className="text-muted"> · </span>
+                        <p className="text-sm font-medium text-text truncate">
                           {tx.category}
                           {tx.subcategory ? ` · ${tx.subcategory}` : ''}
-                          <span className="text-muted"> · </span>
-                          {tx.account}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted truncate">
+                          {formatCreditCardTransactionDate(tx.date)} · {tx.account}
                         </p>
                         {tx.note && <TransactionNoteTooltip note={tx.note} />}
                       </div>
