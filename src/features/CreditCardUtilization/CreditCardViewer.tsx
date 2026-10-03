@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ListFilter, X } from "lucide-react";
-import { motion, LayoutGroup, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, LayoutGroup, useReducedMotion } from "motion/react";
 
 import {
   Popover,
@@ -70,6 +70,7 @@ export default function CreditCardViewer({
     [filters, source],
   );
   const active = Object.values(filters).some(Boolean);
+  const activeCount = Object.values(filters).filter(Boolean).length;
   const set = (patch: Partial<AccountTransactionFilters>) =>
     setFilters((current) => ({ ...current, ...patch }));
   const isLoading = accountsLoading || transactionsLoading;
@@ -87,10 +88,27 @@ export default function CreditCardViewer({
           ? { duration: 0 }
           : { type: "spring", stiffness: 260, damping: 30 }
       }
-      className="h-full rounded-xl border border-border bg-surface p-5 flex flex-col gap-4 min-h-0 overflow-hidden"
+      className="flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-xl border border-border bg-surface p-5"
     >
-      <header className="shrink-0 flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          key={accountName}
+          initial={reduceMotion ? false : { opacity: 0, y: 6, filter: "blur(2px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={
+            reduceMotion
+              ? { opacity: 0, y: 0, filter: "blur(0px)", transition: { duration: 0 } }
+              : { opacity: 0, y: -3, filter: "blur(1px)", transition: { duration: 0.11, ease: "easeIn" } }
+          }
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.18, ease: [0.16, 1, 0.3, 1] }
+          }
+          className="flex min-h-0 flex-1 flex-col gap-3"
+        >
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-muted">Card activity</p>
           <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">
             {accountName}
@@ -100,15 +118,19 @@ export default function CreditCardViewer({
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label="Filter transactions"
-              className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label={active ? `Filter transactions, ${activeCount} active` : "Filter transactions"}
+              title="Filter transactions"
+              className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <ListFilter className="h-4 w-4" />
+              <ListFilter aria-hidden="true" className="h-4 w-4" />
+              <span>Filters</span>
               {active && (
                 <span
                   aria-hidden="true"
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"
-                />
+                  className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-text"
+                >
+                  {activeCount} active
+                </span>
               )}
             </button>
           </PopoverTrigger>
@@ -186,60 +208,62 @@ export default function CreditCardViewer({
           </PopoverContent>
         </Popover>
       </header>
-      <LayoutGroup>
-        <div
-          role="tablist"
-          aria-label="Credit-card transaction view"
-          className="relative grid shrink-0 grid-cols-2 gap-1 rounded-lg bg-surface2 p-1"
-        >
-          {(["statement", "all"] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              role="tab"
-              aria-selected={view === mode}
-              onClick={() => setView(mode)}
-              className={`relative min-h-11 rounded-md px-3 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${view === mode ? "text-text" : "text-muted hover:text-text"}`}
-            >
-              {view === mode && (
-                <motion.span
-                  layoutId="credit-card-view-tab"
-                  transition={
-                    reduceMotion
-                      ? { duration: 0 }
-                      : { type: "spring", stiffness: 360, damping: 30 }
-                  }
-                  className="absolute inset-0 rounded-md bg-accent"
-                />
-              )}
-              {
-                <span className="relative">
-                  {mode === "statement" ? "By Statement" : "All Transactions"}
-                </span>
+      <div className="flex shrink-0 flex-col gap-3">
+        <LayoutGroup>
+          <div
+            role="tablist"
+            aria-label="Credit-card transaction view"
+            className="relative grid grid-cols-2 gap-1 rounded-lg bg-surface2 p-1"
+          >
+            {(["statement", "all"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={view === mode}
+                onClick={() => setView(mode)}
+                className={`relative min-h-11 rounded-md px-3 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${view === mode ? "text-text" : "text-muted hover:text-text"}`}
+              >
+                {view === mode && (
+                  <motion.span
+                    layoutId="credit-card-view-tab"
+                    transition={
+                      reduceMotion
+                        ? { duration: 0 }
+                        : { type: "spring", stiffness: 360, damping: 30 }
+                    }
+                    className="absolute inset-0 rounded-md bg-accent"
+                  />
+                )}
+                {
+                  <span className="relative">
+                    {mode === "statement" ? "By Statement" : "All Transactions"}
+                  </span>
+                }
+              </button>
+            ))}
+          </div>
+        </LayoutGroup>
+        {view === "statement" && (
+          <div className="border-t border-border pt-3">
+            <CycleNavigator
+              label={activeCycle?.label ?? "—"}
+              onPrevious={() =>
+                setCycleIndex((index) =>
+                  Math.min(index + 1, Math.max(0, cycles.length - 1)),
+                )
               }
-            </button>
-          ))}
-        </div>
-      </LayoutGroup>
-      {view === "statement" && (
-        <div className="flex flex-col gap-1">
-          <CycleNavigator
-            label={activeCycle?.label ?? "—"}
-            onPrevious={() =>
-              setCycleIndex((index) =>
-                Math.min(index + 1, Math.max(0, cycles.length - 1)),
-              )
-            }
-            onNext={() => setCycleIndex((index) => Math.max(0, index - 1))}
-            canGoPrevious={cycleIndex < cycles.length - 1}
-            canGoNext={cycleIndex > 0}
-          />
-          <p className="text-right text-xs tabular-nums text-muted">
-            Total {privacyMode ? "••••••" : formatCurrency(statementTotal, "PHP")}
-          </p>
-        </div>
-      )}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
+              onNext={() => setCycleIndex((index) => Math.max(0, index - 1))}
+              canGoPrevious={cycleIndex < cycles.length - 1}
+              canGoNext={cycleIndex > 0}
+            />
+            <p className="mt-1 text-right text-xs tabular-nums text-muted">
+              Total {privacyMode ? "••••••" : formatCurrency(statementTotal, "PHP")}
+            </p>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto border-t border-border pt-1 scrollbar-gutter-stable">
         {isLoading && (
           <p className="py-8 text-center text-sm text-muted">
             Loading transactions…
@@ -265,6 +289,8 @@ export default function CreditCardViewer({
           />
         )}
       </div>
+        </motion.div>
+      </AnimatePresence>
     </motion.section>
   );
 }
