@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import FxEstimatedIndicator from "@/components/FxEstimatedIndicator";
 import { motion } from "motion/react";
+import { useMobileCardSwipe } from "@/hooks/useMobileCardSwipe";
 
 import { formatCurrency } from "@/utils/currency";
 import {
@@ -50,6 +51,10 @@ export default function DebtsReceivables({
   const toggleViewer = onToggleViewer ?? (() => {});
   const { rows, fxMap, isLoading, isError } = useDebtsReceivables();
   const [filters, setFilters] = useState<DRFilters>({});
+  const swipeHandlers = useMobileCardSwipe({
+    enabled: viewerOpen,
+    onSwipeRight: toggleViewer,
+  });
 
   const views = useMemo(() => {
     const computed = computeDebtsReceivables(rows, fxMap);
@@ -171,10 +176,11 @@ export default function DebtsReceivables({
 
   return (
     <motion.div
+      {...swipeHandlers}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: "easeInOut" }}
-      className={cardShell}
+      className={`${cardShell} touch-pan-y`}
     >
       {/* Heading + filter */}
       <div className="shrink-0 flex items-center justify-between gap-2">
@@ -207,6 +213,11 @@ export default function DebtsReceivables({
           </motion.button>
         </div>
       </div>
+      {viewerOpen && (
+        <p data-swipe-affordance className="-mt-2 text-xs text-muted lg:hidden">
+          Swipe right to close detail.
+        </p>
+      )}
 
       {views.length === 0 ? (
         <p className="flex-1 py-6 px-2 text-sm text-center text-muted">
@@ -217,7 +228,7 @@ export default function DebtsReceivables({
           No matching records.
         </p>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto px-1 py-1 scrollbar-gutter-stable">
+        <div data-swipe-exclude className="flex-1 min-h-0 overflow-y-auto px-1 py-1 scrollbar-gutter-stable">
           <div
             data-testid="debts-receivables-list"
             className="flex flex-col gap-4"

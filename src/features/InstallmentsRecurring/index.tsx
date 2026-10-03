@@ -9,6 +9,7 @@ import InstallmentDonut from './InstallmentDonut'
 import ChartPlaceholder from '@/components/ChartPlaceholder'
 import { useInstallmentsRecurring } from './useInstallmentsRecurring'
 import { useInstallmentTransactions } from './useInstallmentTransactions'
+import { useMobileCardSwipe } from '@/hooks/useMobileCardSwipe'
 import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
 import {
   buildInstallmentMonths,
@@ -35,6 +36,10 @@ export default function InstallmentsRecurring({
   const { getMonthItems, isLoading: transactionsLoading, isError: transactionsError } = useInstallmentTransactions(installments)
   const [selectedMonth, setSelectedMonth] = useState<YearMonth>(() => currentYearMonth())
   const reduceMotion = useReducedMotion()
+  const swipeHandlers = useMobileCardSwipe({
+    onSwipeLeft: () => setSelectedMonth((month) => shiftMonth(month, 1)),
+    onSwipeRight: () => setSelectedMonth((month) => shiftMonth(month, -1)),
+  })
 
   const result = useMemo(() => {
     const recurringResult = buildInstallmentMonths([], recurring, selectedMonth)
@@ -68,11 +73,13 @@ export default function InstallmentsRecurring({
 
   return (
     <motion.div
+      {...swipeHandlers}
+      data-testid="installments-card"
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15, ease: 'easeInOut' }}
-      className={cardShell}
+      className={`${cardShell} touch-pan-y`}
     >
       {/* Heading */}
       <div className="shrink-0 flex items-center justify-between gap-2">
@@ -116,6 +123,9 @@ export default function InstallmentsRecurring({
         onPrevious={() => setSelectedMonth((m) => shiftMonth(m, -1))}
         onNext={() => setSelectedMonth((m) => shiftMonth(m, 1))}
       />
+      <p data-swipe-affordance className="-mt-2 text-center text-xs text-muted lg:hidden">
+        Swipe left or right to change month.
+      </p>
 
       {/* Monthly total */}
       <div className="shrink-0 flex items-center justify-between border-t border-border pt-3">
@@ -126,7 +136,7 @@ export default function InstallmentsRecurring({
       </div>
 
       {/* List — the only scroll region; keyed motion.div fades in per month */}
-      <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-1 py-1 scrollbar-gutter-stable">
+      <div data-swipe-exclude className="flex-1 min-h-0 overflow-y-auto pl-2 pr-1 py-1 scrollbar-gutter-stable">
         <motion.div
           key={`${selectedMonth.year}-${selectedMonth.month}`}
           data-testid="ir-list"

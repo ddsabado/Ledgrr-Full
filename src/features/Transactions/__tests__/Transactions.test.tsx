@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import type { RawTransaction } from '@/types/transactions'
@@ -67,10 +67,35 @@ function groupedWithMonth(): TransactionsByPeriod['grouped'] {
   return g
 }
 
+function groupedWithPeriods(): TransactionsByPeriod['grouped'] {
+  const september = { ...monthBucket(), key: 'Sep 2026', label: 'Sep 2026' }
+  const october = { ...monthBucket(), key: 'Oct 2026', label: 'Oct 2026' }
+  const month = { periods: [september, october], currentIndex: 1 }
+  const empty: GroupedPeriods = { periods: [], currentIndex: 0 }
+  return { month, week: empty, day: empty }
+}
+
+function stubMatchMedia({ mobile, reducedMotion }: { mobile: boolean; reducedMotion: boolean }) {
+  vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
+    matches: query.includes('prefers-reduced-motion') ? reducedMotion : mobile,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  })))
+}
+
+function swipe(card: HTMLElement, fromX: number, toX: number) {
+  fireEvent.touchStart(card, { touches: [{ clientX: fromX, clientY: 100 }] })
+  fireEvent.touchMove(card, { touches: [{ clientX: toX, clientY: 104 }] })
+  fireEvent.touchEnd(card, { changedTouches: [{ clientX: toX, clientY: 104 }] })
+}
+
 beforeEach(() => {
   seq = 0
   authState.session = { user: { id: 'u1' } }
   hookState.value = { grouped: groupedWithMonth(), isLoading: false, isError: false }
+  vi.unstubAllGlobals()
 })
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -176,5 +201,47 @@ describe('Transactions panel', () => {
   it('shows the donut and no placeholder when categories exist (R1.4)', () => {
     render(<Transactions privacyMode={false} />)
     expect(screen.queryByText('No data to display')).not.toBeInTheDocument()
+  })
+
+  it('keeps period boundaries as no-ops for mobile swipes', () => {
+    stubMatchMedia({ mobile: true, reducedMotion: false })
+    hookState.value = { grouped: groupedWithPeriods(), isLoading: false, isError: false }
+    render(<Transactions privacyMode={false} />)
+    const card = screen.getByTestId('transactions-card')
+
+    // At the latest period, a left swipe cannot advance further.
+    swipe(card, 220, 140)
+    expect(screen.getByText('Oct 2026')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next period' })).toBeDisabled()
+
+    swipe(card, 140, 220)
+    expect(screen.getByText('Sep 2026')).toBeInTheDocument()
+    // At the earliest period, another right swipe likewise does nothing.
+    swipe(card, 140, 220)
+    expect(screen.getByText('Sep 2026')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous period' })).toBeDisabled()
+  })
+
+  it('changes periods without motion feedback when reduced motion is preferred', () => {
+    stubMatchMedia({ mobile: true, reducedMotion: true })
+    hookState.value = { grouped: groupedWithPeriods(), isLoading: false, isError: false }
+    render(<Transactions privacyMode={false} />)
+    const card = screen.getByTestId('transactions-card')
+
+    swipe(card, 140, 220)
+
+    expect(screen.getByText('Sep 2026')).toBeInTheDocument()
+    expect(card).not.toHaveAttribute('data-swipe-feedback')
+  })
+
+  it('gives successful non-reduced-motion swipes restrained directional feedback', () => {
+    stubMatchMedia({ mobile: true, reducedMotion: false })
+    hookState.value = { grouped: groupedWithPeriods(), isLoading: false, isError: false }
+    render(<Transactions privacyMode={false} />)
+    const card = screen.getByTestId('transactions-card')
+
+    swipe(card, 140, 220)
+
+    expect(card).toHaveAttribute('data-swipe-feedback', 'previous')
   })
 })

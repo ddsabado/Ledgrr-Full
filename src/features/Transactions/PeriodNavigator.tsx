@@ -31,7 +31,13 @@ export default function PeriodNavigator({
         <ChevronLeft className="w-4 h-4" />
       </button>
 
-      <span className="text-sm font-semibold text-text text-center truncate">{label}</span>
+      <span
+        aria-live="polite"
+        aria-atomic="true"
+        className="text-sm font-semibold text-text text-center truncate"
+      >
+        {label}
+      </span>
 
       <button
         type="button"
