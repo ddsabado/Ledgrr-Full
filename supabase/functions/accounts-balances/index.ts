@@ -100,7 +100,9 @@ export function mapRowToAccount(
   headerMap:      Record<string, number>,
   categoryToType: Record<string, string> = {}
 ): RawAccountBalance | null {
-  const get    = (col: string): string => row[headerMap[col] ?? -1] ?? ''
+  // UNFORMATTED_VALUE returns numbers for balances and limits. Normalize each
+  // cell here so the parsing below handles both numeric and text sheet cells.
+  const get    = (col: string): string => String(row[headerMap[col] ?? -1] ?? '')
   const getNum = (col: string): number => parseFloat(get(col).replace(/,/g, '')) || 0
   const getNullableInt = (col: string): number | null => {
     const raw = get(col).replace(/,/g, '')
@@ -229,7 +231,7 @@ Deno.serve(async (req: Request) => {
           return Response.json({ error: 'Invalid balance adjustment' }, { status: 400, headers: cors })
         }
         const accountsRes = await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/Accounts!A:K`,
+          `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/Accounts!A:K?valueRenderOption=UNFORMATTED_VALUE`,
           { headers: { Authorization: `Bearer ${accessToken}` } },
         )
         if (!accountsRes.ok) return Response.json({ error: 'Failed to read accounts' }, { status: 502, headers: cors })
@@ -338,7 +340,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const accountsRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/Accounts!A:K`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${userSheet.sheet_id}/values/Accounts!A:K?valueRenderOption=UNFORMATTED_VALUE`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     )
     if (!accountsRes.ok) {
