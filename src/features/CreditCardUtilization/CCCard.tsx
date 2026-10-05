@@ -27,6 +27,7 @@ interface CCCardProps {
   onCycleViewChange: (view: "statement" | "all") => void;
   cycleIndex: number;
   onCycleIndexChange: (index: number) => void;
+  onPay?: () => void;
   viewerOpen?: boolean;
   selected?: boolean;
 }
@@ -46,6 +47,7 @@ export default function CCCard({
   onCycleViewChange,
   cycleIndex,
   onCycleIndexChange,
+  onPay = () => {},
   viewerOpen = false,
   selected = false,
 }: CCCardProps) {
@@ -197,15 +199,22 @@ export default function CCCard({
           <span className="tabular-nums">{availableDisplay} limit left</span>
         </div>
 
-        {/* Keep calendar metadata quiet unless the payment is imminent. */}
-        <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 text-xs text-muted">
-          <span>
-            Statement{" "}
-            <b className="text-text font-semibold">{statementDayDisplay}</b> ·
-            Due <b className="text-text font-semibold">{dueDayDisplay}</b>
-          </span>
-        </div>
       </button>
+
+      {/* Kept outside the summary action so paying never creates a nested button. */}
+      <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5">
+        <button
+          type="button"
+          onClick={onPay}
+          className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        >
+          Pay
+        </button>
+        <p className="text-right text-xs text-muted">
+          Statement <b className="font-semibold text-text">{statementDayDisplay}</b> · Due{" "}
+          <b className="font-semibold text-text">{dueDayDisplay}</b>
+        </p>
+      </div>
 
       {/* ─── Expanded panel ─────────────────────────────────────────────── */}
       <AnimatePresence initial={false}>

@@ -4,16 +4,19 @@ import { PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen, Settings } 
 
 import { useAuth } from "@/context/AuthContext";
 import { useCCAccounts } from "@/hooks/useCCAccounts";
+import { useAccountBalances } from "@/hooks/useAccountBalances";
 import { useCCTransactions } from "@/hooks/useCCTransactions";
 import { useCurrencies } from "@/hooks/useCurrencies";
 import { useAccountImages } from "@/hooks/useAccountImages";
 import type { NewCreditCardInput } from "@/types/accounts";
-import { createCreditCard } from "@/services/api";
+import { createCreditCard, insertTransactions } from "@/services/api";
 import { queryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { NAV_TOGGLE_HOVER, NAV_TOGGLE_TAP } from "@/components/navToggle";
 import CCCard from "./CCCard";
 import NewCreditCardDialog from "./NewCreditCardDialog";
+import CreditCardPaymentDialog from "./CreditCardPaymentDialog";
+import type { NewTransactionInput } from "@/types/installments";
 
 interface CreditCardUtilizationProps {
   privacyMode: boolean;
@@ -36,6 +39,9 @@ export default function CreditCardUtilization({
   const [newCardOpen, setNewCardOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [paymentCardName, setPaymentCardName] = useState<string | null>(null);
+  const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
 
   // Guard: selecting the already-active view is a no-op (R6.6) — prevents a
@@ -46,6 +52,7 @@ export default function CreditCardUtilization({
 
   const { session } = useAuth();
   const { data: fxMap } = useCurrencies();
+  const { data: fundingAccounts } = useAccountBalances();
 
   const {
     data: ccAccounts,
@@ -119,6 +126,24 @@ export default function CreditCardUtilization({
       })
       .catch((error: unknown) => setSubmitError(error instanceof Error ? error.message : "Could not add the credit card."))
       .finally(() => setIsSubmitting(false));
+  };
+
+  const submitPayment = (transaction: NewTransactionInput) => {
+    setIsPaymentSubmitting(true);
+    setPaymentError(null);
+    void insertTransactions([transaction])
+      .then(async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.transactions] }),
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.accountBalances] }),
+        ]);
+        setPaymentCardName(null);
+      })
+      .catch((error: unknown) => {
+        const detail = error instanceof Error ? error.message : "Please check your connection and try again.";
+        setPaymentError(`Could not record this payment. ${detail}`);
+      })
+      .finally(() => setIsPaymentSubmitting(false));
   };
 
   return (
@@ -208,10 +233,25 @@ export default function CreditCardUtilization({
             onCycleIndexChange={(i) =>
               setCycleIndex((prev) => ({ ...prev, [account.name]: i }))
             }
+            onPay={() => {
+              setPaymentError(null);
+              setPaymentCardName(account.name);
+            }}
           />
         ))}
       </div>
       <NewCreditCardDialog open={newCardOpen} onOpenChange={setNewCardOpen} currencies={currencies} images={accountImages} imagesLoading={imagesLoading} imageError={imagesError ? 'Could not load account images.' : null} isSubmitting={isSubmitting} error={submitError} onSubmit={submitNewCard} />
+      <CreditCardPaymentDialog
+        open={paymentCardName !== null}
+        cardName={paymentCardName}
+        fundingAccounts={fundingAccounts}
+        isSubmitting={isPaymentSubmitting}
+        error={paymentError}
+        onOpenChange={(open) => {
+          if (!open && !isPaymentSubmitting) setPaymentCardName(null);
+        }}
+        onSubmit={submitPayment}
+      />
     </motion.div>
   );
 }

@@ -40,7 +40,8 @@ function isTransaction(value: unknown): value is TransactionInput {
     typeof tx.amount === 'number' && Number.isFinite(tx.amount) && tx.amount > 0 &&
     typeof tx.currency === 'string' && tx.currency.trim() !== '' &&
     typeof tx.targetAccount === 'string' && typeof tx.type === 'string' && tx.type.trim() !== '' &&
-    typeof tx.category === 'string' && tx.category.trim() !== '' && typeof tx.subcategory === 'string' &&
+    // Transfers and uncategorized entries legitimately leave this column blank.
+    typeof tx.category === 'string' && typeof tx.subcategory === 'string' &&
     typeof tx.budget === 'string' && typeof tx.note === 'string'
 }
 
