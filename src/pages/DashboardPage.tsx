@@ -62,6 +62,8 @@ export default function DashboardPage() {
   );
   const [installmentsViewerOpen, setInstallmentsViewerOpen] = useState(false);
   const [debtsViewerOpen, setDebtsViewerOpen] = useState(false);
+  const [debtsReturning, setDebtsReturning] = useState(false);
+  const [debtsViewerHeight, setDebtsViewerHeight] = useState<number | null>(null);
   const [selectedDebtRecord, setSelectedDebtRecord] = useState<string | null>(
     null,
   );
@@ -69,7 +71,10 @@ export default function DashboardPage() {
   const isMobileViewport = useMobileViewport();
   const mainRef = useRef<HTMLElement>(null);
   const creditCardsRef = useRef<HTMLDivElement>(null);
+  const debtsRef = useRef<HTMLDivElement>(null);
+  const debtsCardRef = useRef<HTMLDivElement>(null);
   const restoreCreditCardPosition = useRef(false);
+  const restoreDebtsPosition = useRef(false);
   const layoutTransition = reduceMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 260, damping: 30 };
@@ -81,7 +86,8 @@ export default function DashboardPage() {
     creditCardViewerOpen ||
     creditCardReturning ||
     installmentsViewerOpen ||
-    debtsViewerOpen;
+    debtsViewerOpen ||
+    debtsReturning;
   const toggleAccountViewer = () => setViewerOpen((open) => !open);
 
   const toggleCreditCardViewer = () => {
@@ -101,32 +107,60 @@ export default function DashboardPage() {
   };
 
   useLayoutEffect(() => {
-    if (
-      creditCardReturning ||
-      !restoreCreditCardPosition.current ||
-      !isMobileViewport ||
-      !mainRef.current ||
-      !creditCardsRef.current
-    ) {
-      return;
-    }
+    if (!isMobileViewport || !mainRef.current) return;
 
-    // Restore the normal stack before paint: no Account Balances flash and no
-    // visible vertical scroll while returning to Credit Cards.
-    const main = mainRef.current;
-    const cardTop = creditCardsRef.current.getBoundingClientRect().top;
-    const mainTop = main.getBoundingClientRect().top;
-    const paddingTop = Number.parseFloat(getComputedStyle(main).paddingTop) || 0;
-    main.scrollTop += cardTop - mainTop - paddingTop;
-    restoreCreditCardPosition.current = false;
-  }, [creditCardReturning, isMobileViewport]);
+    const restorePosition = (
+      returning: boolean,
+      shouldRestore: React.MutableRefObject<boolean>,
+      lane: React.RefObject<HTMLDivElement | null>,
+    ) => {
+      if (returning || !shouldRestore.current || !lane.current) return;
+
+      // Restore the normal stack before paint so returning to a detail lane
+      // never exposes an unrelated card or visibly scrolls the dashboard.
+      const main = mainRef.current;
+      if (!main) return;
+      const cardTop = lane.current.getBoundingClientRect().top;
+      const mainTop = main.getBoundingClientRect().top;
+      const paddingTop = Number.parseFloat(getComputedStyle(main).paddingTop) || 0;
+      main.scrollTop += cardTop - mainTop - paddingTop;
+      shouldRestore.current = false;
+    };
+
+    restorePosition(
+      creditCardReturning,
+      restoreCreditCardPosition,
+      creditCardsRef,
+    );
+    restorePosition(debtsReturning, restoreDebtsPosition, debtsRef);
+  }, [creditCardReturning, debtsReturning, isMobileViewport]);
 
   const toggleInstallmentsViewer = () => {
     setInstallmentsViewerOpen((open) => !open);
   };
 
   const toggleDebtsViewer = () => {
-    setDebtsViewerOpen((open) => !open);
+    if (debtsViewerOpen) {
+      // Keep the source lane mounted until its viewer finishes sliding away.
+      restoreDebtsPosition.current = true;
+      setDebtsReturning(true);
+      setDebtsViewerOpen(false);
+      return;
+    }
+
+    // Preserve the source card's height for the mobile detail lane. This
+    // prevents the viewer from growing taller than the card it replaces.
+    if (isMobileViewport && debtsCardRef.current) {
+      setDebtsViewerHeight(debtsCardRef.current.getBoundingClientRect().height);
+    }
+    setDebtsViewerOpen(true);
+  };
+
+  const finishDebtsReturn = () => {
+    if (debtsReturning) {
+      setDebtsReturning(false);
+      setDebtsViewerHeight(null);
+    }
   };
 
   return (
@@ -183,14 +217,14 @@ export default function DashboardPage() {
       {/* Main content — panels keep a comfortable fixed width and the row
           scrolls horizontally on lg+ (overflowing to the right) rather than
           compressing. On < lg screens the panels stack in a single column. */}
-      <main ref={mainRef} className={`flex-1 min-h-0 px-4 sm:px-6 py-6 lg:overflow-hidden ${mobileViewerOpen ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <main ref={mainRef} className={`relative flex-1 min-h-0 px-4 sm:px-6 py-6 lg:overflow-hidden ${mobileViewerOpen ? "overflow-hidden" : "overflow-y-auto"}`}>
         <LayoutGroup id="dashboard-cards">
           <div
             className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? "h-full" : ""} ${mobileViewerOpen ? "overflow-hidden" : ""}`}
           >
             <div
               className={
-                creditCardViewerOpen || creditCardReturning
+                creditCardViewerOpen || creditCardReturning || debtsViewerOpen || debtsReturning
                   ? "hidden lg:contents"
                   : viewerOpen
                   ? "relative h-full min-h-0 flex-none lg:flex lg:shrink-0 lg:gap-6"
@@ -240,7 +274,7 @@ export default function DashboardPage() {
                           : { opacity: 0, y: -8 }
                     }
                     transition={isMobileViewport ? mobileSlideTransition : layoutTransition}
-                    className="absolute inset-0 z-10 min-h-0 lg:static lg:flex-none lg:w-[34rem] lg:shrink-0"
+                    className="absolute inset-0 z-10 h-full min-h-0 lg:static lg:h-full lg:flex-none lg:w-[34rem] lg:shrink-0"
                   >
                     <AccountViewer
                       accountName={selectedAccount}
@@ -254,7 +288,7 @@ export default function DashboardPage() {
             <div
               ref={creditCardsRef}
               className={
-                viewerOpen
+                viewerOpen || debtsViewerOpen || debtsReturning
                   ? "hidden lg:contents"
                   : creditCardViewerOpen || creditCardReturning
                   ? "relative h-full min-h-0 flex-none lg:flex lg:shrink-0 lg:gap-6"
@@ -327,14 +361,16 @@ export default function DashboardPage() {
                 key={card.key}
                 layout
                 transition={layoutTransition}
-                className="shrink-0 lg:w-[24rem]"
+                className={`${debtsViewerOpen || debtsReturning ? "hidden lg:block" : ""} shrink-0 lg:w-[24rem]`}
               >
                 {card}
               </motion.div>
             ))}
             <div
               className={
-                installmentsViewerOpen
+                debtsViewerOpen || debtsReturning
+                  ? "hidden lg:contents"
+                  : installmentsViewerOpen
                   ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
                   : "contents"
               }
@@ -371,18 +407,32 @@ export default function DashboardPage() {
               </AnimatePresence>
             </div>
             <div
+              ref={debtsRef}
               className={
-                debtsViewerOpen
-                  ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
-                  : "contents"
+                viewerOpen || creditCardViewerOpen || creditCardReturning
+                  ? "hidden lg:contents"
+                  : debtsViewerOpen || debtsReturning
+                    ? "absolute inset-x-4 top-6 z-10 min-h-0 flex-none overflow-hidden sm:inset-x-6 lg:relative lg:inset-auto lg:z-auto lg:flex lg:h-full lg:shrink-0 lg:gap-6 lg:overflow-visible"
+                    : "relative lg:contents"
+              }
+              style={
+                isMobileViewport && debtsViewerHeight !== null
+                  ? { height: debtsViewerHeight }
+                  : undefined
               }
             >
               <motion.div
-                layout
-                transition={layoutTransition}
+                ref={debtsCardRef}
+                layout={!isMobileViewport}
+                animate={isMobileViewport ? { x: debtsViewerOpen ? "-100%" : 0 } : { x: 0 }}
+                transition={
+                  isMobileViewport
+                    ? mobileSlideTransition
+                    : layoutTransition
+                }
                 className={
-                  debtsViewerOpen
-                    ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0"
+                  debtsViewerOpen || debtsReturning
+                    ? "h-full min-h-0 lg:w-[24rem] lg:shrink-0"
                     : "lg:w-[24rem] lg:shrink-0"
                 }
               >
@@ -394,20 +444,37 @@ export default function DashboardPage() {
                   onToggleViewer={toggleDebtsViewer}
                 />
               </motion.div>
-              <AnimatePresence initial={false} mode="popLayout">
+              <AnimatePresence
+                initial={false}
+                mode="popLayout"
+                onExitComplete={finishDebtsReturn}
+              >
                 {debtsViewerOpen && (
                   <motion.div
                     key="debts-receivables-viewer"
-                    layout
-                    initial={reduceMotion ? false : { opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-                    transition={layoutTransition}
-                    className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0"
+                    layout={!isMobileViewport}
+                    initial={
+                      reduceMotion
+                        ? false
+                        : isMobileViewport
+                          ? { x: "100%" }
+                          : { opacity: 0, y: -8 }
+                    }
+                    animate={isMobileViewport ? { x: 0 } : { opacity: 1, y: 0 }}
+                    exit={
+                      reduceMotion
+                        ? { opacity: 0 }
+                        : isMobileViewport
+                          ? { x: "100%" }
+                          : { opacity: 0, y: -8 }
+                    }
+                    transition={isMobileViewport ? mobileSlideTransition : layoutTransition}
+                    className="absolute inset-0 z-10 min-h-0 lg:static lg:flex-none lg:w-[34rem] lg:shrink-0"
                   >
                     <DebtsandReceivablesViewer
                       privacyMode={privacyMode}
                       selectedRecord={selectedDebtRecord}
+                      onClose={toggleDebtsViewer}
                     />
                   </motion.div>
                 )}

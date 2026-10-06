@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Check } from 'lucide-react'
+import { Check, ChevronLeft } from 'lucide-react'
 
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../@/components/ui/dialog'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -14,21 +14,24 @@ import { useSubmitDebtReceivablePayment } from '@/hooks/useDebtReceivableMutatio
 import { formatCurrency } from '@/utils/currency'
 import type { SplittrExpenseDetail } from '../../../supabase/functions/_shared/splittrImportDetails'
 
-interface Props { privacyMode: boolean; selectedRecord?: string | null }
+interface Props { privacyMode: boolean; selectedRecord?: string | null; onClose?: () => void }
 function today() { return new Date() }
 function sheetDate(date: Date) { return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}` }
 
-export default function DebtsandReceivablesViewer({ privacyMode, selectedRecord }: Props) {
+export default function DebtsandReceivablesViewer({ privacyMode, selectedRecord, onClose }: Props) {
   const reduceMotion = useReducedMotion()
   const [newOpen, setNewOpen] = useState(false)
   const { rows, fxMap, isLoading, isError } = useDebtsReceivables()
   const views = useMemo(() => computeDebtsReceivables(rows, fxMap), [fxMap, rows])
   const selected = views.find((view) => view.key === selectedRecord) ?? views[0]
   const transition = reduceMotion ? { duration: 0 } : { type: 'spring' as const, stiffness: 260, damping: 30 }
-  return <motion.section layout transition={transition} className="h-full min-h-0 overflow-hidden rounded-xl border border-border bg-surface p-5 flex flex-col gap-4">
+  return <motion.section layout transition={transition} className="h-full min-h-0 max-h-none overflow-x-hidden overflow-y-hidden rounded-xl border border-border bg-surface p-5 flex flex-col gap-4 lg:h-full">
     <header className="shrink-0 flex items-center justify-between gap-3">
       <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">Debts &amp; Receivables</p>
-      <button type="button" onClick={() => setNewOpen(true)} className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-accent/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">New</button>
+      <div className="flex items-center gap-2">
+        {onClose && <button type="button" aria-label="Back to debts and receivables" onClick={onClose} className="-ml-2 inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"><ChevronLeft aria-hidden="true" className="h-4 w-4" /><span>Debts</span></button>}
+        <button type="button" onClick={() => setNewOpen(true)} className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-accent/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">New</button>
+      </div>
     </header>
     <SplitBillDialog open={newOpen} onOpenChange={setNewOpen} />
     {isLoading && <p className="py-8 text-center text-sm text-muted">Loading debts &amp; receivables…</p>}
