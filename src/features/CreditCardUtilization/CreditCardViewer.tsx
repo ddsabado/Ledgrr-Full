@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ListFilter, X } from "lucide-react";
+import { ChevronLeft, ListFilter, X } from "lucide-react";
 import { motion, LayoutGroup, useReducedMotion } from "motion/react";
 
 import {
@@ -23,12 +23,14 @@ import {
 interface CreditCardViewerProps {
   accountName: string;
   privacyMode: boolean;
+  onClose?: () => void;
 }
 type ViewMode = "statement" | "all";
 
 export default function CreditCardViewer({
   accountName,
   privacyMode,
+  onClose,
 }: CreditCardViewerProps) {
   const [view, setView] = useState<ViewMode>("statement");
   const [cycleIndex, setCycleIndex] = useState(0);
@@ -89,33 +91,45 @@ export default function CreditCardViewer({
       }
       className="h-full rounded-xl border border-border bg-surface p-5 flex flex-col gap-4 min-h-0 overflow-hidden"
     >
-      <header className="shrink-0 flex items-start justify-between gap-3">
+      <header className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <p className="text-xs font-medium text-muted">Card activity</p>
           <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">
             {accountName}
           </h2>
         </div>
-        <Popover>
-          <PopoverTrigger asChild>
+        <div className="flex w-full shrink-0 items-center justify-between gap-2 self-start sm:w-auto sm:justify-end">
+          {onClose && (
             <button
               type="button"
-              aria-label="Filter transactions"
-              className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label="Back to credit cards"
+              onClick={onClose}
+              className="-ml-2 inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
             >
-              <ListFilter className="h-4 w-4" />
-              {active && (
-                <span
-                  aria-hidden="true"
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"
-                />
-              )}
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+              <span>Cards</span>
             </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            className="flex max-h-[70vh] w-72 flex-col gap-3 overflow-y-auto"
-          >
+          )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Filter transactions"
+                className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <ListFilter className="h-4 w-4" />
+                {active && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"
+                  />
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="flex max-h-[70vh] w-72 flex-col gap-3 overflow-y-auto"
+            >
             <div className="flex items-center justify-between">
               <span className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
                 Transaction filters
@@ -183,8 +197,9 @@ export default function CreditCardViewer({
                 className="rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
             </label>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        </div>
       </header>
       <LayoutGroup>
         <div

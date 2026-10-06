@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   motion,
   AnimatePresence,
@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [creditCardViewerOpen, setCreditCardViewerOpen] = useState(false);
+  const [creditCardReturning, setCreditCardReturning] = useState(false);
   const [selectedCreditCard, setSelectedCreditCard] = useState<string | null>(
     null,
   );
@@ -66,67 +67,59 @@ export default function DashboardPage() {
   );
   const reduceMotion = useReducedMotion();
   const isMobileViewport = useMobileViewport();
+  const mainRef = useRef<HTMLElement>(null);
+  const creditCardsRef = useRef<HTMLDivElement>(null);
+  const restoreCreditCardPosition = useRef(false);
   const layoutTransition = reduceMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 260, damping: 30 };
+  const mobileSlideTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const };
   const mobileViewerOpen =
     viewerOpen ||
     creditCardViewerOpen ||
+    creditCardReturning ||
     installmentsViewerOpen ||
     debtsViewerOpen;
-  const accountGroupRef = useRef<HTMLDivElement>(null);
-  const creditCardGroupRef = useRef<HTMLDivElement>(null);
-  const installmentsGroupRef = useRef<HTMLDivElement>(null);
-  const debtsGroupRef = useRef<HTMLDivElement>(null);
-  const previousViewers = useRef({
-    account: false,
-    creditCard: false,
-    installments: false,
-    debts: false,
-  });
-
-  useEffect(() => {
-    const current = {
-      account: viewerOpen,
-      creditCard: creditCardViewerOpen,
-      installments: installmentsViewerOpen,
-      debts: debtsViewerOpen,
-    };
-    const groupToFocus =
-      current.account && !previousViewers.current.account
-        ? accountGroupRef.current
-        : current.creditCard && !previousViewers.current.creditCard
-          ? creditCardGroupRef.current
-          : current.installments && !previousViewers.current.installments
-            ? installmentsGroupRef.current
-            : current.debts && !previousViewers.current.debts
-              ? debtsGroupRef.current
-              : null;
-
-    if (groupToFocus) {
-      groupToFocus.scrollIntoView({
-        behavior: reduceMotion ? "auto" : "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-    }
-
-    previousViewers.current = current;
-  }, [
-    creditCardViewerOpen,
-    debtsViewerOpen,
-    installmentsViewerOpen,
-    reduceMotion,
-    viewerOpen,
-  ]);
-
-  const toggleAccountViewer = () => {
-    setViewerOpen((open) => !open);
-  };
+  const toggleAccountViewer = () => setViewerOpen((open) => !open);
 
   const toggleCreditCardViewer = () => {
-    setCreditCardViewerOpen((open) => !open);
+    if (creditCardViewerOpen) {
+      // Keep this lane active until the outgoing viewer has slid away.
+      restoreCreditCardPosition.current = true;
+      setCreditCardReturning(true);
+      setCreditCardViewerOpen(false);
+      return;
+    }
+
+    setCreditCardViewerOpen(true);
   };
+
+  const finishCreditCardReturn = () => {
+    if (creditCardReturning) setCreditCardReturning(false);
+  };
+
+  useLayoutEffect(() => {
+    if (
+      creditCardReturning ||
+      !restoreCreditCardPosition.current ||
+      !isMobileViewport ||
+      !mainRef.current ||
+      !creditCardsRef.current
+    ) {
+      return;
+    }
+
+    // Restore the normal stack before paint: no Account Balances flash and no
+    // visible vertical scroll while returning to Credit Cards.
+    const main = mainRef.current;
+    const cardTop = creditCardsRef.current.getBoundingClientRect().top;
+    const mainTop = main.getBoundingClientRect().top;
+    const paddingTop = Number.parseFloat(getComputedStyle(main).paddingTop) || 0;
+    main.scrollTop += cardTop - mainTop - paddingTop;
+    restoreCreditCardPosition.current = false;
+  }, [creditCardReturning, isMobileViewport]);
 
   const toggleInstallmentsViewer = () => {
     setInstallmentsViewerOpen((open) => !open);
@@ -190,15 +183,16 @@ export default function DashboardPage() {
       {/* Main content — panels keep a comfortable fixed width and the row
           scrolls horizontally on lg+ (overflowing to the right) rather than
           compressing. On < lg screens the panels stack in a single column. */}
-      <main className={`flex-1 min-h-0 px-4 sm:px-6 py-6 lg:overflow-hidden ${viewerOpen ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <main ref={mainRef} className={`flex-1 min-h-0 px-4 sm:px-6 py-6 lg:overflow-hidden ${mobileViewerOpen ? "overflow-hidden" : "overflow-y-auto"}`}>
         <LayoutGroup id="dashboard-cards">
           <div
-            className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? "h-full" : ""} ${viewerOpen ? "overflow-hidden" : ""}`}
+            className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? "h-full" : ""} ${mobileViewerOpen ? "overflow-hidden" : ""}`}
           >
             <div
-              ref={accountGroupRef}
               className={
-                viewerOpen
+                creditCardViewerOpen || creditCardReturning
+                  ? "hidden lg:contents"
+                  : viewerOpen
                   ? "relative h-full min-h-0 flex-none lg:flex lg:shrink-0 lg:gap-6"
                   : "relative lg:contents"
               }
@@ -208,9 +202,7 @@ export default function DashboardPage() {
                 animate={isMobileViewport ? { x: viewerOpen ? "-100%" : 0 } : { x: 0 }}
                 transition={
                   isMobileViewport
-                    ? reduceMotion
-                      ? { duration: 0 }
-                      : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
+                    ? mobileSlideTransition
                     : layoutTransition
                 }
                 className={
@@ -236,18 +228,18 @@ export default function DashboardPage() {
                       reduceMotion
                         ? false
                         : isMobileViewport
-                          ? { opacity: 0.6, x: "100%" }
+                          ? { x: "100%" }
                           : { opacity: 0, y: -8 }
                     }
-                    animate={isMobileViewport ? { opacity: 1, x: 0 } : { opacity: 1, y: 0 }}
+                    animate={isMobileViewport ? { x: 0 } : { opacity: 1, y: 0 }}
                     exit={
                       reduceMotion
                         ? { opacity: 0 }
                         : isMobileViewport
-                          ? { opacity: 0.6, x: "100%" }
+                          ? { x: "100%" }
                           : { opacity: 0, y: -8 }
                     }
-                    transition={layoutTransition}
+                    transition={isMobileViewport ? mobileSlideTransition : layoutTransition}
                     className="absolute inset-0 z-10 min-h-0 lg:static lg:flex-none lg:w-[34rem] lg:shrink-0"
                   >
                     <AccountViewer
@@ -260,19 +252,26 @@ export default function DashboardPage() {
               </AnimatePresence>
             </div>
             <div
-              ref={creditCardGroupRef}
+              ref={creditCardsRef}
               className={
-                creditCardViewerOpen
-                  ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
-                  : "contents"
+                viewerOpen
+                  ? "hidden lg:contents"
+                  : creditCardViewerOpen || creditCardReturning
+                  ? "relative h-full min-h-0 flex-none lg:flex lg:shrink-0 lg:gap-6"
+                  : "relative lg:contents"
               }
             >
               <motion.div
-                layout
-                transition={layoutTransition}
+                layout={!isMobileViewport}
+                animate={isMobileViewport ? { x: creditCardViewerOpen ? "-100%" : 0 } : { x: 0 }}
+                transition={
+                  isMobileViewport
+                    ? mobileSlideTransition
+                    : layoutTransition
+                }
                 className={
-                  creditCardViewerOpen
-                    ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0"
+                  creditCardViewerOpen || creditCardReturning
+                    ? "h-full min-h-0 lg:w-[24rem] lg:shrink-0"
                     : "lg:w-[24rem] lg:shrink-0"
                 }
               >
@@ -284,20 +283,37 @@ export default function DashboardPage() {
                   onToggleViewer={toggleCreditCardViewer}
                 />
               </motion.div>
-              <AnimatePresence initial={false} mode="popLayout">
+              <AnimatePresence
+                initial={false}
+                mode="popLayout"
+                onExitComplete={finishCreditCardReturn}
+              >
                 {creditCardViewerOpen && selectedCreditCard && (
                   <motion.div
                     key="credit-card-viewer"
-                    layout
-                    initial={reduceMotion ? false : { opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-                    transition={layoutTransition}
-                    className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0"
+                    layout={!isMobileViewport}
+                    initial={
+                      reduceMotion
+                        ? false
+                        : isMobileViewport
+                          ? { x: "100%" }
+                          : { opacity: 0, y: -8 }
+                    }
+                    animate={isMobileViewport ? { x: 0 } : { opacity: 1, y: 0 }}
+                    exit={
+                      reduceMotion
+                        ? { opacity: 0 }
+                        : isMobileViewport
+                          ? { x: "100%" }
+                          : { opacity: 0, y: -8 }
+                    }
+                    transition={isMobileViewport ? mobileSlideTransition : layoutTransition}
+                    className="absolute inset-0 z-10 min-h-0 lg:static lg:flex-none lg:w-[34rem] lg:shrink-0"
                   >
                     <CreditCardViewer
                       accountName={selectedCreditCard}
                       privacyMode={privacyMode}
+                      onClose={toggleCreditCardViewer}
                     />
                   </motion.div>
                 )}
@@ -317,7 +333,6 @@ export default function DashboardPage() {
               </motion.div>
             ))}
             <div
-              ref={installmentsGroupRef}
               className={
                 installmentsViewerOpen
                   ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
@@ -356,7 +371,6 @@ export default function DashboardPage() {
               </AnimatePresence>
             </div>
             <div
-              ref={debtsGroupRef}
               className={
                 debtsViewerOpen
                   ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
