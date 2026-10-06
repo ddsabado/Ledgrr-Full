@@ -26,6 +26,30 @@ import Budgets from "@/features/Budgets";
 import DebtsReceivables from "@/features/DebtsReceivables";
 import DebtsandReceivablesViewer from "@/features/DebtsReceivables/DebtsandReceivablesViewer";
 
+const MOBILE_QUERY = "(max-width: 1023px)";
+
+function useMobileViewport() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(MOBILE_QUERY).matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const query = window.matchMedia(MOBILE_QUERY);
+    const update = () => setIsMobile(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
+
+  return isMobile;
+}
+
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
   const [privacyMode, setPrivacyMode] = useState(false);
@@ -41,6 +65,7 @@ export default function DashboardPage() {
     null,
   );
   const reduceMotion = useReducedMotion();
+  const isMobileViewport = useMobileViewport();
   const layoutTransition = reduceMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 260, damping: 30 };
@@ -165,25 +190,32 @@ export default function DashboardPage() {
       {/* Main content — panels keep a comfortable fixed width and the row
           scrolls horizontally on lg+ (overflowing to the right) rather than
           compressing. On < lg screens the panels stack in a single column. */}
-      <main className="flex-1 min-h-0 lg:overflow-hidden overflow-y-auto px-4 sm:px-6 py-6">
+      <main className={`flex-1 min-h-0 px-4 sm:px-6 py-6 lg:overflow-hidden ${viewerOpen ? "overflow-hidden" : "overflow-y-auto"}`}>
         <LayoutGroup id="dashboard-cards">
           <div
-            className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? "h-full" : ""}`}
+            className={`mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable ${mobileViewerOpen ? "h-full" : ""} ${viewerOpen ? "overflow-hidden" : ""}`}
           >
             <div
               ref={accountGroupRef}
               className={
                 viewerOpen
-                  ? "flex h-full shrink-0 flex-col gap-6 lg:flex-row"
-                  : "contents"
+                  ? "relative h-full min-h-0 flex-none lg:flex lg:shrink-0 lg:gap-6"
+                  : "relative lg:contents"
               }
             >
               <motion.div
-                layout
-                transition={layoutTransition}
+                layout={!isMobileViewport}
+                animate={isMobileViewport ? { x: viewerOpen ? "-100%" : 0 } : { x: 0 }}
+                transition={
+                  isMobileViewport
+                    ? reduceMotion
+                      ? { duration: 0 }
+                      : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
+                    : layoutTransition
+                }
                 className={
                   viewerOpen
-                    ? "basis-[45%] shrink-0 min-h-0 lg:basis-auto lg:w-[24rem] lg:shrink-0"
+                    ? "h-full min-h-0 lg:w-[24rem] lg:shrink-0"
                     : "lg:w-[24rem] lg:shrink-0"
                 }
               >
@@ -199,16 +231,29 @@ export default function DashboardPage() {
                 {viewerOpen && selectedAccount && (
                   <motion.div
                     key="account-viewer"
-                    layout
-                    initial={reduceMotion ? false : { opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                    layout={!isMobileViewport}
+                    initial={
+                      reduceMotion
+                        ? false
+                        : isMobileViewport
+                          ? { opacity: 0.6, x: "100%" }
+                          : { opacity: 0, y: -8 }
+                    }
+                    animate={isMobileViewport ? { opacity: 1, x: 0 } : { opacity: 1, y: 0 }}
+                    exit={
+                      reduceMotion
+                        ? { opacity: 0 }
+                        : isMobileViewport
+                          ? { opacity: 0.6, x: "100%" }
+                          : { opacity: 0, y: -8 }
+                    }
                     transition={layoutTransition}
-                    className="flex-1 min-h-0 lg:flex-none lg:w-[34rem] lg:shrink-0"
+                    className="absolute inset-0 z-10 min-h-0 lg:static lg:flex-none lg:w-[34rem] lg:shrink-0"
                   >
                     <AccountViewer
                       accountName={selectedAccount}
                       privacyMode={privacyMode}
+                      onClose={toggleAccountViewer}
                     />
                   </motion.div>
                 )}
