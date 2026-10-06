@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ListFilter, Wrench, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ListFilter, ListFilterPlus, Wrench, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -37,6 +37,13 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
   const { data: accounts } = useAccountBalances()
   const queryClient = useQueryClient()
   const account = accounts.find((item) => item.name === accountName)
+
+  useEffect(() => {
+    if (!adjustmentNotice) return
+    const timeoutId = window.setTimeout(() => setAdjustmentNotice(null), 5_000)
+    return () => window.clearTimeout(timeoutId)
+  }, [adjustmentNotice])
+
   const adjustment = useMutation({
     mutationFn: (targetBalance: number) => adjustAccountBalance({ accountName, targetBalance }),
     onSuccess: async (_data, targetBalance) => {
@@ -45,11 +52,10 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.transactions] }),
       ])
       setAdjustOpen(false)
-      setFilters((current) => ({ ...current, type: 'Adjustment' }))
       const delta = targetBalance - (account?.currentBalance ?? targetBalance)
       setAdjustmentNotice(privacyMode
-        ? 'Adjustment transaction recorded. The balance change is hidden while Privacy Mode is on. Showing Adjustment transactions.'
-        : `Adjustment transaction recorded: ${delta >= 0 ? '+' : '−'}${formatCurrency(Math.abs(delta), account?.currency ?? 'PHP')}. Showing Adjustment transactions.`)
+        ? 'Adjustment transaction recorded. The balance change is hidden while Privacy Mode is on.'
+        : `Adjustment transaction recorded: ${delta >= 0 ? '+' : '−'}${formatCurrency(Math.abs(delta), account?.currency ?? 'PHP')}.`)
     },
   })
   const canRetryAdjustment = adjustment.error instanceof AdjustAccountBalanceError
@@ -66,7 +72,7 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
     ? 'Loading transactions'
     : isError
       ? 'Transaction results could not be loaded'
-      : `${transactions.length} transaction${transactions.length === 1 ? '' : 's'} ${active ? 'match the active filters' : 'in this account'}`
+      : `${transactions.length} transaction${transactions.length === 1 ? '' : 's'}`
   const summaryBalance = account ? (privacyMode ? PRIVACY_MASK : formatCurrency(account.phpEquivalent, 'PHP')) : null
   const nativeBalance = account && account.currency !== 'PHP'
     ? (privacyMode ? PRIVACY_MASK : formatCurrency(account.currentBalance, account.currency))
@@ -87,11 +93,13 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
       <header className="sticky top-0 z-10 -mx-1 shrink-0 bg-surface px-1 pb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">{accountName}</h2>
-          {account && <dl aria-label="Account summary" className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-1 border-t border-border pt-2 text-xs leading-5 sm:flex sm:flex-wrap sm:items-end sm:gap-x-5">
-            <div className="min-w-0"><dt className="text-muted">PHP equivalent</dt><dd className="font-medium tabular-nums text-text">{summaryBalance}</dd></div>
-            {nativeBalance && <div className="text-right sm:text-left"><dt className="text-muted">Native · {account.currency}</dt><dd className="font-medium tabular-nums text-text">{nativeBalance}</dd></div>}
-            <div className="col-span-2 flex min-w-0 flex-wrap gap-x-2 text-muted sm:col-span-1"><dt className="sr-only">Account details</dt><dd className="min-w-0 break-words">{account.category} · {account.currency}</dd><span aria-hidden="true">•</span><dt className="sr-only">Visible result count</dt><dd>{resultLabel}</dd></div>
-          </dl>}
+          {account && <div aria-label="Account summary" className="mt-2 border-t border-border pt-2 text-xs leading-5">
+            <div className="flex items-end justify-between gap-4">
+              <span className="min-w-0 font-medium tabular-nums text-text">{summaryBalance}</span>
+              {nativeBalance && <span className="shrink-0 text-xs tabular-nums text-muted">{nativeBalance}</span>}
+            </div>
+            <div className="mt-1 flex min-w-0 flex-wrap gap-x-2 text-muted"><span className="min-w-0 break-words">{account.category} · {account.currency}</span><span aria-hidden="true">•</span><span>{resultLabel}</span></div>
+          </div>}
           <p aria-live="polite" aria-atomic="true" className="sr-only">{resultLabel}{active ? `. Filters active: ${filterDescription}` : ''}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1 self-start">
@@ -99,9 +107,10 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
           <Popover>
             <PopoverTrigger asChild>
               <button type="button" aria-label={active ? `Filter transactions, ${activeCount} active` : 'Filter transactions'} title="Filter transactions" className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                <ListFilter aria-hidden="true" className="h-4 w-4" />
+                {active
+                  ? <ListFilterPlus aria-hidden="true" className="h-4 w-4" />
+                  : <ListFilter aria-hidden="true" className="h-4 w-4" />}
                 <span>Filters</span>
-                {active && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-text">{activeCount} active</span>}
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="flex max-h-[70vh] w-72 flex-col gap-3 overflow-y-auto">
@@ -125,7 +134,7 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
         <button type="button" onClick={() => setFilters({})} className="shrink-0 rounded px-1 py-1 font-medium text-text underline decoration-muted underline-offset-2 transition-colors hover:decoration-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">Clear filters</button>
       </div>}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
-        {adjustmentNotice && <p role="status" aria-live="polite" className="mb-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">{adjustmentNotice}</p>}
+        {adjustmentNotice && <div role="status" aria-live="polite" className="mb-2 grid grid-cols-[minmax(0,1fr)_1.5rem] items-start gap-2 rounded-md border border-success/30 bg-success/10 p-2 text-sm text-success"><p className="min-w-0 leading-6">{adjustmentNotice}</p><button type="button" aria-label="Dismiss adjustment notice" onClick={() => setAdjustmentNotice(null)} className="inline-flex h-6 w-6 items-center justify-center text-success/70 transition-colors hover:text-success focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X aria-hidden="true" className="h-3 w-3" /></button></div>}
         {isLoading && <p role="status" aria-live="polite" className="py-8 text-center text-sm text-muted">Loading transactions…</p>}
         {isError && <div role="alert" className="py-8 text-center text-sm text-muted"><p>We couldn’t load this account’s transactions. Your account summary is still available.</p>{retry && <button type="button" onClick={() => void retry()} className="mt-3 min-h-11 rounded-md border border-border px-3 text-sm font-medium text-text transition-colors hover:bg-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">Retry</button>}</div>}
         {!isLoading && !isError && transactions.length === 0 && <p className="py-8 text-center text-sm text-muted">{active ? 'No transactions match these filters.' : 'This account has no transactions yet.'}</p>}

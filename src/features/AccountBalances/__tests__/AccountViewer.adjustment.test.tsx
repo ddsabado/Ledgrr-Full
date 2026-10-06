@@ -31,7 +31,7 @@ function renderViewer() {
 describe('AccountViewer balance adjustment feedback', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('announces a recorded delta and surfaces Adjustment transactions after success', async () => {
+  it('announces a recorded delta without changing the transaction filter after success', async () => {
     adjustAccountBalance.mockResolvedValueOnce(undefined)
     const user = userEvent.setup()
     renderViewer()
@@ -44,7 +44,14 @@ describe('AccountViewer balance adjustment feedback', () => {
 
     await waitFor(() => expect(adjustAccountBalance).toHaveBeenCalledWith({ accountName: 'Cash', targetBalance: 125 }))
     expect(await screen.findByRole('status')).toHaveTextContent('Adjustment transaction recorded: +₱25.00')
-    expect(screen.getByRole('status')).toHaveTextContent('Showing Adjustment transactions')
+    expect(screen.getByRole('status')).not.toHaveTextContent('Showing Adjustment transactions')
+    expect(screen.getByRole('button', { name: 'Filter transactions' })).toBeInTheDocument()
+    const dismissButton = screen.getByRole('button', { name: 'Dismiss adjustment notice' })
+    expect(dismissButton).toHaveClass('h-6', 'w-6')
+    expect(dismissButton).not.toHaveClass('absolute', 'hover:bg-success/20')
+
+    await user.click(dismissButton)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('keeps the target and offers a safe retry after a mutation error', async () => {

@@ -14,8 +14,8 @@ describe('account balance adjustment helpers', () => {
     expect(isAdjustBalanceInput({ accountName: 'Cash', targetBalance: 125 })).toBe(true)
     expect(isAdjustBalanceInput({ accountName: '', targetBalance: 125 })).toBe(false)
     expect(isAdjustBalanceInput({ accountName: 'Cash', targetBalance: Number.POSITIVE_INFINITY })).toBe(false)
-    expect(adjustmentTransactionRow('9/19/2026 20:34:00', 'Cash', 'PHP', -25)).toEqual([
-      '9/19/2026 20:34:00', 'Cash', '-25', '', 'PHP', '', 'Adjustment', 'Adjustment', '', '', 'Balance adjustment',
+    expect(adjustmentTransactionRow('9/19/2026 20:34:00', 'Cash', 'PHP', -25, 75)).toEqual([
+      '9/19/2026 20:34:00', 'Cash', '-25', '', 'PHP', '', 'Adjustment', 'Adjustment', '', '', 'Manual adjustment: 75',
     ])
   })
 

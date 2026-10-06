@@ -51,9 +51,13 @@ describe('AccountViewer context', () => {
 
     expect(screen.getByRole('heading', { name: 'USD Wallet' })).toBeInTheDocument()
     expect(screen.getByText('₱1,120.00')).toBeInTheDocument()
-    expect(screen.getByText('$20.00')).toBeInTheDocument()
-    expect(screen.getByLabelText('Account summary')).toHaveTextContent('e-Wallets · USD')
-    expect(screen.getByLabelText('Account summary')).toHaveTextContent('0 transactions in this account')
+    expect(screen.getByText('$20.00')).toHaveClass('shrink-0', 'text-xs', 'tabular-nums', 'text-muted')
+    expect(screen.queryByText('PHP equivalent')).not.toBeInTheDocument()
+    expect(screen.queryByText('Native · USD')).not.toBeInTheDocument()
+    const summary = screen.getByLabelText('Account summary')
+    expect(summary).toHaveTextContent('e-Wallets · USD')
+    expect(summary).toHaveTextContent('0 transactions')
+    expect(summary).not.toHaveClass('grid', 'sm:flex')
     expect(screen.getByText('This account has no transactions yet.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Adjust balance' })).toHaveClass('min-h-11', 'min-w-11')
     expect(screen.getByRole('button', { name: 'Filter transactions' })).toHaveClass('min-h-11', 'min-w-11')
@@ -68,11 +72,15 @@ describe('AccountViewer context', () => {
 
     expect(screen.getByText('No transactions match these filters.')).toBeInTheDocument()
     expect(screen.getByText('0 results')).toBeInTheDocument()
+    expect(screen.getByLabelText('Account summary')).toHaveTextContent('0 transactions')
+    expect(screen.getByLabelText('Account summary')).not.toHaveTextContent('match the active filters')
     expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
     expect(screen.getAllByText(/Type: Adjustment/)).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Filter transactions, 1 active' }).querySelector('.lucide-list-filter-plus')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(screen.getByText('This account has no transactions yet.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter transactions' }).querySelector('.lucide-list-filter')).toBeInTheDocument()
   })
 
   it('masks every balance in privacy mode and provides a scoped query retry on failure', async () => {

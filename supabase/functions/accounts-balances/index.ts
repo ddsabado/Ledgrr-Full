@@ -285,7 +285,7 @@ Deno.serve(async (req: Request) => {
           {
             method: 'PUT',
             headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ majorDimension: 'ROWS', values: [adjustmentTransactionRow(date, account.name, account.currency, delta)] }),
+            body: JSON.stringify({ majorDimension: 'ROWS', values: [adjustmentTransactionRow(date, account.name, account.currency, delta, input.targetBalance)] }),
           },
         )
         if (!adjustmentRes.ok) return Response.json({ error: 'Failed to write adjustment' }, { status: 502, headers: cors })

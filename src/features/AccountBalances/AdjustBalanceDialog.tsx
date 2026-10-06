@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { LoaderCircle } from 'lucide-react'
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../@/components/ui/dialog'
 import { formatCurrency } from '@/utils/currency'
@@ -37,10 +38,10 @@ export default function AdjustBalanceDialog({ open, accountName, currency, curre
 
   useEffect(() => {
     if (open) {
-      setTargetBalance(String(currentBalance))
+      setTargetBalance('')
       setHasTriedToSubmit(false)
     }
-  }, [open, currentBalance])
+  }, [open])
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -53,7 +54,7 @@ export default function AdjustBalanceDialog({ open, accountName, currency, curre
       <DialogContent className="w-[calc(100vw-2rem)] max-w-md sm:w-full">
         <DialogHeader>
           <DialogTitle>Adjust balance</DialogTitle>
-          <DialogDescription className="max-w-[42ch] leading-6">Set the current balance for {accountName}. This records an Adjustment transaction.</DialogDescription>
+          <DialogDescription className="max-w-[42ch] leading-6">Set the current balance for {accountName}.</DialogDescription>
         </DialogHeader>
         <form noValidate onSubmit={submit} className="space-y-5">
           <label className="grid gap-1.5 text-sm font-medium leading-5 text-muted">
@@ -87,8 +88,8 @@ export default function AdjustBalanceDialog({ open, accountName, currency, curre
           {error && <p role="alert" className="text-sm leading-5 text-danger">{error}</p>}
           <DialogFooter>
             <button type="button" onClick={() => onOpenChange(false)} className="rounded-md px-3 py-2 text-sm font-medium text-muted hover:text-text">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-text disabled:opacity-50">
-              {isSubmitting ? 'Adjusting…' : error && canRetry ? 'Retry adjustment' : 'Adjust balance'}
+            <button type="submit" disabled={isSubmitting} aria-label={isSubmitting ? 'Adjusting balance' : undefined} className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-text disabled:opacity-50">
+              {isSubmitting ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : error && canRetry ? 'Retry adjustment' : 'Adjust balance'}
             </button>
           </DialogFooter>
         </form>
