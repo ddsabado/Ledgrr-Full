@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ListFilter, ListFilterPlus, Wrench, X } from 'lucide-react'
+import { ChevronLeft, ListFilter, ListFilterPlus, Wrench, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -13,7 +13,11 @@ import TransactionList from '@/features/CreditCardUtilization/TransactionList'
 import AdjustBalanceDialog from './AdjustBalanceDialog'
 import { useAccountTransactions, type AccountTransactionFilters } from './useAccountTransactions'
 
-interface AccountViewerProps { accountName: string; privacyMode: boolean }
+interface AccountViewerProps {
+  accountName: string
+  privacyMode: boolean
+  onClose?: () => void
+}
 
 const PRIVACY_MASK = '••••••'
 
@@ -29,7 +33,7 @@ function describeFilters(filters: AccountTransactionFilters, privacyMode: boolea
   return details.join(' · ')
 }
 
-export default function AccountViewer({ accountName, privacyMode }: AccountViewerProps) {
+export default function AccountViewer({ accountName, privacyMode, onClose }: AccountViewerProps) {
   const [filters, setFilters] = useState<AccountTransactionFilters>({})
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [adjustmentNotice, setAdjustmentNotice] = useState<string | null>(null)
@@ -102,7 +106,9 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
           </div>}
           <p aria-live="polite" aria-atomic="true" className="sr-only">{resultLabel}{active ? `. Filters active: ${filterDescription}` : ''}</p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-1 self-start">
+        <div className="flex w-full shrink-0 items-center justify-between gap-2 self-start sm:w-auto sm:justify-end">
+          {onClose && <button type="button" aria-label="Back to account balances" onClick={onClose} className="-ml-2 inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"><ChevronLeft aria-hidden="true" className="h-4 w-4" /><span>Balances</span></button>}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
           {account && <button type="button" aria-label="Adjust balance" title="Adjust balance" onClick={() => { adjustment.reset(); setAdjustOpen(true) }} className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Wrench aria-hidden="true" className="h-4 w-4" /><span>Adjust balance</span></button>}
           <Popover>
             <PopoverTrigger asChild>
@@ -127,6 +133,7 @@ export default function AccountViewer({ accountName, privacyMode }: AccountViewe
             <label className="flex flex-col gap-1 text-xs text-muted">Note<input type="text" value={filters.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="Search notes" className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" /></label>
             </PopoverContent>
           </Popover>
+          </div>
         </div>
       </header>
       {active && <div className="shrink-0 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border pb-3 text-xs text-muted">

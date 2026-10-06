@@ -30,11 +30,11 @@ vi.mock('@/features/CreditCardUtilization/TransactionList', () => ({ default: ()
 
 import AccountViewer from '../AccountViewer'
 
-function renderViewer(privacyMode = false, accountName = 'USD Wallet') {
+function renderViewer(privacyMode = false, accountName = 'USD Wallet', onClose?: () => void) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return {
     queryClient,
-    ...render(<QueryClientProvider client={queryClient}><AccountViewer accountName={accountName} privacyMode={privacyMode} /></QueryClientProvider>),
+    ...render(<QueryClientProvider client={queryClient}><AccountViewer accountName={accountName} privacyMode={privacyMode} onClose={onClose} /></QueryClientProvider>),
   }
 }
 
@@ -104,5 +104,17 @@ describe('AccountViewer context', () => {
     expect(screen.getByText('₱600.00')).toBeInTheDocument()
     expect(screen.getByLabelText('Account summary')).toHaveTextContent('Cash · PHP')
     expect(screen.queryByText('$20.00')).not.toBeInTheDocument()
+  })
+
+  it('provides a touch-sized return control when used as a mobile screen', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    renderViewer(false, 'USD Wallet', onClose)
+
+    const back = screen.getByRole('button', { name: 'Back to account balances' })
+    expect(back).toHaveClass('-ml-2', 'min-h-11', 'min-w-11', 'lg:hidden')
+    expect(back.parentElement).toHaveClass('w-full', 'justify-between', 'sm:w-auto', 'sm:justify-end')
+    await user.click(back)
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })
