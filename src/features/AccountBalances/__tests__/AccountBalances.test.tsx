@@ -216,6 +216,12 @@ describe('AccountBalances filters', () => {
       expect(screen.getByRole('button', { name: 'Close account activity' })).toHaveTextContent('Close activity')
     })
     expect(container.querySelector('.recharts-wrapper')).toBe(chartBeforeOpeningActivity)
+
+    rerender(<AccountBalances privacyMode={false} />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'View account activity' })).toHaveTextContent('View activity')
+    })
+    expect(container.querySelector('.recharts-wrapper')).toBe(chartBeforeOpeningActivity)
   })
 
   it('exposes selected account and filter state without relying on the visual indicator', async () => {
