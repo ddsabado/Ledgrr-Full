@@ -1,4 +1,4 @@
-import { ListFilter, X } from 'lucide-react'
+import { ListFilter, ListFilterPlus, X } from 'lucide-react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -44,9 +44,10 @@ export default function AccountBalancesFilter({
           title="Filter account balances"
           className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <ListFilter aria-hidden="true" className="h-4 w-4" />
+          {active
+            ? <ListFilterPlus aria-hidden="true" className="h-4 w-4" />
+            : <ListFilter aria-hidden="true" className="h-4 w-4" />}
           <span>Filters</span>
-          {active && <span data-testid="account-balances-filter-active" className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold text-text">{activeCount} active</span>}
         </button>
       </PopoverTrigger>
       <PopoverContent align="center" className="flex w-[calc(100vw-2.5rem)] max-w-72 flex-col gap-3">

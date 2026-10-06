@@ -32,6 +32,6 @@ export function formatAdjustmentTimestamp(date: Date): string {
 }
 
 /** Converts a signed native-currency delta into Transactions sheet columns B:L. */
-export function adjustmentTransactionRow(date: string, accountName: string, currency: string, delta: number): string[] {
-  return [date, accountName, String(delta), '', currency, '', 'Adjustment', 'Adjustment', '', '', 'Balance adjustment']
+export function adjustmentTransactionRow(date: string, accountName: string, currency: string, delta: number, targetBalance: number): string[] {
+  return [date, accountName, String(delta), '', currency, '', 'Adjustment', 'Adjustment', '', '', `Manual adjustment: ${targetBalance}`]
 }

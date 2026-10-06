@@ -215,16 +215,16 @@ export default function AccountBalances({
       className={`rounded-xl bg-surface border border-border p-5 flex flex-col gap-4 min-h-0 overflow-x-hidden overflow-y-hidden lg:max-h-none lg:h-full ${viewerOpen ? 'h-full max-h-none' : 'max-h-[calc(100vh-8rem)]'}`}
     >
       {/* Heading + filter */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
-        <div className="flex min-w-0 basis-full items-center gap-2 lg:flex-1 lg:basis-auto">
-          <p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">
+      <div className="shrink-0 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <p className="truncate font-display text-xs font-semibold tracking-widest uppercase text-muted">
             Account Balances
           </p>
           <p aria-live="polite" aria-atomic="true" className="sr-only">
             {filteredAccounts.length} of {data.length} account{data.length === 1 ? "" : "s"} shown{activeFilterCount ? `. ${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active.` : ". No filters active."}{viewerOpen && selectedAccount ? ` Selected account: ${selectedAccount}.` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
           <AccountBalancesFilter
             filters={filters}
             onChange={setFilters}

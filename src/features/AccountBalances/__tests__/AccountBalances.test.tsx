@@ -157,7 +157,9 @@ describe('AccountBalances filters', () => {
 
     expect(screen.getAllByText('BPI Savings').length).toBeGreaterThan(0)
     expect(screen.queryByText('GCash')).not.toBeInTheDocument()
-    expect(screen.getByTestId('account-balances-filter-active')).toHaveTextContent('1 active')
+    const filterButton = screen.getByRole('button', { name: /filter account balances, 1 active/i })
+    expect(filterButton.querySelector('.lucide-list-filter-plus')).toBeInTheDocument()
+    expect(filterButton).not.toHaveTextContent('1 active')
   })
 
   it('updates the compact chart legend and its remainder cue for the filtered set', async () => {
@@ -202,7 +204,11 @@ describe('AccountBalances filters', () => {
     await user.keyboard(' ')
     expect(onSelectAccount).toHaveBeenCalledTimes(3)
     expect(onToggleViewer).toHaveBeenCalledTimes(3)
-    expect(screen.getByRole('button', { name: 'View account activity' })).toHaveTextContent('View activity')
+    const activityButton = screen.getByRole('button', { name: 'View account activity' })
+    const filterButton = screen.getByRole('button', { name: /filter account balances/i })
+    expect(activityButton).toHaveTextContent('View activity')
+    expect(activityButton.parentElement).toHaveClass('shrink-0', 'whitespace-nowrap')
+    expect(filterButton.parentElement).toBe(activityButton.parentElement)
     const chartBeforeOpeningActivity = container.querySelector('.recharts-wrapper')
 
     rerender(<AccountBalances privacyMode={false} viewerOpen selectedAccount="Cash" />)
@@ -223,6 +229,7 @@ describe('AccountBalances filters', () => {
     const selectedRow = screen.getByRole('option', { name: 'View activity for Long account name that must truncate safely on a narrow mobile screen' })
     expect(selectedRow).toHaveAttribute('aria-selected', 'true')
     expect(selectedRow).toHaveClass('min-h-11')
+    expect(selectedRow).toHaveClass('transition-[background-color,box-shadow]', 'duration-200', 'motion-reduce:duration-100')
     const description = document.getElementById(selectedRow.getAttribute('aria-describedby') ?? '')
     expect(description).toHaveTextContent('Balances hidden while Privacy Mode is on')
     expect(description).not.toHaveTextContent('$20.00')

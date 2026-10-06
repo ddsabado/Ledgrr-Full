@@ -12,12 +12,12 @@ describe('AdjustBalanceDialog', () => {
 
     const input = screen.getByLabelText('Target balance (PHP)')
     expect(input).toHaveAttribute('maxlength', '20')
-    await user.clear(input)
+    expect(input).toHaveValue('')
     await user.type(input, '125.5')
     await user.click(screen.getByRole('button', { name: 'Adjust balance' }))
 
     expect(onSubmit).toHaveBeenCalledWith(125.5)
-    expect(screen.getByText(/records an Adjustment transaction/i)).toBeInTheDocument()
+    expect(screen.getByText('Set the current balance for Cash.')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Adjustment preview' })).toHaveTextContent('Current balance')
     expect(screen.getByRole('region', { name: 'Adjustment preview' })).toHaveTextContent('New target balance')
     expect(screen.getByRole('region', { name: 'Adjustment preview' })).toHaveTextContent('+₱25.50 PHP')
@@ -55,5 +55,14 @@ describe('AdjustBalanceDialog', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('No balance change was recorded')
     expect(screen.getByRole('button', { name: 'Retry adjustment' })).toBeEnabled()
     expect(input).toHaveValue('80')
+  })
+
+  it('uses an animated spinner with an accessible status while submitting', () => {
+    render(<AdjustBalanceDialog open accountName="Cash" currency="PHP" currentBalance={100} isSubmitting error={null} canRetry={false} onOpenChange={vi.fn()} onSubmit={vi.fn()} />)
+
+    const submitButton = screen.getByRole('button', { name: 'Adjusting balance' })
+    expect(submitButton).toBeDisabled()
+    expect(submitButton.querySelector('.lucide-loader-circle')).toHaveClass('animate-spin')
+    expect(submitButton).not.toHaveTextContent('Adjusting')
   })
 })
