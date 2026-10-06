@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { useAccountBalances } from "@/hooks/useAccountBalances";
 import { formatCurrency } from "@/utils/currency";
@@ -250,17 +250,11 @@ export default function AccountBalances({
                   : { type: "spring", stiffness: 260, damping: 30 }
               }
               className="flex"
-            >
+              >
               {viewerOpen ? (
-                <>
-                <PanelTopClose aria-hidden="true" className="h-4 w-4 lg:hidden" />
-                <PanelLeftClose aria-hidden="true" className="hidden h-4 w-4 lg:block" />
-                </>
+                <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
               ) : (
-                <>
-                <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
-                <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
-                </>
+                <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />
               )}
             </motion.span>
             <span className="flex min-w-0">
