@@ -275,7 +275,10 @@ export default function AccountBalances({
         </div>
       </div>
       {/* Donut chart */}
-      <div className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
+      {/* Keep the responsive chart measurable while the mobile activity view
+          slides over this panel. `display: none` makes Recharts discard its
+          measured surface and recreate it when the activity view closes. */}
+      <div className="shrink-0">
         <BalanceChart
           accounts={filteredAccounts}
           privacyMode={privacyMode}
