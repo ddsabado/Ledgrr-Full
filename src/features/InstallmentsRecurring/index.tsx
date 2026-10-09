@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
-import { PanelLeftOpen, PanelTopOpen } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 import FxEstimatedIndicator from '@/components/FxEstimatedIndicator'
 import { formatCurrency } from '@/utils/currency'
@@ -92,10 +92,20 @@ export default function InstallmentsRecurring({
           onClick={onToggleViewer}
           animate={{ rotate: viewerOpen ? 180 : 0 }}
           transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }}
-          className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
-          <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
+          {viewerOpen ? <PanelLeftClose aria-hidden="true" className="h-4 w-4" /> : <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />}
+          <AnimatePresence initial={false} mode="wait">
+            <motion.span
+              key={viewerOpen ? 'close-activity' : 'view-activity'}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.15, ease: 'easeInOut' }}
+            >
+              {viewerOpen ? 'Close activity' : 'View activity'}
+            </motion.span>
+          </AnimatePresence>
         </motion.button>
       </div>
 
@@ -106,10 +116,10 @@ export default function InstallmentsRecurring({
         </p>
       )}
 
-      {/* Chart — the slot is ALWAYS rendered at the chart's height so a month
-          with no items does not snap the layout: the donut shows when there
-          are items, else a same-height placeholder. */}
-      <div className={`shrink-0 ${viewerOpen ? 'hidden lg:block' : ''}`}>
+      {/* Keep the chart measurable while the mobile viewer slides over the
+          card. Hiding it with display:none resets Recharts' surface and makes
+          the donut redraw when the viewer closes. */}
+      <div className="shrink-0">
         {result.items.length > 0 ? (
           <InstallmentDonut items={chartItems} privacyMode={privacyMode} />
         ) : (

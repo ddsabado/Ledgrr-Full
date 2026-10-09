@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useLiveQuery } from "@tanstack/react-db"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { ListFilter, Plus, X } from "lucide-react"
+import { ChevronLeft, ListFilter, Plus, X } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "../../../@/components/ui/alert"
 import { Button } from "../../../@/components/ui/button"
@@ -36,6 +36,7 @@ import { useInstallmentsRecurring } from "./useInstallmentsRecurring"
 
 interface InstallmentsViewerProps {
   privacyMode: boolean
+  onClose?: () => void
 }
 
 type AlertState = { title: string; description: string } | null
@@ -77,7 +78,7 @@ function startDateTimestamp(value: string): number {
   return 0
 }
 
-export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerProps) {
+export default function InstallmentsViewer({ privacyMode, onClose }: InstallmentsViewerProps) {
   const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const { session } = useAuth()
@@ -204,6 +205,7 @@ export default function InstallmentsViewer({ privacyMode }: InstallmentsViewerPr
             <p className="mt-1 text-sm text-muted">Installments and recurring payments</p>
           </div>
           <div className="flex items-center gap-2">
+            {onClose && <button type="button" aria-label="Back to installments and recurring payments" onClick={onClose} className="-ml-2 inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"><ChevronLeft aria-hidden="true" className="h-4 w-4" /><span>Payments</span></button>}
             <Popover>
               <PopoverTrigger asChild>
                 <button type="button" aria-label="Filter installments and recurring payments" className="relative rounded-md p-1 text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><ListFilter aria-hidden="true" className="h-4 w-4" />{filterActive && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent" />}</button>

@@ -13,11 +13,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
+  PanelLeftClose,
   PanelLeftOpen,
-  PanelTopOpen,
 } from "lucide-react";
 import FxEstimatedIndicator from "@/components/FxEstimatedIndicator";
-import { motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { formatCurrency } from "@/utils/currency";
 import {
@@ -48,6 +48,7 @@ export default function DebtsReceivables({
 }: DebtsReceivablesProps) {
   const hasViewerToggle = Boolean(onToggleViewer);
   const toggleViewer = onToggleViewer ?? (() => {});
+  const reduceMotion = useReducedMotion();
   const { rows, fxMap, isLoading, isError } = useDebtsReceivables();
   const [filters, setFilters] = useState<DRFilters>({});
 
@@ -197,13 +198,20 @@ export default function DebtsReceivables({
             onClick={toggleViewer}
             animate={{ rotate: viewerOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 30 }}
-            className="rounded-md p-1 text-muted hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
-            <PanelLeftOpen
-              aria-hidden="true"
-              className="hidden h-4 w-4 lg:block"
-            />
+            {viewerOpen ? <PanelLeftClose aria-hidden="true" className="h-4 w-4" /> : <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />}
+            <AnimatePresence initial={false} mode="wait">
+              <motion.span
+                key={viewerOpen ? "close-activity" : "view-activity"}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.15, ease: "easeInOut" }}
+              >
+                {viewerOpen ? "Close activity" : "View activity"}
+              </motion.span>
+            </AnimatePresence>
           </motion.button>
         </div>
       </div>
