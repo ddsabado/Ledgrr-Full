@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { PanelLeftClose, PanelLeftOpen, PanelTopClose, PanelTopOpen, Settings } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useCCAccounts } from "@/hooks/useCCAccounts";
@@ -180,15 +180,9 @@ export default function CreditCardUtilization({
               className="flex"
             >
               {viewerOpen ? (
-                <>
-                  <PanelTopClose aria-hidden="true" className="h-4 w-4 lg:hidden" />
-                  <PanelLeftClose aria-hidden="true" className="hidden h-4 w-4 lg:block" />
-                </>
+                <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
               ) : (
-                <>
-                  <PanelTopOpen aria-hidden="true" className="h-4 w-4 lg:hidden" />
-                  <PanelLeftOpen aria-hidden="true" className="hidden h-4 w-4 lg:block" />
-                </>
+                <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />
               )}
             </motion.span>
             <span className="flex min-w-0">
