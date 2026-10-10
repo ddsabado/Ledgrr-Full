@@ -5,6 +5,22 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { Field, FieldLabel } from '@/components/ui/field'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { QUERY_KEYS } from '@/constants/queryKeys'
 import { useAccountBalances } from '@/hooks/useAccountBalances'
 import { AdjustAccountBalanceError, adjustAccountBalance } from '@/services/api'
@@ -20,6 +36,7 @@ interface AccountViewerProps {
 }
 
 const PRIVACY_MASK = '••••••'
+const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const
 
 function describeFilters(filters: AccountTransactionFilters, privacyMode: boolean): string {
   const details: string[] = []
@@ -35,6 +52,9 @@ function describeFilters(filters: AccountTransactionFilters, privacyMode: boolea
 
 export default function AccountViewer({ accountName, privacyMode, onClose }: AccountViewerProps) {
   const [filters, setFilters] = useState<AccountTransactionFilters>({})
+  const [rowsPerPage, setRowsPerPage] = useState<(typeof TRANSACTION_PAGE_SIZES)[number]>(25)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageDirection, setPageDirection] = useState<1 | -1>(1)
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [adjustmentNotice, setAdjustmentNotice] = useState<string | null>(null)
   const { transactions, types, isLoading, isError, retry } = useAccountTransactions(accountName, filters)
@@ -47,6 +67,10 @@ export default function AccountViewer({ accountName, privacyMode, onClose }: Acc
     const timeoutId = window.setTimeout(() => setAdjustmentNotice(null), 5_000)
     return () => window.clearTimeout(timeoutId)
   }, [adjustmentNotice])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [accountName, filters, rowsPerPage])
 
   const adjustment = useMutation({
     mutationFn: (targetBalance: number) => adjustAccountBalance({ accountName, targetBalance }),
@@ -71,7 +95,11 @@ export default function AccountViewer({ accountName, privacyMode, onClose }: Acc
   const reduceMotion = useReducedMotion()
   const active = Object.values(filters).some((value) => Boolean(value))
   const activeCount = Object.values(filters).filter((value) => Boolean(value)).length
-  const set = (patch: Partial<AccountTransactionFilters>) => setFilters((current) => ({ ...current, ...patch }))
+  const set = (patch: Partial<AccountTransactionFilters>) => {
+    setPageDirection(-1)
+    setCurrentPage(1)
+    setFilters((current) => ({ ...current, ...patch }))
+  }
   const resultLabel = isLoading
     ? 'Loading transactions'
     : isError
@@ -82,6 +110,32 @@ export default function AccountViewer({ accountName, privacyMode, onClose }: Acc
     ? (privacyMode ? PRIVACY_MASK : formatCurrency(account.currentBalance, account.currency))
     : null
   const filterDescription = describeFilters(filters, privacyMode)
+  const pageCount = Math.max(1, Math.ceil(transactions.length / rowsPerPage))
+  const page = Math.min(currentPage, pageCount)
+  const paginatedTransactions = transactions.slice((page - 1) * rowsPerPage, page * rowsPerPage)
+  const pageVariants = {
+    enter: (direction: number) => reduceMotion
+      ? { opacity: 0 }
+      : { opacity: 0, x: direction * 20, filter: 'blur(2px)' },
+    center: { opacity: 1, x: 0, filter: 'blur(0px)' },
+    exit: (direction: number) => reduceMotion
+      ? { opacity: 0 }
+      : { opacity: 0, x: direction * -12, filter: 'blur(1px)' },
+  }
+  const changePage = (nextPage: number) => {
+    setPageDirection(nextPage > page ? 1 : -1)
+    setCurrentPage(nextPage)
+  }
+  const changeRowsPerPage = (value: string) => {
+    setPageDirection(-1)
+    setCurrentPage(1)
+    setRowsPerPage(Number(value) as typeof rowsPerPage)
+  }
+  const clearFilters = () => {
+    setPageDirection(-1)
+    setCurrentPage(1)
+    setFilters({})
+  }
 
   return (
     <motion.section layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="h-full min-h-0 max-h-none overflow-x-hidden overflow-y-hidden rounded-xl border border-border bg-surface p-5 flex flex-col gap-3 lg:h-full">
@@ -122,7 +176,7 @@ export default function AccountViewer({ accountName, privacyMode, onClose }: Acc
             <PopoverContent align="end" className="flex max-h-[70vh] w-72 flex-col gap-3 overflow-y-auto">
             <div className="flex items-center justify-between">
               <span className="font-display text-xs font-semibold tracking-widest uppercase text-muted">Transaction filters</span>
-              {active && <button type="button" onClick={() => setFilters({})} className="flex min-h-11 items-center gap-1 rounded px-1 text-xs text-muted hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X aria-hidden="true" className="h-3 w-3" />Clear</button>}
+              {active && <button type="button" onClick={clearFilters} className="flex min-h-11 items-center gap-1 rounded px-1 text-xs text-muted hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X aria-hidden="true" className="h-3 w-3" />Clear</button>}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <label className="flex flex-col gap-1 text-xs text-muted">Min amount<input type="number" inputMode="decimal" value={filters.minAmount ?? ''} onChange={(e) => set({ minAmount: e.target.value })} className="min-h-11 rounded-md border border-border bg-surface2 px-2 py-1.5 text-sm text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" /></label>
@@ -138,15 +192,55 @@ export default function AccountViewer({ accountName, privacyMode, onClose }: Acc
       </header>
       {active && <div className="shrink-0 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border pb-3 text-xs text-muted">
         <p className="min-w-0"><span className="font-medium text-text">{transactions.length} result{transactions.length === 1 ? '' : 's'}</span><span> · {filterDescription}</span></p>
-        <button type="button" onClick={() => setFilters({})} className="shrink-0 rounded px-1 py-1 font-medium text-text underline decoration-muted underline-offset-2 transition-colors hover:decoration-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">Clear filters</button>
+        <button type="button" onClick={clearFilters} className="shrink-0 rounded px-1 py-1 font-medium text-text underline decoration-muted underline-offset-2 transition-colors hover:decoration-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">Clear filters</button>
       </div>}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
         {adjustmentNotice && <div role="status" aria-live="polite" className="mb-2 grid grid-cols-[minmax(0,1fr)_1.5rem] items-start gap-2 rounded-md border border-success/30 bg-success/10 p-2 text-sm text-success"><p className="min-w-0 leading-6">{adjustmentNotice}</p><button type="button" aria-label="Dismiss adjustment notice" onClick={() => setAdjustmentNotice(null)} className="inline-flex h-6 w-6 items-center justify-center text-success/70 transition-colors hover:text-success focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"><X aria-hidden="true" className="h-3 w-3" /></button></div>}
         {isLoading && <p role="status" aria-live="polite" className="py-8 text-center text-sm text-muted">Loading transactions…</p>}
         {isError && <div role="alert" className="py-8 text-center text-sm text-muted"><p>We couldn’t load this account’s transactions. Your account summary is still available.</p>{retry && <button type="button" onClick={() => void retry()} className="mt-3 min-h-11 rounded-md border border-border px-3 text-sm font-medium text-text transition-colors hover:bg-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">Retry</button>}</div>}
         {!isLoading && !isError && transactions.length === 0 && <p className="py-8 text-center text-sm text-muted">{active ? 'No transactions match these filters.' : 'This account has no transactions yet.'}</p>}
-        {!isLoading && !isError && transactions.length > 0 && <TransactionList transactions={transactions} privacyMode={privacyMode} accountName={accountName} />}
+        {!isLoading && !isError && transactions.length > 0 && <AnimatePresence initial={false} mode="wait" custom={pageDirection}>
+          <motion.div
+            key={`${accountName}-${page}-${rowsPerPage}`}
+            data-page={page}
+            custom={pageDirection}
+            variants={pageVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={reduceMotion ? { duration: 0.12 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <TransactionList transactions={paginatedTransactions} privacyMode={privacyMode} accountName={accountName} />
+          </motion.div>
+        </AnimatePresence>}
       </div>
+      {!isLoading && !isError && transactions.length > 0 && <div className="shrink-0 border-t border-border pt-3">
+        <div className="flex items-center justify-between gap-4">
+          <Field className="w-fit items-center" orientation="horizontal">
+            <FieldLabel htmlFor="select-rows-per-page">Rows per page</FieldLabel>
+            <Select value={String(rowsPerPage)} onValueChange={changeRowsPerPage}>
+              <SelectTrigger aria-label="Rows per page" className="w-20" id="select-rows-per-page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="start">
+                <SelectGroup>
+                  {TRANSACTION_PAGE_SIZES.map((size) => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Pagination aria-label="Transaction pagination" className="mx-0 w-auto">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious text={false} disabled={page === 1} onClick={() => changePage(page - 1)} />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext text={false} disabled={page === pageCount} onClick={() => changePage(page + 1)} />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      </div>}
       </motion.div>
       </AnimatePresence>
       {account && <AdjustBalanceDialog open={adjustOpen} accountName={account.name} currency={account.currency} currentBalance={account.currentBalance} isSubmitting={adjustment.isPending} error={adjustmentError} canRetry={canRetryAdjustment} onOpenChange={setAdjustOpen} onSubmit={(targetBalance) => adjustment.mutate(targetBalance)} />}
