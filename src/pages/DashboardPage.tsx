@@ -337,7 +337,7 @@ export default function DashboardPage() {
                 ? mobileSlideTransition
                 : { duration: 0 }
             }
-            className="mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:items-stretch scrollbar-gutter-stable"
+            className="mx-auto flex flex-col gap-6 lg:h-full lg:flex-row lg:overflow-x-auto lg:overflow-y-hidden lg:items-stretch scrollbar-gutter-stable"
           >
             <div
               ref={accountBalancesRef}
