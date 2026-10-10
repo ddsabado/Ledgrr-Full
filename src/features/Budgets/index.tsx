@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 
@@ -17,8 +17,16 @@ import { computeBudgets, resolvePhp, type BudgetRow, type ProgressColor } from '
 import { useBudgets } from './useBudgets'
 import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
 import { useMobileCardSwipe } from '@/hooks/useMobileCardSwipe'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 
 const PRIVACY_MASK = '••••••'
+const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const
 
 const BAR_COLOR: Record<ProgressColor, string> = {
   green: 'bg-green-500',
@@ -156,6 +164,35 @@ interface BudgetRowViewProps {
 
 function BudgetRowView({ row, fxMap, monthLabel, isExpanded, onToggle, mask }: BudgetRowViewProps) {
   const { name, allotted, spent, remaining, percentage, color, transactions, count, currency } = row
+  const rowsPerPageId = useId()
+  const [rowsPerPage, setRowsPerPage] = useState<(typeof TRANSACTION_PAGE_SIZES)[number]>(10)
+  const transactionSourceKey = `${name}:${monthLabel}:${transactions.map((tx) => tx.key).join('|')}`
+  const [pagination, setPagination] = useState({ page: 1, sourceKey: transactionSourceKey })
+
+  // A budget's transaction source changes with its month or matching rows.
+  // Reset synchronously so an old page cannot render empty after that change.
+  if (pagination.sourceKey !== transactionSourceKey) {
+    setPagination({ page: 1, sourceKey: transactionSourceKey })
+  }
+
+  const pageCount = Math.max(1, Math.ceil(count / rowsPerPage))
+  const page = pagination.sourceKey === transactionSourceKey
+    ? Math.min(pagination.page, pageCount)
+    : 1
+  const paginatedTransactions = transactions.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage,
+  )
+  const changePage = (nextPage: number) => {
+    setPagination({
+      page: Math.max(1, Math.min(nextPage, pageCount)),
+      sourceKey: transactionSourceKey,
+    })
+  }
+  const changeRowsPerPage = (value: string) => {
+    setRowsPerPage(Number(value) as typeof rowsPerPage)
+    setPagination({ page: 1, sourceKey: transactionSourceKey })
+  }
   const overspent = spent > allotted
   const barWidth = Math.min(percentage, 100)
   const spentDisplay = mask(spent, currency)
@@ -223,46 +260,74 @@ function BudgetRowView({ row, fxMap, monthLabel, isExpanded, onToggle, mask }: B
             transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div className="max-h-40 overflow-y-auto overflow-x-hidden pr-1 scrollbar-gutter-stable" role="region" aria-label={`${name} transactions for ${monthLabel}`}>
+            <div className="flex flex-col gap-2" role="region" aria-label={`${name} transactions for ${monthLabel}`}>
               {count === 0 ? (
                 <p className="py-3 text-xs text-center text-muted">
                   No transactions for {monthLabel}.
                 </p>
               ) : (
-                <div className="flex flex-col divide-y divide-border">
-                  <p className="py-2 text-xs font-medium text-muted">
-                    {count} transaction{count !== 1 ? 's' : ''} in {monthLabel}
-                  </p>
-                  {transactions.map((tx) => (
-                    <div key={tx.key} className="flex items-start justify-between py-2 gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-text truncate">
-                          {tx.category}
-                          {tx.subcategory ? ` · ${tx.subcategory}` : ''}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted truncate">
-                          {formatCreditCardTransactionDate(tx.date)} · {tx.account}
-                        </p>
-                        {tx.note && <TransactionNoteTooltip note={tx.note} />}
-                      </div>
-                      <div className="flex flex-col items-end shrink-0 text-right">
-                        <div className="flex items-center gap-1">
-                          {isUnresolvedForeignCurrency(tx.currency, tx.resolvedAmount) && (
-                            <FxEstimatedIndicator transaction={tx} />
-                          )}
-                          <span className="text-sm font-medium tabular-nums text-text">
-                            {mask(resolvePhp(tx, fxMap), 'PHP')}
-                          </span>
+                <>
+                  <div className="max-h-64 overflow-y-auto overflow-x-hidden pr-1 scrollbar-gutter-stable">
+                    <div className="flex flex-col divide-y divide-border">
+                      <p className="py-2 text-xs font-medium text-muted">
+                        {count} transaction{count !== 1 ? 's' : ''} in {monthLabel}
+                      </p>
+                      {paginatedTransactions.map((tx) => (
+                        <div key={tx.key} className="flex items-start justify-between py-2 gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-text truncate">
+                              {tx.category}
+                              {tx.subcategory ? ` · ${tx.subcategory}` : ''}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted truncate">
+                              {formatCreditCardTransactionDate(tx.date)} · {tx.account}
+                            </p>
+                            {tx.note && <TransactionNoteTooltip note={tx.note} />}
+                          </div>
+                          <div className="flex flex-col items-end shrink-0 text-right">
+                            <div className="flex items-center gap-1">
+                              {isUnresolvedForeignCurrency(tx.currency, tx.resolvedAmount) && (
+                                <FxEstimatedIndicator transaction={tx} />
+                              )}
+                              <span className="text-sm font-medium tabular-nums text-text">
+                                {mask(resolvePhp(tx, fxMap), 'PHP')}
+                              </span>
+                            </div>
+                            {tx.currency !== 'PHP' && (
+                              <span className="text-xs text-muted tabular-nums mt-0.5">
+                                {mask(tx.amount, tx.currency)}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {tx.currency !== 'PHP' && (
-                          <span className="text-xs text-muted tabular-nums mt-0.5">
-                            {mask(tx.amount, tx.currency)}
-                          </span>
-                        )}
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
+                    <label className="flex items-center gap-1.5 text-xs text-muted" htmlFor={rowsPerPageId}>
+                      Rows per page
+                      <select
+                        id={rowsPerPageId}
+                        aria-label="Rows per page"
+                        value={rowsPerPage}
+                        onChange={(event) => changeRowsPerPage(event.target.value)}
+                        className="min-h-9 rounded-md border border-border bg-surface2 px-1.5 text-xs text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      >
+                        {TRANSACTION_PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+                      </select>
+                    </label>
+                    <Pagination aria-label={`${name} transaction pagination`} className="mx-0 w-auto">
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious text={false} disabled={page === 1} onClick={() => changePage(page - 1)} />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext text={false} disabled={page === pageCount} onClick={() => changePage(page + 1)} />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                </>
               )}
             </div>
           </motion.div>

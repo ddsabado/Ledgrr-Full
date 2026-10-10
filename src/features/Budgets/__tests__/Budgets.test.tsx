@@ -116,6 +116,36 @@ describe('Budgets panel', () => {
     expect(sinkBtn).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('paginates an expanded budget transaction list and resets for a changed month', async () => {
+    const user = userEvent.setup()
+    hookState.value.budgets = [budget({ name: 'Needs', amount: '18,000' })]
+    hookState.value.candidateTxs = Array.from({ length: 12 }, (_, index) => tx({
+      budget: 'Needs',
+      note: `Budget page transaction ${index + 1}`,
+      amount: index + 1,
+      date: '6/2/2026 0:00:00',
+    }))
+    render(<Budgets privacyMode={false} />)
+
+    await user.click(screen.getByRole('button', { name: /Needs/ }))
+    const region = screen.getByRole('region', { name: 'Needs transactions for Jun 2026' })
+    expect(region).toHaveTextContent('12 transactions in Jun 2026')
+    expect(within(region).getByText('Budget page transaction 1')).toBeInTheDocument()
+    expect(within(region).queryByText('Budget page transaction 11')).not.toBeInTheDocument()
+    expect(within(region).getByRole('button', { name: 'Go to previous page' })).toBeDisabled()
+
+    await user.click(within(region).getByRole('button', { name: 'Go to next page' }))
+    expect(within(region).queryByText('Budget page transaction 1')).not.toBeInTheDocument()
+    expect(within(region).getByText('Budget page transaction 11')).toBeInTheDocument()
+    expect(within(region).getByRole('button', { name: 'Go to next page' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Next month' }))
+    await user.click(screen.getByRole('button', { name: 'Previous month' }))
+    await user.click(screen.getByRole('button', { name: /Needs/ }))
+    expect(screen.getByText('Budget page transaction 1')).toBeInTheDocument()
+    expect(screen.queryByText('Budget page transaction 11')).not.toBeInTheDocument()
+  })
+
   it('shows the full note immediately on hover with a pointer cursor', async () => {
     const note = 'A full budget transaction note shown in the tooltip.'
     hookState.value.budgets = [budget({ name: 'Needs' })]
