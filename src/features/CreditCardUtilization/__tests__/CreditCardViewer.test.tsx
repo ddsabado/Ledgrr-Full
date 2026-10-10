@@ -1,19 +1,32 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+import type { RawTransaction } from "@/types/transactions";
 
 import CreditCardViewer from "../CreditCardViewer";
 
+const hookState = vi.hoisted(() => ({
+  accounts: [] as Array<{ name: string; statementDay: number | null }>,
+  transactions: new Map<string, { cycles: []; allTxs: RawTransaction[] }>(),
+}));
+
 vi.mock("@/hooks/useCCAccounts", () => ({
-  useCCAccounts: () => ({ data: [], isLoading: false, isError: false }),
+  useCCAccounts: () => ({ data: hookState.accounts, isLoading: false, isError: false }),
 }));
 
 vi.mock("@/hooks/useCCTransactions", () => ({
-  useCCTransactions: () => ({ data: new Map(), isLoading: false, isError: false }),
+  useCCTransactions: () => ({ data: hookState.transactions, isLoading: false, isError: false }),
 }));
 
 vi.mock("@/hooks/useCurrencies", () => ({
   useCurrencies: () => ({ data: { PHP: 1 }, isLoading: false, isError: false }),
+}));
+
+vi.mock("../TransactionList", () => ({
+  default: ({ transactions }: { transactions: RawTransaction[] }) => (
+    <div data-testid="transaction-list">{transactions.map((transaction) => transaction.key).join(",")}</div>
+  ),
 }));
 
 describe("CreditCardViewer", () => {
@@ -32,5 +45,43 @@ describe("CreditCardViewer", () => {
     await user.click(screen.getByRole("button", { name: "Back to credit cards" }));
 
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("paginates card transactions and resets when the page size changes", async () => {
+    hookState.accounts = [{ name: "Visa", statementDay: 16 }];
+    const transactions: RawTransaction[] = Array.from({ length: 26 }, (_, index) => ({
+      key: `transaction-${index + 1}`,
+      date: "2026-10-11",
+      account: "Visa",
+      amount: index + 1,
+      resolvedAmount: index + 1,
+      currency: "PHP",
+      targetAccount: "",
+      type: "Expense",
+      category: "Food",
+      subcategory: "",
+      budget: "",
+      note: "",
+    }));
+    hookState.transactions = new Map([["Visa", { cycles: [], allTxs: transactions }]]);
+    const user = userEvent.setup();
+
+    render(<CreditCardViewer accountName="Visa" privacyMode={false} />);
+
+    await user.click(screen.getByRole("tab", { name: "All Transactions" }));
+    const previous = screen.getByRole("button", { name: "Go to previous page" });
+    const next = screen.getByRole("button", { name: "Go to next page" });
+    expect(screen.getByTestId("transaction-list")).toHaveTextContent("transaction-25");
+    expect(screen.getByTestId("transaction-list")).not.toHaveTextContent("transaction-26");
+    expect(previous).toBeDisabled();
+
+    await user.click(next);
+    await waitFor(() => expect(screen.getByTestId("transaction-list")).toHaveTextContent("transaction-26"));
+    expect(next).toBeDisabled();
+
+    await user.selectOptions(screen.getByLabelText("Rows per page"), "10");
+    await waitFor(() => expect(screen.getByTestId("transaction-list")).toHaveTextContent("transaction-10"));
+    expect(screen.getByTestId("transaction-list")).not.toHaveTextContent("transaction-11");
+    expect(previous).toBeDisabled();
   });
 });

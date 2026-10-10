@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ListFilter, X } from "lucide-react";
-import { motion, LayoutGroup, useReducedMotion } from "motion/react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { ChevronLeft, ChevronRight, ListFilter, X } from "lucide-react";
+import { AnimatePresence, motion, LayoutGroup, useReducedMotion } from "motion/react";
 
 import {
   Popover,
@@ -27,6 +27,8 @@ interface CreditCardViewerProps {
 }
 type ViewMode = "statement" | "all";
 
+const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const;
+
 export default function CreditCardViewer({
   accountName,
   privacyMode,
@@ -35,6 +37,9 @@ export default function CreditCardViewer({
   const [view, setView] = useState<ViewMode>("statement");
   const [cycleIndex, setCycleIndex] = useState(0);
   const [filters, setFilters] = useState<AccountTransactionFilters>({});
+  const [rowsPerPage, setRowsPerPage] = useState<(typeof TRANSACTION_PAGE_SIZES)[number]>(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageDirection, setPageDirection] = useState<1 | -1>(1);
   const reduceMotion = useReducedMotion();
   const { data: fxMap } = useCurrencies();
   const {
@@ -72,14 +77,53 @@ export default function CreditCardViewer({
     [filters, source],
   );
   const active = Object.values(filters).some(Boolean);
-  const set = (patch: Partial<AccountTransactionFilters>) =>
+  const set = (patch: Partial<AccountTransactionFilters>) => {
+    setPageDirection(-1);
+    setCurrentPage(1);
     setFilters((current) => ({ ...current, ...patch }));
+  };
   const isLoading = accountsLoading || transactionsLoading;
   const isError = accountsError || transactionsError;
+  const pageCount = Math.max(1, Math.ceil(transactions.length / rowsPerPage));
+  const page = Math.min(currentPage, pageCount);
+  const paginatedTransactions = transactions.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage,
+  );
+  const pageVariants = {
+    enter: (direction: number) =>
+      reduceMotion
+        ? { opacity: 0 }
+        : { opacity: 0, x: direction * 20, filter: "blur(2px)" },
+    center: { opacity: 1, x: 0, filter: "blur(0px)" },
+    exit: (direction: number) =>
+      reduceMotion
+        ? { opacity: 0 }
+        : { opacity: 0, x: direction * -12, filter: "blur(1px)" },
+  };
+  const changePage = (nextPage: number) => {
+    setPageDirection(nextPage > page ? 1 : -1);
+    setCurrentPage(nextPage);
+  };
+  const changeRowsPerPage = (event: ChangeEvent<HTMLSelectElement>) => {
+    setPageDirection(-1);
+    setCurrentPage(1);
+    setRowsPerPage(Number(event.target.value) as typeof rowsPerPage);
+  };
+  const clearFilters = () => {
+    setPageDirection(-1);
+    setCurrentPage(1);
+    setFilters({});
+  };
 
   useEffect(() => {
     setCycleIndex(0);
   }, [accountName]);
+
+  useEffect(() => {
+    setPageDirection(-1);
+    setCurrentPage(1);
+  }, [accountName, cycleIndex, rowsPerPage, view]);
 
   return (
     <motion.section
@@ -137,7 +181,7 @@ export default function CreditCardViewer({
               {active && (
                 <button
                   type="button"
-                  onClick={() => setFilters({})}
+                  onClick={clearFilters}
                   className="inline-flex min-h-11 items-center gap-1 px-2 text-xs text-muted hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <X className="h-3 w-3" />
@@ -213,7 +257,11 @@ export default function CreditCardViewer({
               type="button"
               role="tab"
               aria-selected={view === mode}
-              onClick={() => setView(mode)}
+              onClick={() => {
+                setPageDirection(-1);
+                setCurrentPage(1);
+                setView(mode);
+              }}
               className={`relative min-h-11 rounded-md px-3 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${view === mode ? "text-text" : "text-muted hover:text-text"}`}
             >
               {view === mode && (
@@ -273,13 +321,74 @@ export default function CreditCardViewer({
           </p>
         )}
         {!isLoading && !isError && transactions.length > 0 && (
-          <TransactionList
-            transactions={transactions}
-            privacyMode={privacyMode}
-            accountName={accountName}
-          />
+          <AnimatePresence initial={false} mode="wait" custom={pageDirection}>
+            <motion.div
+              key={`${accountName}-${view}-${cycleIndex}-${page}-${rowsPerPage}`}
+              data-page={page}
+              custom={pageDirection}
+              variants={pageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={reduceMotion ? { duration: 0.12 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <TransactionList
+                transactions={paginatedTransactions}
+                privacyMode={privacyMode}
+                accountName={accountName}
+              />
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
+      {!isLoading && !isError && transactions.length > 0 && (
+        <div className="shrink-0 border-t border-border pt-3">
+          <div className="flex items-center justify-between gap-4">
+            <label className="flex items-center gap-2 text-xs font-medium text-muted" htmlFor="credit-card-rows-per-page">
+              Rows per page
+              <select
+                id="credit-card-rows-per-page"
+                aria-label="Rows per page"
+                value={rowsPerPage}
+                onChange={changeRowsPerPage}
+                className="min-h-11 rounded-md border border-border bg-surface2 px-2 text-sm text-text transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {TRANSACTION_PAGE_SIZES.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </label>
+            <nav aria-label="Transaction pagination">
+              <ul className="flex items-center gap-1">
+                <li>
+                  <button
+                    type="button"
+                    aria-label="Go to previous page"
+                    title="Go to previous page"
+                    disabled={page === 1}
+                    onClick={() => changePage(page - 1)}
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    aria-label="Go to next page"
+                    title="Go to next page"
+                    disabled={page === pageCount}
+                    onClick={() => changePage(page + 1)}
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      )}
     </motion.section>
   );
 }

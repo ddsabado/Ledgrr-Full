@@ -1,6 +1,6 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import type { CCAccount, CCTransactionData } from "@/types/transactions";
 import { formatCurrency } from "@/utils/currency";
@@ -36,6 +36,8 @@ const VIEW_TABS: ReadonlyArray<{ id: "statement" | "all"; label: string }> = [
   { id: "statement", label: "By Statement" },
   { id: "all", label: "All Transactions" },
 ];
+
+const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const;
 
 export default function CCCard({
   account,
@@ -111,6 +113,33 @@ export default function CCCard({
     : formatCurrency(statementTotal, "PHP");
   const canGoPrevious = cycleIndex < cycles.length - 1; // older
   const canGoNext = cycleIndex > 0; // newer
+  const sourceTransactions = cycleView === "statement"
+    ? activeCycle?.transactions ?? []
+    : txData?.allTxs ?? [];
+  const sourceKey = `${account.name}:${cycleView}:${cycleIndex}:${sourceTransactions.length}`;
+  const [rowsPerPage, setRowsPerPage] = useState<(typeof TRANSACTION_PAGE_SIZES)[number]>(25);
+  const [pagination, setPagination] = useState({ page: 1, sourceKey });
+
+  // Reset synchronously when the parent selects another card, view, or
+  // statement cycle. This avoids a one-render stale page when the source
+  // changes, while keeping page state local to this compact card.
+  if (pagination.sourceKey !== sourceKey) {
+    setPagination({ page: 1, sourceKey });
+  }
+
+  const pageCount = Math.max(1, Math.ceil(sourceTransactions.length / rowsPerPage));
+  const page = pagination.sourceKey === sourceKey
+    ? Math.min(pagination.page, pageCount)
+    : 1;
+  const paginatedTransactions = sourceTransactions.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage,
+  );
+  const changePage = (nextPage: number) => setPagination({ page: nextPage, sourceKey });
+  const changeRowsPerPage = (value: string) => {
+    setRowsPerPage(Number(value) as typeof rowsPerPage);
+    setPagination({ page: 1, sourceKey });
+  };
 
   return (
     <div
@@ -292,11 +321,11 @@ export default function CCCard({
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.15, ease: "easeInOut" }}
                     >
-                      {(activeCycle?.transactions.length ?? 0) === 0 ? (
+                      {sourceTransactions.length === 0 ? (
                         <p className="py-6 text-center text-sm text-muted">No transactions.</p>
                       ) : (
                         <TransactionList
-                          transactions={activeCycle?.transactions ?? []}
+                          transactions={paginatedTransactions}
                           privacyMode={privacyMode}
                         />
                       )}
@@ -313,12 +342,53 @@ export default function CCCard({
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15, ease: "easeInOut" }}
                   >
-                    <TransactionList
-                      transactions={txData?.allTxs ?? []}
-                      privacyMode={privacyMode}
-                    />
+                    <TransactionList transactions={paginatedTransactions} privacyMode={privacyMode} />
                   </motion.div>
                 </AnimatePresence>
+              )}
+              {sourceTransactions.length > 0 && (
+                <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
+                  <label className="flex items-center gap-1.5 text-xs text-muted" htmlFor={`${detailsId}-rows-per-page`}>
+                    Rows per page
+                    <select
+                      id={`${detailsId}-rows-per-page`}
+                      aria-label="Rows per page"
+                      value={rowsPerPage}
+                      onChange={(event) => changeRowsPerPage(event.target.value)}
+                      className="min-h-9 rounded-md border border-border bg-surface2 px-1.5 text-xs text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    >
+                      {TRANSACTION_PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+                    </select>
+                  </label>
+                  <nav aria-label="Transaction pagination">
+                    <ul className="flex items-center gap-1">
+                      <li>
+                        <button
+                          type="button"
+                          aria-label="Go to previous page"
+                          title="Go to previous page"
+                          disabled={page === 1}
+                          onClick={() => changePage(page - 1)}
+                          className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
+                        >
+                          <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          aria-label="Go to next page"
+                          title="Go to next page"
+                          disabled={page === pageCount}
+                          onClick={() => changePage(page + 1)}
+                          className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
+                        >
+                          <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
               )}
             </div>
           </motion.div>

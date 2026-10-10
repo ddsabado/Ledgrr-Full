@@ -7,6 +7,9 @@ import ccSource from '@/features/CreditCardUtilization/CCCard.tsx?raw'
 import { getStatementTotal } from '@/features/CreditCardUtilization/utils'
 import type { CCAccount, CCTransactionData, RawTransaction } from '@/types/transactions'
 vi.mock('@/hooks/useCurrencies', () => ({ useCurrencies: () => ({ data: { PHP: 1 }, isLoading: false, isError: false }) }))
+vi.mock('@/features/CreditCardUtilization/TransactionList', () => ({
+  default: ({ transactions }: { transactions: RawTransaction[] }) => <div data-testid="transaction-list">{transactions.map((transaction) => transaction.key).join(',')}</div>,
+}))
 
 
 // Avoid the supabase storage call (image is '' so it early-returns null anyway).
@@ -37,11 +40,11 @@ const txData: CCTransactionData = {
   allTxs: [],
 }
 
-function renderCard(cycleView: 'statement' | 'all', onCycleViewChange = vi.fn()) {
+function renderCard(cycleView: 'statement' | 'all', onCycleViewChange = vi.fn(), data = txData) {
   return render(
     <CCCard
       account={account}
-      txData={txData}
+      txData={data}
       privacyMode={false}
       isExpanded
       onToggle={vi.fn()}
@@ -181,5 +184,39 @@ describe('CCCard Pill_Selector (R6)', () => {
     // no-op. Here we assert it was invoked with the currently-active id so the
     // parent's early-return path is exercised.
     expect(onCycleViewChange).toHaveBeenCalledWith('statement')
+  })
+
+  it('paginates the compact card transaction list and resets for a new page size', async () => {
+    const transactions: RawTransaction[] = Array.from({ length: 26 }, (_, index) => ({
+      key: `transaction-${index + 1}`,
+      date: '2026-10-11',
+      account: 'Test Card',
+      amount: index + 1,
+      resolvedAmount: index + 1,
+      currency: 'PHP',
+      targetAccount: '',
+      type: 'Expense',
+      category: 'Food',
+      subcategory: '',
+      budget: '',
+      note: '',
+    }))
+    const user = userEvent.setup()
+    renderCard('all', vi.fn(), { ...txData, allTxs: transactions })
+
+    const previous = screen.getByRole('button', { name: 'Go to previous page' })
+    const next = screen.getByRole('button', { name: 'Go to next page' })
+    expect(screen.getByTestId('transaction-list')).toHaveTextContent('transaction-25')
+    expect(screen.getByTestId('transaction-list')).not.toHaveTextContent('transaction-26')
+    expect(previous).toBeDisabled()
+
+    await user.click(next)
+    expect(screen.getByTestId('transaction-list')).toHaveTextContent('transaction-26')
+    expect(next).toBeDisabled()
+
+    await user.selectOptions(screen.getByLabelText('Rows per page'), '10')
+    expect(screen.getByTestId('transaction-list')).toHaveTextContent('transaction-10')
+    expect(screen.getByTestId('transaction-list')).not.toHaveTextContent('transaction-11')
+    expect(previous).toBeDisabled()
   })
 })
