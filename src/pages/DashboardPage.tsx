@@ -466,6 +466,7 @@ export default function DashboardPage() {
                       accountName={selectedCreditCard}
                       privacyMode={privacyMode}
                       onClose={toggleCreditCardViewer}
+                      onSelectCard={setSelectedCreditCard}
                     />
                   </motion.div>
                 )}
@@ -648,6 +649,7 @@ export default function DashboardPage() {
                   accountName={selectedCreditCard}
                   privacyMode={privacyMode}
                   onClose={toggleCreditCardViewer}
+                  onSelectCard={setSelectedCreditCard}
                 />
               </motion.div>
             )}

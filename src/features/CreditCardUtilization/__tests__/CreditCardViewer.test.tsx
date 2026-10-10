@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -71,7 +72,7 @@ describe("CreditCardViewer", () => {
     await user.click(screen.getByRole("tab", { name: "All Transactions" }));
     const previous = screen.getByRole("button", { name: "Go to previous page" });
     const next = screen.getByRole("button", { name: "Go to next page" });
-    expect(screen.getByTestId("transaction-list")).toHaveTextContent("transaction-25");
+    await waitFor(() => expect(screen.getByTestId("transaction-list")).toHaveTextContent("transaction-25"));
     expect(screen.getByTestId("transaction-list")).not.toHaveTextContent("transaction-26");
     expect(previous).toBeDisabled();
 
@@ -83,5 +84,38 @@ describe("CreditCardViewer", () => {
     await waitFor(() => expect(screen.getByTestId("transaction-list")).toHaveTextContent("transaction-10"));
     expect(screen.getByTestId("transaction-list")).not.toHaveTextContent("transaction-11");
     expect(previous).toBeDisabled();
+  });
+
+  it("loads the selected card's activity from the mobile card control", async () => {
+    hookState.accounts = [
+      { name: "Visa", statementDay: 16 },
+      { name: "Mastercard", statementDay: 20 },
+    ];
+    hookState.transactions = new Map([
+      ["Visa", { cycles: [], allTxs: [{
+        key: "visa-transaction", date: "2026-10-11", account: "Visa", amount: 1,
+        resolvedAmount: 1, currency: "PHP", targetAccount: "", type: "Expense",
+        category: "Food", subcategory: "", budget: "", note: "",
+      }] }],
+      ["Mastercard", { cycles: [], allTxs: [{
+        key: "mastercard-transaction", date: "2026-10-11", account: "Mastercard", amount: 2,
+        resolvedAmount: 2, currency: "PHP", targetAccount: "", type: "Expense",
+        category: "Food", subcategory: "", budget: "", note: "",
+      }] }],
+    ]);
+    const user = userEvent.setup();
+
+    function ViewerWithCardSelection() {
+      const [accountName, setAccountName] = useState("Visa");
+      return <CreditCardViewer accountName={accountName} privacyMode={false} onSelectCard={setAccountName} />;
+    }
+
+    render(<ViewerWithCardSelection />);
+
+    await user.selectOptions(screen.getByLabelText("Selected credit card"), "Mastercard");
+    expect(screen.getByLabelText("Selected credit card")).toHaveValue("Mastercard");
+    await user.click(screen.getByRole("tab", { name: "All Transactions" }));
+    await waitFor(() => expect(screen.getByTestId("transaction-list")).toHaveTextContent("mastercard-transaction"));
+    expect(screen.getByTestId("transaction-list")).not.toHaveTextContent("visa-transaction");
   });
 });
