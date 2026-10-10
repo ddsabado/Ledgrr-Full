@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AccountBalance } from '@/types/accounts'
+import type { RawTransaction } from '@/types/transactions'
 
 const account = {
   name: 'USD Wallet', category: 'e-Wallets', currency: 'USD', currentBalance: 20,
@@ -17,7 +18,7 @@ const pesoAccount = {
 } satisfies AccountBalance
 
 const transactionState: {
-  transactions: []; types: string[]; isLoading: boolean; isError: boolean; retry: ReturnType<typeof vi.fn>
+  transactions: RawTransaction[]; types: string[]; isLoading: boolean; isError: boolean; retry: ReturnType<typeof vi.fn>
 } = { transactions: [], types: ['Adjustment', 'Expense'], isLoading: false, isError: false, retry: vi.fn() }
 
 vi.mock('@/hooks/useAccountBalances', () => ({
@@ -26,7 +27,9 @@ vi.mock('@/hooks/useAccountBalances', () => ({
 vi.mock('../useAccountTransactions', () => ({
   useAccountTransactions: () => transactionState,
 }))
-vi.mock('@/features/CreditCardUtilization/TransactionList', () => ({ default: () => <div>Transaction list</div> }))
+vi.mock('@/features/CreditCardUtilization/TransactionList', () => ({
+  default: ({ transactions }: { transactions: RawTransaction[] }) => <div data-testid="transaction-list">{transactions.map((transaction) => transaction.key).join(',')}</div>,
+}))
 
 import AccountViewer from '../AccountViewer'
 
@@ -116,5 +119,44 @@ describe('AccountViewer context', () => {
     expect(back.parentElement).toHaveClass('w-full', 'justify-between', 'sm:w-auto', 'sm:justify-end')
     await user.click(back)
     expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('paginates filtered transactions with the shadcn icons-only controls and configurable rows per page', async () => {
+    transactionState.transactions = Array.from({ length: 26 }, (_, index) => ({
+      key: `transaction-${index + 1}`,
+      date: '2026-10-11',
+      account: 'USD Wallet',
+      amount: index + 1,
+      resolvedAmount: index + 1,
+      currency: 'PHP',
+      targetAccount: '',
+      type: 'Expense',
+      category: 'Food',
+      subcategory: '',
+      budget: '',
+      note: '',
+    }))
+    const user = userEvent.setup()
+    renderViewer()
+
+    const previous = screen.getByRole('button', { name: 'Go to previous page' })
+    const next = screen.getByRole('button', { name: 'Go to next page' })
+    expect(screen.getByLabelText('Account summary')).toHaveTextContent('26 transactions')
+    expect(screen.getByTestId('transaction-list')).toHaveTextContent('transaction-25')
+    expect(screen.getByTestId('transaction-list')).not.toHaveTextContent('transaction-26')
+    expect(previous).toBeDisabled()
+    expect(next).toBeEnabled()
+
+    await user.click(next)
+    await waitFor(() => expect(screen.getByTestId('transaction-list')).toHaveTextContent('transaction-26'))
+    expect(next).toBeDisabled()
+    expect(screen.getByTestId('transaction-list').parentElement).toHaveAttribute('data-page', '2')
+
+    await user.click(screen.getByRole('button', { name: 'Rows per page' }))
+    await user.click(screen.getByRole('option', { name: '10' }))
+    await waitFor(() => expect(screen.getByTestId('transaction-list')).toHaveTextContent('transaction-10'))
+    expect(screen.getByTestId('transaction-list')).not.toHaveTextContent('transaction-11')
+    expect(previous).toBeDisabled()
+    expect(screen.getByTestId('transaction-list').parentElement).toHaveAttribute('data-page', '1')
   })
 })
