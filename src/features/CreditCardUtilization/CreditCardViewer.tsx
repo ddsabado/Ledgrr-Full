@@ -24,8 +24,12 @@ interface CreditCardViewerProps {
   accountName: string;
   privacyMode: boolean;
   onClose?: () => void;
+  onSelectCard?: (name: string) => void;
 }
 type ViewMode = "statement" | "all";
+type ContentTransition =
+  | { kind: "card" }
+  | { kind: "page"; direction: 1 | -1 };
 
 const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const;
 
@@ -33,13 +37,17 @@ export default function CreditCardViewer({
   accountName,
   privacyMode,
   onClose,
+  onSelectCard,
 }: CreditCardViewerProps) {
   const [view, setView] = useState<ViewMode>("statement");
   const [cycleIndex, setCycleIndex] = useState(0);
   const [filters, setFilters] = useState<AccountTransactionFilters>({});
   const [rowsPerPage, setRowsPerPage] = useState<(typeof TRANSACTION_PAGE_SIZES)[number]>(25);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageDirection, setPageDirection] = useState<1 | -1>(1);
+  const [contentTransition, setContentTransition] = useState<ContentTransition>({
+    kind: "page",
+    direction: 1,
+  });
   const reduceMotion = useReducedMotion();
   const { data: fxMap } = useCurrencies();
   const {
@@ -78,7 +86,7 @@ export default function CreditCardViewer({
   );
   const active = Object.values(filters).some(Boolean);
   const set = (patch: Partial<AccountTransactionFilters>) => {
-    setPageDirection(-1);
+    setContentTransition({ kind: "page", direction: -1 });
     setCurrentPage(1);
     setFilters((current) => ({ ...current, ...patch }));
   };
@@ -91,29 +99,41 @@ export default function CreditCardViewer({
     page * rowsPerPage,
   );
   const pageVariants = {
-    enter: (direction: number) =>
-      reduceMotion
-        ? { opacity: 0 }
-        : { opacity: 0, x: direction * 20, filter: "blur(2px)" },
+    enter: (transition: ContentTransition) => {
+      if (reduceMotion) return { opacity: 0 };
+      if (transition.kind === "card") {
+        return { opacity: 0, scale: 0.985, filter: "blur(3px)" };
+      }
+      return { opacity: 0, x: transition.direction * 20, filter: "blur(2px)" };
+    },
     center: { opacity: 1, x: 0, filter: "blur(0px)" },
-    exit: (direction: number) =>
-      reduceMotion
-        ? { opacity: 0 }
-        : { opacity: 0, x: direction * -12, filter: "blur(1px)" },
+    exit: (transition: ContentTransition) => {
+      if (reduceMotion) return { opacity: 0 };
+      if (transition.kind === "card") {
+        return { opacity: 0, scale: 0.995, filter: "blur(1px)" };
+      }
+      return { opacity: 0, x: transition.direction * -12, filter: "blur(1px)" };
+    },
   };
   const changePage = (nextPage: number) => {
-    setPageDirection(nextPage > page ? 1 : -1);
+    const direction = nextPage > page ? 1 : -1;
+    setContentTransition({ kind: "page", direction });
     setCurrentPage(nextPage);
   };
   const changeRowsPerPage = (event: ChangeEvent<HTMLSelectElement>) => {
-    setPageDirection(-1);
+    setContentTransition({ kind: "page", direction: -1 });
     setCurrentPage(1);
     setRowsPerPage(Number(event.target.value) as typeof rowsPerPage);
   };
   const clearFilters = () => {
-    setPageDirection(-1);
+    setContentTransition({ kind: "page", direction: -1 });
     setCurrentPage(1);
     setFilters({});
+  };
+  const selectCard = (name: string) => {
+    if (name === accountName) return;
+    setContentTransition({ kind: "card" });
+    onSelectCard?.(name);
   };
 
   useEffect(() => {
@@ -121,7 +141,6 @@ export default function CreditCardViewer({
   }, [accountName]);
 
   useEffect(() => {
-    setPageDirection(-1);
     setCurrentPage(1);
   }, [accountName, cycleIndex, rowsPerPage, view]);
 
@@ -138,9 +157,25 @@ export default function CreditCardViewer({
       <header className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <p className="text-xs font-medium text-muted">Card activity</p>
-          <h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">
+          <h2 className="hidden font-display text-xl font-semibold tracking-tight text-text truncate lg:block">
             {accountName}
           </h2>
+          <label className="sr-only" htmlFor="credit-card-activity-card">
+            Selected credit card
+          </label>
+          <select
+            id="credit-card-activity-card"
+            aria-label="Selected credit card"
+            value={accountName}
+            onChange={(event) => selectCard(event.target.value)}
+            className="block min-h-11 max-w-full bg-transparent pr-2 font-display text-xl font-semibold tracking-tight text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
+          >
+            {accounts.map((account) => (
+              <option key={account.name} value={account.name}>
+                {account.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex w-full shrink-0 items-center justify-between gap-2 self-start sm:w-auto sm:justify-end">
           {onClose && (
@@ -258,7 +293,7 @@ export default function CreditCardViewer({
               role="tab"
               aria-selected={view === mode}
               onClick={() => {
-                setPageDirection(-1);
+                setContentTransition({ kind: "page", direction: -1 });
                 setCurrentPage(1);
                 setView(mode);
               }}
@@ -288,12 +323,16 @@ export default function CreditCardViewer({
         <div className="flex flex-col gap-1">
           <CycleNavigator
             label={activeCycle?.label ?? "—"}
-            onPrevious={() =>
+            onPrevious={() => {
+              setContentTransition({ kind: "page", direction: 1 });
               setCycleIndex((index) =>
                 Math.min(index + 1, Math.max(0, cycles.length - 1)),
-              )
-            }
-            onNext={() => setCycleIndex((index) => Math.max(0, index - 1))}
+              );
+            }}
+            onNext={() => {
+              setContentTransition({ kind: "page", direction: -1 });
+              setCycleIndex((index) => Math.max(0, index - 1));
+            }}
             canGoPrevious={cycleIndex < cycles.length - 1}
             canGoNext={cycleIndex > 0}
           />
@@ -302,44 +341,44 @@ export default function CreditCardViewer({
           </p>
         </div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
-        {isLoading && (
-          <p className="py-8 text-center text-sm text-muted">
-            Loading transactions…
-          </p>
-        )}
-        {isError && (
-          <p className="py-8 text-center text-sm text-muted">
-            Could not load transactions. Please try again later.
-          </p>
-        )}
-        {!isLoading && !isError && transactions.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted">
-            {view === "statement" && (activeCycle?.transactions.length ?? 0) === 0
-              ? "No transactions."
-              : "No matching transactions."}
-          </p>
-        )}
-        {!isLoading && !isError && transactions.length > 0 && (
-          <AnimatePresence initial={false} mode="wait" custom={pageDirection}>
-            <motion.div
-              key={`${accountName}-${view}-${cycleIndex}-${page}-${rowsPerPage}`}
-              data-page={page}
-              custom={pageDirection}
-              variants={pageVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={reduceMotion ? { duration: 0.12 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            >
+      <div className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto scrollbar-gutter-stable">
+        <AnimatePresence initial={false} mode="wait" custom={contentTransition}>
+          <motion.div
+            key={`${accountName}-${view}-${cycleIndex}-${page}-${rowsPerPage}`}
+            data-page={page}
+            custom={contentTransition}
+            variants={pageVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={reduceMotion ? { duration: 0.12 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {isLoading && (
+              <p className="py-8 text-center text-sm text-muted">
+                Loading transactions…
+              </p>
+            )}
+            {isError && (
+              <p className="py-8 text-center text-sm text-muted">
+                Could not load transactions. Please try again later.
+              </p>
+            )}
+            {!isLoading && !isError && transactions.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted">
+                {view === "statement" && (activeCycle?.transactions.length ?? 0) === 0
+                  ? "No transactions."
+                  : "No matching transactions."}
+              </p>
+            )}
+            {!isLoading && !isError && transactions.length > 0 && (
               <TransactionList
                 transactions={paginatedTransactions}
                 privacyMode={privacyMode}
                 accountName={accountName}
               />
-            </motion.div>
-          </AnimatePresence>
-        )}
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
       {!isLoading && !isError && transactions.length > 0 && (
         <div className="shrink-0 border-t border-border pt-3">
