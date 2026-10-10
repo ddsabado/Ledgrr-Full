@@ -1,0 +1,39 @@
+# Kiro IDE config — local only
+.kiro/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# TypeScript
+*.tsbuildinfo
+
+# Vitest
+coverage/
+
+# Supabase local dev
+supabase/.branches/
+supabase/.temp/
+.vercel
+
+.playwright-mcp/
