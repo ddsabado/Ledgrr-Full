@@ -75,6 +75,29 @@ function groupedWithPeriods(): TransactionsByPeriod['grouped'] {
   return { month, week: empty, day: empty }
 }
 
+function groupedWithPaginatedTransactions(): TransactionsByPeriod['grouped'] {
+  const transactions = Array.from({ length: 12 }, (_, index) => tx({
+    key: `page-${index + 1}`,
+    category: 'Food',
+    amount: index + 1,
+    note: `Page transaction ${index + 1}`,
+  }))
+  const bucket: PeriodBucket = {
+    key: 'Jun 2026',
+    label: 'Jun 2026',
+    Expense: {
+      Food: {
+        total: transactions.reduce((sum, transaction) => sum + transaction.amount, 0),
+        txs: transactions,
+        subcats: {},
+      },
+    },
+    Income: {},
+  }
+  const empty: GroupedPeriods = { periods: [], currentIndex: 0 }
+  return { month: { periods: [bucket], currentIndex: 0 }, week: empty, day: empty }
+}
+
 function stubMatchMedia({ mobile, reducedMotion }: { mobile: boolean; reducedMotion: boolean }) {
   vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
     matches: query.includes('prefers-reduced-motion') ? reducedMotion : mobile,
@@ -155,6 +178,27 @@ describe('Transactions panel', () => {
     await user.click(screen.getByRole('button', { name: /Transport/ }))
     // No subcategory list — goes straight to the transaction row (account visible)
     expect(screen.getAllByText(/Cash/).length).toBeGreaterThan(0)
+  })
+
+  it('paginates drill-down transactions and resets at the selected source boundary', async () => {
+    const user = userEvent.setup()
+    hookState.value = { grouped: groupedWithPaginatedTransactions(), isLoading: false, isError: false }
+    render(<Transactions privacyMode={false} />)
+
+    await user.click(screen.getByRole('button', { name: /Food/ }))
+    expect(screen.getByText('Page transaction 1')).toBeInTheDocument()
+    expect(screen.queryByText('Page transaction 11')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Go to previous page' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Go to next page' }))
+    expect(screen.queryByText('Page transaction 1')).not.toBeInTheDocument()
+    expect(screen.getByText('Page transaction 11')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Go to next page' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: /Food/ }))
+    await user.click(screen.getByRole('button', { name: /Food/ }))
+    expect(screen.getByText('Page transaction 1')).toBeInTheDocument()
+    expect(screen.queryByText('Page transaction 11')).not.toBeInTheDocument()
   })
 
   it('switches flow to Income and shows income categories', async () => {

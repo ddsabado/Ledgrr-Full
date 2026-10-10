@@ -13,6 +13,13 @@ import CategoryDonut from './CategoryDonut'
 import ChartPlaceholder from '@/components/ChartPlaceholder'
 import { chartColor } from '@/features/AccountBalances/BalanceChart'
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+import {
   CategoriesList,
   SubcategoriesList,
   TransactionRows,
@@ -20,6 +27,7 @@ import {
 } from './DrillDownList'
 
 const PRIVACY_MASK = '••••••'
+const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const
 
 type FlowType = 'Expense' | 'Income'
 type DrillView = 'categories' | 'subcategories' | 'transactions'
@@ -54,6 +62,8 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
   const [periodIdx, setPeriodIdx] = useState<number>(-1) // -1 = uninitialised
   const [flow, setFlow] = useState<FlowType>('Expense')
   const [view, setView] = useState<ViewState>({ type: 'categories' })
+  const [rowsPerPage, setRowsPerPage] = useState<(typeof TRANSACTION_PAGE_SIZES)[number]>(10)
+  const [currentPage, setCurrentPage] = useState(1)
   const reducedMotion = useReducedMotion() ?? false
 
   const active = grouped[periodMode]
@@ -168,6 +178,23 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
     }
     return { detailTotal: 0, detailTxs: [] }
   }, [view, typeData])
+
+  // A page belongs to one period/flow/drill-down source. Reset it whenever
+  // that source changes so users never land on a stale or empty page.
+  const transactionSourceKey = `${periodMode}-${currentPeriod?.key ?? ''}-${flow}-${view.type}-${view.category ?? ''}-${view.subcategory ?? ''}`
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [transactionSourceKey, rowsPerPage])
+
+  const transactionPageCount = Math.max(1, Math.ceil(detailTxs.length / rowsPerPage))
+  const transactionPage = Math.min(currentPage, transactionPageCount)
+  const paginatedDetailTxs = detailTxs.slice(
+    (transactionPage - 1) * rowsPerPage,
+    transactionPage * rowsPerPage,
+  )
+  const changeTransactionPage = (nextPage: number) => {
+    setCurrentPage(Math.max(1, Math.min(nextPage, transactionPageCount)))
+  }
 
   // ─── Auth guard ───────────────────────────────────────────────────────────
   if (session === null) return null
@@ -374,13 +401,48 @@ export default function Transactions({ privacyMode }: TransactionsProps) {
 
           {view.type === 'transactions' && (
             <TransactionRows
-              transactions={detailTxs}
+              transactions={paginatedDetailTxs}
               mask={mask}
               privacyMode={privacyMode}
             />
           )}
         </motion.div>
       </div>
+
+      {view.type === 'transactions' && detailTxs.length > 0 && (
+        <div className="shrink-0 flex items-center justify-between gap-3 border-t border-border pt-3">
+          <label className="flex items-center gap-1.5 text-xs text-muted" htmlFor="transactions-rows-per-page">
+            Rows per page
+            <select
+              id="transactions-rows-per-page"
+              aria-label="Rows per page"
+              value={rowsPerPage}
+              onChange={(event) => setRowsPerPage(Number(event.target.value) as typeof rowsPerPage)}
+              className="min-h-9 rounded-md border border-border bg-surface2 px-1.5 text-xs text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              {TRANSACTION_PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+          <Pagination aria-label="Transaction pagination" className="mx-0 w-auto">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  text={false}
+                  disabled={transactionPage === 1}
+                  onClick={() => changeTransactionPage(transactionPage - 1)}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  text={false}
+                  disabled={transactionPage === transactionPageCount}
+                  onClick={() => changeTransactionPage(transactionPage + 1)}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </motion.div>
   )
 }
