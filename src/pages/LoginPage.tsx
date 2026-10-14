@@ -25,6 +25,13 @@ export default function LoginPage({ loading, error }: LoginPageProps) {
         {/* Divider */}
         <div className="w-full h-px bg-border" />
 
+        <a
+          href="/demo"
+          className="w-full rounded-lg border border-border bg-surface2 px-4 py-3 text-center text-sm font-medium text-text transition-colors hover:bg-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        >
+          Try demo account
+        </a>
+
         {/* Google sign-in button area */}
         <div className="flex flex-col items-center gap-3 w-full">
           {loading ? (

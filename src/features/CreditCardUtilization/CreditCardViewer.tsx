@@ -19,12 +19,17 @@ import {
   filterTransactions,
   type AccountTransactionFilters,
 } from "@/features/AccountBalances/useAccountTransactions";
+import { CreditCardActivityViewerShell } from "./CreditCardActivityViewer";
+import type { CCAccount, CCTransactionData, RawTransaction } from "@/types/transactions";
+import type { CurrencyData } from "@/types/accounts";
 
 interface CreditCardViewerProps {
   accountName: string;
   privacyMode: boolean;
   onClose?: () => void;
   onSelectCard?: (name: string) => void;
+  fixture?: { accounts: CCAccount[]; transactionsByAccount: Map<string, CCTransactionData>; fxMap: CurrencyData };
+  readOnly?: boolean;
 }
 type ViewMode = "statement" | "all";
 type ContentTransition =
@@ -33,7 +38,12 @@ type ContentTransition =
 
 const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const;
 
-export default function CreditCardViewer({
+export default function CreditCardViewer(props: CreditCardViewerProps) {
+  if (props.fixture) return <FixtureCreditCardViewer {...props} fixture={props.fixture} />;
+  return <LiveCreditCardViewer {...props} />;
+}
+
+function LiveCreditCardViewer({
   accountName,
   privacyMode,
   onClose,
@@ -145,14 +155,14 @@ export default function CreditCardViewer({
   }, [accountName, cycleIndex, rowsPerPage, view]);
 
   return (
-    <motion.section
+    <CreditCardActivityViewerShell
+      as={motion.section}
       layout
       transition={
         reduceMotion
           ? { duration: 0 }
           : { type: "spring", stiffness: 260, damping: 30 }
       }
-      className="h-full rounded-xl border border-border bg-surface p-5 flex flex-col gap-4 min-h-0 overflow-hidden"
     >
       <header className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
@@ -374,6 +384,7 @@ export default function CreditCardViewer({
               <TransactionList
                 transactions={paginatedTransactions}
                 privacyMode={privacyMode}
+                fxMap={fxMap}
                 accountName={accountName}
               />
             )}
@@ -428,6 +439,27 @@ export default function CreditCardViewer({
           </div>
         </div>
       )}
-    </motion.section>
+    </CreditCardActivityViewerShell>
   );
+}
+
+/** Local fixture path: it deliberately never initializes account or transaction hooks. */
+function FixtureCreditCardViewer({ accountName, privacyMode, onClose, onSelectCard, fixture }: CreditCardViewerProps & { fixture: { accounts: CCAccount[]; transactionsByAccount: Map<string, CCTransactionData>; fxMap: CurrencyData } }) {
+  const [view, setView] = useState<ViewMode>("statement");
+  const [filters, setFilters] = useState<AccountTransactionFilters>({});
+  const [cycleIndex, setCycleIndex] = useState(0);
+  const data = fixture.transactionsByAccount.get(accountName);
+  const cycles = data?.cycles ?? [];
+  const cycle = cycles[cycleIndex];
+  const source = view === "statement" ? cycle?.transactions ?? [] : data?.allTxs ?? [];
+  const transactions = filterTransactions(source, filters);
+  const types = Array.from(new Set(source.map((transaction) => transaction.type).filter(Boolean))).sort();
+  return <CreditCardActivityViewerShell>
+    <header className="shrink-0 flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-muted">Card activity</p><h2 className="font-display text-xl font-semibold tracking-tight text-text">{accountName}</h2><select aria-label="Selected credit card" value={accountName} onChange={(event) => onSelectCard?.(event.target.value)} className="sr-only">{fixture.accounts.map((account) => <option key={account.name}>{account.name}</option>)}</select></div>{onClose && <button type="button" aria-label="Back to credit cards" onClick={onClose} className="min-h-11 px-2 text-xs text-muted">Cards</button>}</header>
+    <p role="status" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">Demo mode — card activity is read-only and changes are not saved.</p>
+    <div role="tablist" aria-label="Credit-card transaction view" className="grid grid-cols-2 gap-1 rounded-lg bg-surface2 p-1">{(["statement", "all"] as const).map((mode) => <button key={mode} type="button" role="tab" aria-selected={view === mode} onClick={() => setView(mode)} className="min-h-11 rounded-md text-xs">{mode === "statement" ? "By Statement" : "All Transactions"}</button>)}</div>
+    {view === "statement" && <div className="flex items-center justify-between text-xs text-muted"><CycleNavigator label={cycle?.label ?? "—"} onPrevious={() => setCycleIndex((value) => Math.min(value + 1, Math.max(0, cycles.length - 1)))} onNext={() => setCycleIndex((value) => Math.max(0, value - 1))} canGoPrevious={cycleIndex < cycles.length - 1} canGoNext={cycleIndex > 0} /><span>Total {privacyMode ? "••••••" : formatCurrency(getStatementTotal(cycle?.transactions ?? [], fixture.fxMap), "PHP")}</span></div>}
+    <Popover><PopoverTrigger asChild><button type="button" aria-label="Filter transactions" className="min-h-11 text-xs text-muted">Filters</button></PopoverTrigger><PopoverContent><label className="text-xs text-muted">Type<select value={filters.type ?? ""} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value || undefined }))}><option value="">Any</option>{types.map((type) => <option key={type}>{type}</option>)}</select></label><label className="ml-2 text-xs text-muted">Note<input value={filters.note ?? ""} onChange={(event) => setFilters((current) => ({ ...current, note: event.target.value }))} /></label></PopoverContent></Popover>
+    <div className="flex-1 min-h-0 overflow-y-auto">{transactions.length ? <TransactionList transactions={transactions as RawTransaction[]} privacyMode={privacyMode} fxMap={fixture.fxMap} accountName={accountName} /> : <p className="py-8 text-center text-sm text-muted">No matching transactions.</p>}</div>
+  </CreditCardActivityViewerShell>;
 }

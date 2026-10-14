@@ -5,8 +5,8 @@ import type { RawTransaction } from '@/types/transactions'
 import { formatCreditCardTransactionDate } from '@/utils/date'
 import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import { type CategoryData, signedAmount } from './groupTransactions'
-import { useCurrencies } from '@/hooks/useCurrencies'
 import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
+import type { CurrencyData } from '@/types/accounts'
 
 type MaskFn = (amount: number) => string
 
@@ -77,6 +77,7 @@ interface SubcategoriesListProps {
   onSubcategoryClick: (subcategory: string) => void
   /** The parent category's color — all subcategory percentages inherit it. */
   color:              string
+  fxMap:              CurrencyData
 }
 
 /** Sentinel label for transactions posted directly to a category. */
@@ -88,11 +89,11 @@ export function SubcategoriesList({
   mask,
   onSubcategoryClick,
   color,
+  fxMap,
 }: SubcategoriesListProps) {
   const subcats: Array<[string, { total: number; txs: RawTransaction[] }]> =
     Object.entries(catData.subcats).sort((a, b) => b[1].total - a[1].total)
 
-  const { data: fxMap } = useCurrencies()
   // Surface direct-to-category transactions as a synthetic group (SPA parity).
   if (catData.txs.length > 0) {
     const directTotal = catData.txs.reduce((sum, tx) => sum + signedAmount(tx, fxMap), 0)
@@ -139,6 +140,7 @@ interface TransactionRowsProps {
   transactions: RawTransaction[]
   mask:         MaskFn
   privacyMode:  boolean
+  fxMap:        CurrencyData
 }
 
 const PRIVACY_MASK = '••••••'
@@ -147,8 +149,7 @@ const PRIVACY_MASK = '••••••'
  * Leaf list of individual transactions, reusing the CC TransactionList visual
  * language (date · account, optional note, PHP amount + native amount).
  */
-export function TransactionRows({ transactions, mask, privacyMode }: TransactionRowsProps) {
-  const { data: fxMap } = useCurrencies()
+export function TransactionRows({ transactions, mask, privacyMode, fxMap }: TransactionRowsProps) {
   if (transactions.length === 0) {
     return (
       <p className="py-6 px-2 text-sm text-center text-muted">No transactions.</p>

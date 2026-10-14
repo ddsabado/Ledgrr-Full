@@ -3,13 +3,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { useId, useState } from "react";
 
 import type { CCAccount, CCTransactionData } from "@/types/transactions";
+import type { CurrencyData } from "@/types/accounts";
 import { formatCurrency } from "@/utils/currency";
-import { useCurrencies } from "@/hooks/useCurrencies";
 import {
   getUtilizationBarColor,
   getDueBadgeText,
   getDueBadgeColor,
-  getAccountImageUrl,
   getStatementTotal,
 } from "./utils";
 import TransactionList from "./TransactionList";
@@ -17,9 +16,13 @@ import CycleNavigator from "./CycleNavigator";
 
 const PRIVACY_MASK = "••••••";
 
-interface CCCardProps {
+export interface CCCardProps {
   account: CCAccount;
   txData: CCTransactionData | undefined;
+  /** Current FX rates, provided by the data-owning wrapper. */
+  fxMap?: CurrencyData;
+  /** Public card-art URL, or null when this account has no image. */
+  imageUrl?: string | null;
   privacyMode: boolean;
   isExpanded: boolean;
   onToggle: () => void;
@@ -42,6 +45,8 @@ const TRANSACTION_PAGE_SIZES = [10, 25, 50, 100] as const;
 export default function CCCard({
   account,
   txData,
+  fxMap = { PHP: 1 },
+  imageUrl = null,
   privacyMode,
   isExpanded,
   onToggle,
@@ -54,15 +59,10 @@ export default function CCCard({
   selected = false,
 }: CCCardProps) {
   const detailsId = useId();
-  const { data: fxMap } = useCurrencies();
   const showNative = account.currency !== "PHP";
 
   // Pill selector index: statement = left cell (0), all = right cell (1).
   const selectedIndex = cycleView === "statement" ? 0 : 1;
-
-  // Public URL for the card art stored in the account_images bucket.
-  // null when the account has no image filename set.
-  const imageUrl = getAccountImageUrl(account.image);
 
   // PHP-equivalent balance (always shown).
   const phpDisplay = privacyMode
@@ -327,6 +327,7 @@ export default function CCCard({
                         <TransactionList
                           transactions={paginatedTransactions}
                           privacyMode={privacyMode}
+                          fxMap={fxMap}
                         />
                       )}
                     </motion.div>
@@ -342,7 +343,7 @@ export default function CCCard({
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15, ease: "easeInOut" }}
                   >
-                    <TransactionList transactions={paginatedTransactions} privacyMode={privacyMode} />
+                    <TransactionList transactions={paginatedTransactions} privacyMode={privacyMode} fxMap={fxMap} />
                   </motion.div>
                 </AnimatePresence>
               )}
