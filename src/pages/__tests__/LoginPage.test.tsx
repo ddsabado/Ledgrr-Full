@@ -37,6 +37,14 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
   })
 
+  it('links to the public demo without starting OAuth', () => {
+    renderLoginPage()
+    const demoLink = screen.getByRole('link', { name: /try demo account/i })
+
+    expect(demoLink).toHaveAttribute('href', '/demo')
+    expect(mockAuth.signInWithOAuth).not.toHaveBeenCalled()
+  })
+
   it('calls signInWithGoogle when button is clicked', async () => {
     const user = userEvent.setup()
     renderLoginPage()

@@ -33,10 +33,13 @@ import type { NewInstallmentInput, NewRecurringInput } from "@/types/installment
 import { formatCurrency } from "@/utils/currency"
 import { parseAmount } from "./buildInstallmentMonths"
 import { useInstallmentsRecurring } from "./useInstallmentsRecurring"
+import type { InstallmentActivityItem } from './InstallmentsViewerCard'
 
 interface InstallmentsViewerProps {
   privacyMode: boolean
   onClose?: () => void
+  fixture?: { items: readonly InstallmentActivityItem[] }
+  readOnly?: boolean
 }
 
 type AlertState = { title: string; description: string } | null
@@ -78,7 +81,12 @@ function startDateTimestamp(value: string): number {
   return 0
 }
 
-export default function InstallmentsViewer({ privacyMode, onClose }: InstallmentsViewerProps) {
+export default function InstallmentsViewer(props: InstallmentsViewerProps) {
+  if (props.fixture) return <FixtureInstallmentsViewer {...props} fixture={props.fixture} />
+  return <LiveInstallmentsViewer {...props} />
+}
+
+function LiveInstallmentsViewer({ privacyMode, onClose }: InstallmentsViewerProps) {
   const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const { session } = useAuth()
@@ -283,4 +291,12 @@ export default function InstallmentsViewer({ privacyMode, onClose }: Installment
       </Dialog>
     </motion.section>
   )
+}
+
+/** Fixture branch retains the production viewer's header and filters without live collections. */
+function FixtureInstallmentsViewer({ privacyMode, onClose, fixture }: InstallmentsViewerProps & { fixture: { items: readonly InstallmentActivityItem[] } }) {
+  const [type, setType] = useState<ItemTypeFilter>('any')
+  const [name, setName] = useState('')
+  const items = fixture.items.filter((item) => (type === 'any' || item.kind.toLowerCase() === type) && (!name || item.name.toLowerCase().includes(name.toLowerCase())))
+  return <motion.section className="h-full min-h-0 overflow-hidden rounded-xl border border-border bg-surface p-5"><div className="flex h-full min-h-0 flex-col gap-4"><header className="flex shrink-0 items-start justify-between gap-3"><div><h2 className="font-display text-xl font-semibold tracking-tight text-text">Installments</h2><p className="mt-1 text-sm text-muted">Installments and recurring payments</p></div><div className="flex items-center gap-2">{onClose && <button type="button" aria-label="Back to installments and recurring payments" onClick={onClose} className="min-h-11 px-2 text-xs text-muted">Payments</button>}<Popover><PopoverTrigger asChild><button type="button" aria-label="Filter installments and recurring payments" className="min-h-11 px-2 text-xs text-muted">Filters</button></PopoverTrigger><PopoverContent className="grid gap-3"><label className="text-xs text-muted">Type<select value={type} onChange={(event) => setType(event.target.value as ItemTypeFilter)}><option value="any">Any</option><option value="installment">Installments</option><option value="recurring">Recurring</option></select></label><label className="text-xs text-muted">Name<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Search name" /></label></PopoverContent></Popover><Button type="button" size="sm" disabled title="Demo mode — new payments are unavailable"><Plus aria-hidden="true" /> New</Button></div></header><p role="status" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">Demo mode — activity is read-only and changes are not saved.</p><div className="min-h-0 flex-1 overflow-y-auto">{items.length === 0 ? <p className="py-8 text-center text-sm text-muted">No matching installments or recurring payments.</p> : <div className="divide-y divide-border">{items.map((item) => <article key={item.key} className="flex items-start justify-between gap-3 py-3"><div><div className="flex gap-2"><p className="text-sm font-medium text-text">{item.name}</p><span className="rounded-full bg-surface2 px-2 py-0.5 text-[10px] text-muted">{item.kind}</span></div><p className="mt-1 text-xs text-muted">Transaction date: {item.startDate}</p><p className="text-xs text-muted">{item.account} · {item.terms}</p><p className="text-xs text-muted">Budget: {item.budget || '—'}</p></div><span className="text-sm font-semibold tabular-nums text-text">{privacyMode ? '••••••' : formatCurrency(item.amount, item.currency)}</span></article>)}</div>}</div></div></motion.section>
 }

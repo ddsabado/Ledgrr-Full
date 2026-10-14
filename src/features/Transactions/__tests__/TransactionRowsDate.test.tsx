@@ -1,10 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { TransactionRows } from '@/features/Transactions/DrillDownList'
 import type { RawTransaction } from '@/types/transactions'
-vi.mock('@/hooks/useCurrencies', () => ({ useCurrencies: () => ({ data: { PHP: 1 }, isLoading: false, isError: false }) }))
 
 
 let seq = 0
@@ -35,6 +34,7 @@ describe('TransactionRows — date formatting and notes', () => {
         transactions={[tx({ date: '6/11/2026 13:30:00' })]}
         mask={mask}
         privacyMode={false}
+        fxMap={{ PHP: 1 }}
       />,
     )
     expect(screen.getByText('Jun 11 01:30 PM')).toBeInTheDocument()
@@ -47,6 +47,7 @@ describe('TransactionRows — date formatting and notes', () => {
         transactions={[tx({ date: 'garbage-date' })]}
         mask={mask}
         privacyMode={false}
+        fxMap={{ PHP: 1 }}
       />,
     )
     expect(screen.getByText('garbage-date')).toBeInTheDocument()
@@ -58,6 +59,7 @@ describe('TransactionRows — date formatting and notes', () => {
         transactions={[tx({ currency: 'USD', resolvedAmount: null })]}
         mask={mask}
         privacyMode={false}
+        fxMap={{ PHP: 1 }}
       />,
     )
 
@@ -72,6 +74,7 @@ describe('TransactionRows — date formatting and notes', () => {
         transactions={[tx({ note })]}
         mask={mask}
         privacyMode={false}
+        fxMap={{ PHP: 1 }}
       />,
     )
     const noteElement = screen.getByText(note)

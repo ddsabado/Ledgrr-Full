@@ -20,7 +20,9 @@ vi.mock('@/features/Transactions/useTransactionsByPeriod', () => ({
   useTransactionsByPeriod: () => hookState.value,
 }))
 
-import Transactions from '@/features/Transactions'
+import Transactions, { TransactionsCard } from '@/features/Transactions'
+
+const FX = { PHP: 1 }
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -124,6 +126,15 @@ beforeEach(() => {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Transactions panel', () => {
+  it('renders fixture props without the authenticated data wrapper', async () => {
+    const user = userEvent.setup()
+    render(<TransactionsCard grouped={groupedWithMonth()} fxMap={FX} privacyMode={false} />)
+
+    expect(screen.getByText('Transactions by Period')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Income' }))
+    expect(screen.getByRole('button', { name: /Salary/ })).toBeInTheDocument()
+  })
+
   it('renders nothing when unauthenticated', () => {
     authState.session = null
     const { container } = render(<Transactions privacyMode={false} />)

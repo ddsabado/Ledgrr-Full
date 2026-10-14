@@ -31,6 +31,14 @@ vi.mock("../TransactionList", () => ({
 }));
 
 describe("CreditCardViewer", () => {
+  it("renders local fixture activity without requiring the live query hooks", () => {
+    const transaction: RawTransaction = { key: 'fixture-card-tx', date: '2026-10-01', account: 'Visa', amount: 10, resolvedAmount: 10, currency: 'PHP', targetAccount: '', type: 'Expense', category: 'Food', subcategory: '', budget: '', note: 'Fixture' };
+    render(<CreditCardViewer accountName="Visa" privacyMode={false} fixture={{ accounts: [{ name: 'Visa', category: '', currency: 'PHP', currentBalance: 0, initialBalance: 0, creditLimit: 1000, statementDay: 1, dueDay: 10, image: '', accountType: '', phpEquivalent: 0, utilization: 0, daysUntilDue: null }], transactionsByAccount: new Map([['Visa', { cycles: [{ label: 'October', cycleStart: '2026-10-01', cycleEnd: '2026-10-31', transactions: [transaction] }], allTxs: [transaction] }]]), fxMap: { PHP: 1 } }} />);
+    expect(screen.getByRole('tab', { name: 'By Statement' })).toBeInTheDocument();
+    expect(screen.getByTestId('transaction-list')).toHaveTextContent('fixture-card-tx');
+    expect(screen.getByRole('status')).toHaveTextContent('read-only');
+  });
+
   it("returns to the credit-card list through the mobile back control", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -42,6 +50,8 @@ describe("CreditCardViewer", () => {
         onClose={onClose}
       />,
     );
+
+    expect(screen.getByTestId('credit-card-activity-viewer')).toHaveClass('rounded-xl', 'border', 'bg-surface', 'p-5', 'flex', 'flex-col', 'gap-4');
 
     await user.click(screen.getByRole("button", { name: "Back to credit cards" }));
 

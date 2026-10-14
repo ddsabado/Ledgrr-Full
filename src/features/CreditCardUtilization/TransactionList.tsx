@@ -4,19 +4,20 @@ import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import { formatCurrency } from '@/utils/currency'
 import { formatCreditCardTransactionDate } from '@/utils/date'
 import { isUnresolvedForeignCurrency, resolvePhp } from '@/utils/resolvePhp'
-import { useCurrencies } from '@/hooks/useCurrencies'
+import type { CurrencyData } from '@/types/accounts'
 
 const PRIVACY_MASK = '••••••'
 
-interface TransactionListProps {
+export interface TransactionListProps {
   transactions: RawTransaction[]
   privacyMode:  boolean
+  /** FX rates are supplied by the owning card; this list never fetches data. */
+  fxMap?: CurrencyData
   /** When present, transfer direction is calculated relative to this account. */
   accountName?: string
 }
 
-export default function TransactionList({ transactions, privacyMode, accountName }: TransactionListProps) {
-  const { data: fxMap } = useCurrencies()
+export default function TransactionList({ transactions, privacyMode, fxMap = { PHP: 1 }, accountName }: TransactionListProps) {
   return (
     <ul className="flex flex-col divide-y divide-border">
       {transactions.map((tx) => {

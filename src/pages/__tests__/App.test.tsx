@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { mockAuth, mockSession, mockSessionNoProviderToken } from '@/test/mocks/supabase'
 import App from '@/App'
 
@@ -19,6 +19,10 @@ vi.stubGlobal('fetch', mockFetch)
 
 vi.mock('@/hooks/useAccountBalances', () => ({
   useAccountBalances: () => ({ data: [], isLoading: false, isError: false }),
+}))
+
+vi.mock('@/pages/DashboardPage', () => ({
+  default: () => <nav role="navigation"><h1>Ledgrr</h1></nav>,
 }))
 
 const isSyncCall = (args: unknown[]) =>
@@ -50,6 +54,53 @@ describe('App routing', () => {
       expect(screen.getByRole('heading', { name: /ledgrr/i })).toBeInTheDocument()
     })
     expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
+  })
+
+  it('renders the public demo without reading or creating an auth session', () => {
+    window.location.pathname = '/demo'
+    render(<App />)
+
+    expect(screen.getByLabelText('Account Balances')).toBeInTheDocument()
+    expect(screen.getByLabelText('Credit Cards')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions by Period')).toBeInTheDocument()
+    expect(screen.getByLabelText('Budgets')).toBeInTheDocument()
+    expect(screen.getByLabelText('Installments and Recurring')).toBeInTheDocument()
+    expect(screen.getByLabelText('Debts and Receivables')).toBeInTheDocument()
+    expect(screen.getByText(/demo mode — changes are not saved/i)).toBeInTheDocument()
+    expect(screen.getAllByText('Everyday Cash').length).toBeGreaterThan(0)
+    expect(mockAuth.getSession).not.toHaveBeenCalled()
+    expect(mockAuth.onAuthStateChange).not.toHaveBeenCalled()
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('opens every demo activity view from its local dashboard controls and returns to the dashboard', () => {
+    window.location.pathname = '/demo'
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('option', { name: 'View activity for Everyday Cash' }))
+    expect(screen.getByRole('heading', { name: 'Everyday Cash' })).toBeInTheDocument()
+    expect(screen.getByText('Weekend market')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to account balances' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'View credit card activity' }))
+    expect(screen.getByLabelText('Selected credit card')).toHaveValue('Metro Rewards')
+    fireEvent.change(screen.getByLabelText('Selected credit card'), { target: { value: 'Travel Card' } })
+    expect(screen.getByText('Coffee shop')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to credit cards' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open installments viewer' }))
+    expect(screen.getAllByText('Laptop').length).toBeGreaterThan(1)
+    expect(screen.getByText(/activity is read-only/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to installments and recurring payments' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open debts and receivables viewer' }))
+    expect(screen.getByRole('heading', { name: 'Jamie' })).toBeInTheDocument()
+    expect(screen.getByText(/payments and imports are disabled/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to debts and receivables' }))
+
+    expect(screen.getByLabelText('Account Balances')).toBeInTheDocument()
+    expect(mockAuth.getSession).not.toHaveBeenCalled()
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('shows LoginPage when not authenticated on unknown route', async () => {

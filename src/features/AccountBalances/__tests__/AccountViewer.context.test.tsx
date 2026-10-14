@@ -26,6 +26,7 @@ vi.mock('@/hooks/useAccountBalances', () => ({
 }))
 vi.mock('../useAccountTransactions', () => ({
   useAccountTransactions: () => transactionState,
+  filterTransactions: (transactions: RawTransaction[], filters: { type?: string; note?: string }) => transactions.filter((transaction) => (!filters.type || transaction.type === filters.type) && (!filters.note || transaction.note.toLowerCase().includes(filters.note.toLowerCase()))),
 }))
 vi.mock('@/features/CreditCardUtilization/TransactionList', () => ({
   default: ({ transactions }: { transactions: RawTransaction[] }) => <div data-testid="transaction-list">{transactions.map((transaction) => transaction.key).join(',')}</div>,
@@ -49,10 +50,19 @@ describe('AccountViewer context', () => {
     transactionState.retry.mockReset()
   })
 
+  it('renders injected fixture data without a query provider and disables balance mutations', () => {
+    render(<AccountViewer accountName="USD Wallet" privacyMode={false} fixture={{ account, transactions: [{ key: 'fixture', date: '2026-10-01', account: 'USD Wallet', amount: 10, resolvedAmount: 10, currency: 'USD', targetAccount: '', type: 'Expense', category: 'Food', subcategory: '', budget: '', note: 'Fixture groceries' }] }} />)
+    expect(screen.getByRole('heading', { name: 'USD Wallet' })).toBeInTheDocument()
+    expect(screen.getByTestId('transaction-list')).toHaveTextContent('fixture')
+    expect(screen.getByRole('button', { name: 'Adjust balance' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('disabled')
+  })
+
   it('shows the selected account’s compact balance, currency, category, and visible count', () => {
     renderViewer()
 
     expect(screen.getByRole('heading', { name: 'USD Wallet' })).toBeInTheDocument()
+    expect(screen.getByTestId('account-activity-viewer')).toHaveClass('rounded-xl', 'border', 'bg-surface', 'p-5', 'flex', 'flex-col', 'gap-3')
     expect(screen.getByText('₱1,120.00')).toBeInTheDocument()
     expect(screen.getByText('$20.00')).toHaveClass('shrink-0', 'text-xs', 'tabular-nums', 'text-muted')
     expect(screen.queryByText('PHP equivalent')).not.toBeInTheDocument()

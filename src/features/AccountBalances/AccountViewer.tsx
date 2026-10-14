@@ -27,12 +27,18 @@ import { AdjustAccountBalanceError, adjustAccountBalance } from '@/services/api'
 import { formatCurrency } from '@/utils/currency'
 import TransactionList from '@/features/CreditCardUtilization/TransactionList'
 import AdjustBalanceDialog from './AdjustBalanceDialog'
-import { useAccountTransactions, type AccountTransactionFilters } from './useAccountTransactions'
+import { filterTransactions, useAccountTransactions, type AccountTransactionFilters } from './useAccountTransactions'
+import { AccountActivityViewerShell } from './AccountActivityViewer'
+import type { AccountBalance } from '@/types/accounts'
+import type { RawTransaction } from '@/types/transactions'
 
 interface AccountViewerProps {
   accountName: string
   privacyMode: boolean
   onClose?: () => void
+  /** Complete local data source used by the public, read-only demo. */
+  fixture?: { account: AccountBalance; transactions: RawTransaction[] }
+  readOnly?: boolean
 }
 
 const PRIVACY_MASK = '••••••'
@@ -50,7 +56,12 @@ function describeFilters(filters: AccountTransactionFilters, privacyMode: boolea
   return details.join(' · ')
 }
 
-export default function AccountViewer({ accountName, privacyMode, onClose }: AccountViewerProps) {
+export default function AccountViewer(props: AccountViewerProps) {
+  if (props.fixture) return <FixtureAccountViewer {...props} fixture={props.fixture} />
+  return <LiveAccountViewer {...props} />
+}
+
+function LiveAccountViewer({ accountName, privacyMode, onClose }: AccountViewerProps) {
   const [filters, setFilters] = useState<AccountTransactionFilters>({})
   const [rowsPerPage, setRowsPerPage] = useState<(typeof TRANSACTION_PAGE_SIZES)[number]>(25)
   const [currentPage, setCurrentPage] = useState(1)
@@ -138,7 +149,7 @@ export default function AccountViewer({ accountName, privacyMode, onClose }: Acc
   }
 
   return (
-    <motion.section layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }} className="h-full min-h-0 max-h-none overflow-x-hidden overflow-y-hidden rounded-xl border border-border bg-surface p-5 flex flex-col gap-3 lg:h-full">
+    <AccountActivityViewerShell as={motion.section} layout transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 30 }}>
       <AnimatePresence initial={false} mode="wait">
       <motion.div
         key={accountName}
@@ -244,6 +255,24 @@ export default function AccountViewer({ accountName, privacyMode, onClose }: Acc
       </motion.div>
       </AnimatePresence>
       {account && <AdjustBalanceDialog open={adjustOpen} accountName={account.name} currency={account.currency} currentBalance={account.currentBalance} isSubmitting={adjustment.isPending} error={adjustmentError} canRetry={canRetryAdjustment} onOpenChange={setAdjustOpen} onSubmit={(targetBalance) => adjustment.mutate(targetBalance)} />}
-    </motion.section>
+    </AccountActivityViewerShell>
   )
+}
+
+/** Intentionally has no authenticated hooks, queries, or mutation setup. */
+function FixtureAccountViewer({ accountName, privacyMode, onClose, fixture }: AccountViewerProps & { fixture: { account: AccountBalance; transactions: RawTransaction[] } }) {
+  const [filters, setFilters] = useState<AccountTransactionFilters>({})
+  const { account, transactions: source } = fixture
+  const transactions = filterTransactions(source, filters)
+  const types = Array.from(new Set(source.map((transaction) => transaction.type).filter(Boolean))).sort()
+  const active = Object.values(filters).some(Boolean)
+  const update = (patch: Partial<AccountTransactionFilters>) => setFilters((current) => ({ ...current, ...patch }))
+  return <AccountActivityViewerShell>
+    <header className="sticky top-0 z-10 -mx-1 shrink-0 bg-surface px-1 pb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="min-w-0"><h2 className="font-display text-xl font-semibold tracking-tight text-text truncate">{accountName}</h2><div aria-label="Account summary" className="mt-2 border-t border-border pt-2 text-xs leading-5"><div className="flex items-end justify-between gap-4"><span className="min-w-0 font-medium tabular-nums text-text">{privacyMode ? PRIVACY_MASK : formatCurrency(account.phpEquivalent, 'PHP')}</span></div><div className="mt-1 flex flex-wrap gap-x-2 text-muted"><span>{account.category} · {account.currency}</span><span aria-hidden="true">•</span><span>{transactions.length} transactions</span></div></div></div>
+      <div className="flex items-center gap-1">{onClose && <button type="button" aria-label="Back to account balances" onClick={onClose} className="min-h-11 px-2 text-xs text-muted">Balances</button>}<button type="button" disabled title="Demo mode — balance adjustments are unavailable" className="min-h-11 rounded-md px-2 text-xs font-medium text-muted opacity-60">Adjust balance</button><Popover><PopoverTrigger asChild><button type="button" aria-label="Filter transactions" className="min-h-11 rounded-md px-2 text-xs font-medium text-muted">Filters</button></PopoverTrigger><PopoverContent align="end" className="flex w-72 flex-col gap-3"><p className="font-display text-xs font-semibold tracking-widest uppercase text-muted">Transaction filters</p><label className="text-xs text-muted">Type<select value={filters.type ?? ''} onChange={(event) => update({ type: event.target.value || undefined })} className="ml-2 border border-border bg-surface2"><option value="">Any</option>{types.map((type) => <option key={type}>{type}</option>)}</select></label><label className="text-xs text-muted">Note<input value={filters.note ?? ''} onChange={(event) => update({ note: event.target.value })} className="ml-2 border border-border bg-surface2" /></label>{active && <button type="button" onClick={() => setFilters({})} className="text-xs text-muted">Clear</button>}</PopoverContent></Popover></div>
+    </header>
+    <p role="status" className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">Demo mode — balance adjustments are disabled and changes are not saved.</p>
+    <div className="flex-1 min-h-0 overflow-y-auto">{transactions.length ? <TransactionList transactions={transactions} privacyMode={privacyMode} accountName={accountName} /> : <p className="py-8 text-center text-sm text-muted">No matching transactions.</p>}</div>
+  </AccountActivityViewerShell>
 }

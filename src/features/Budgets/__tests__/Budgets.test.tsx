@@ -16,7 +16,8 @@ vi.mock('@/features/Budgets/useBudgets', () => ({
   useBudgets: () => hookState.value,
 }))
 
-import Budgets from '@/features/Budgets'
+import Budgets, { BudgetsCard } from '@/features/Budgets'
+import { computeBudgets } from '@/features/Budgets/computeBudgets'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 function budget(o: Partial<RawBudgetRow> = {}): RawBudgetRow {
@@ -43,6 +44,30 @@ afterEach(() => {
 })
 
 describe('Budgets panel', () => {
+  it('renders computed fixture rows and delegates month changes through props', async () => {
+    const user = userEvent.setup()
+    const onMonthChange = vi.fn()
+    const rows = computeBudgets(
+      [budget({ name: 'Needs', amount: '1,000' })],
+      [tx({ budget: 'Needs', amount: 250, date: '6/2/2026 0:00:00' })],
+      { year: 2026, month: 5 },
+      FX,
+    )
+    render(
+      <BudgetsCard
+        rows={rows}
+        fxMap={FX}
+        privacyMode={false}
+        selectedMonth={{ year: 2026, month: 5 }}
+        onMonthChange={onMonthChange}
+      />,
+    )
+
+    expect(screen.getByText('₱250.00')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next month' }))
+    expect(onMonthChange).toHaveBeenCalledWith(1)
+  })
+
   it('changes months when swiping anywhere on the card on mobile', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
     render(<Budgets privacyMode={false} />)
