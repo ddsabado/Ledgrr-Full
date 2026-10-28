@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { mockAuth, mockSession, mockUser } from '@/test/mocks/supabase'
@@ -114,6 +114,88 @@ describe('DashboardPage', () => {
   it('renders privacy mode toggle button', () => {
     renderDashboard()
     expect(screen.getByRole('button', { name: /hide amounts/i })).toBeInTheDocument()
+  })
+
+  it('renders an accessible dashboard refresh control using the nav icon-button pattern', () => {
+    renderDashboard()
+    const refresh = screen.getByRole('button', { name: /refresh dashboard/i })
+
+    expect(refresh).toBeEnabled()
+    expect(refresh.className).toMatch(/bg-surface2/)
+    expect(refresh.className).toMatch(/border-border/)
+    expect(refresh.className).toMatch(/focus-visible:ring-2/)
+  })
+
+  it('invalidates exactly the dashboard refresh scope with active refetches', async () => {
+    const user = userEvent.setup()
+    const invalidateQueries = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+    renderDashboard()
+
+    await user.click(screen.getByRole('button', { name: /refresh dashboard/i }))
+
+    const expectedKeys = [
+      'accountBalances',
+      'transactions',
+      'currencies',
+      'budgets',
+      'installments',
+      'recurring',
+      'debtsReceivables',
+    ]
+    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledTimes(expectedKeys.length))
+    expect(invalidateQueries.mock.calls).toEqual(
+      expectedKeys.map((queryKey) => [
+        {
+          queryKey: [queryKey],
+          exact: true,
+          refetchType: 'active',
+        },
+        { throwOnError: true },
+      ]),
+    )
+    expect(invalidateQueries).not.toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['accountImages'] }),
+    )
+    expect(invalidateQueries).not.toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['txnCatSub'] }),
+    )
+  })
+
+  it('prevents duplicate refreshes while invalidations are pending', async () => {
+    const user = userEvent.setup()
+    let releaseInvalidations: (() => void) | undefined
+    const pendingInvalidations = new Promise<void>((resolve) => {
+      releaseInvalidations = resolve
+    })
+    const invalidateQueries = vi
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
+      .mockImplementation(() => pendingInvalidations)
+    renderDashboard()
+
+    const refresh = screen.getByRole('button', { name: /refresh dashboard/i })
+    await user.click(refresh)
+    await user.click(refresh)
+    expect(refresh).toBeDisabled()
+    expect(invalidateQueries).toHaveBeenCalledTimes(7)
+
+    releaseInvalidations?.()
+    await waitFor(() => expect(refresh).toBeEnabled())
+  })
+
+  it('reports a refresh failure as a non-blocking status after all invalidations settle', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(QueryClient.prototype, 'invalidateQueries')
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValue(undefined)
+    renderDashboard()
+
+    await user.click(screen.getByRole('button', { name: /refresh dashboard/i }))
+
+    expect(await screen.findByText(/some dashboard data could not be refreshed/i)).toHaveAttribute(
+      'role',
+      'status',
+    )
+    expect(screen.getByRole('button', { name: /refresh dashboard/i })).toBeEnabled()
   })
 
   it('has a fixed nav with correct structure', () => {

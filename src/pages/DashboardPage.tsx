@@ -5,8 +5,10 @@ import {
   LayoutGroup,
   useReducedMotion,
 } from "motion/react";
-import { Eye, EyeOff } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { DASHBOARD_REFRESH_QUERY_KEYS } from "@/constants/queryKeys";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 import {
   NAV_TOGGLE_CLASS,
@@ -52,7 +54,10 @@ function useMobileViewport() {
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [accountReturning, setAccountReturning] = useState(false);
   const [focusedDesktopViewer, setFocusedDesktopViewer] = useState<
@@ -82,6 +87,7 @@ export default function DashboardPage() {
   const restoreCreditCardPosition = useRef(false);
   const restoreInstallmentsPosition = useRef(false);
   const restoreDebtsPosition = useRef(false);
+  const refreshInFlight = useRef(false);
   const layoutTransition = reduceMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 260, damping: 30 };
@@ -271,6 +277,28 @@ export default function DashboardPage() {
     finishDebtsReturn();
   };
 
+  const refreshDashboard = async () => {
+    if (refreshInFlight.current) return;
+
+    refreshInFlight.current = true;
+    setIsRefreshing(true);
+    setRefreshFailed(false);
+
+    const results = await Promise.allSettled(
+      DASHBOARD_REFRESH_QUERY_KEYS.map((queryKey) =>
+        queryClient.invalidateQueries({
+          queryKey: [queryKey],
+          exact: true,
+          refetchType: "active",
+        }, { throwOnError: true }),
+      ),
+    );
+
+    setRefreshFailed(results.some((result) => result.status === "rejected"));
+    setIsRefreshing(false);
+    refreshInFlight.current = false;
+  };
+
   return (
     <div className="h-screen overflow-hidden bg-bg flex flex-col">
       {/* Nav */}
@@ -287,6 +315,22 @@ export default function DashboardPage() {
           </span>
 
           <ThemeSwitcher />
+
+          <motion.button
+            type="button"
+            onClick={refreshDashboard}
+            disabled={isRefreshing}
+            aria-label={isRefreshing ? "Refreshing dashboard" : "Refresh dashboard"}
+            title={isRefreshing ? "Refreshing dashboard" : "Refresh dashboard"}
+            whileHover={isRefreshing ? undefined : NAV_TOGGLE_HOVER}
+            whileTap={isRefreshing ? undefined : NAV_TOGGLE_TAP}
+            className={`${NAV_TOGGLE_CLASS} disabled:cursor-wait disabled:opacity-60`}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+          </motion.button>
 
           {/* Privacy mode toggle — hover/press scale + rotating icon swap (SPA-matched) */}
           <motion.button
@@ -319,6 +363,11 @@ export default function DashboardPage() {
           >
             Sign out
           </motion.button>
+          {refreshFailed && (
+            <p role="status" aria-live="polite" className="text-xs text-danger">
+              Some dashboard data could not be refreshed. Please try again.
+            </p>
+          )}
         </div>
       </nav>
 
