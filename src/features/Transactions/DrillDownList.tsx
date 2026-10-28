@@ -1,8 +1,9 @@
+import { Fragment } from 'react'
 import { ChevronRight } from 'lucide-react'
 import FxEstimatedIndicator from '@/components/FxEstimatedIndicator'
 
 import type { RawTransaction } from '@/types/transactions'
-import { formatCreditCardTransactionDate } from '@/utils/date'
+import { formatCreditCardTransactionDate, getLocalCalendarDay } from '@/utils/date'
 import TransactionNoteTooltip from '@/components/TransactionNoteTooltip'
 import { type CategoryData, signedAmount } from './groupTransactions'
 import { isUnresolvedForeignCurrency } from '@/utils/resolvePhp'
@@ -156,9 +157,18 @@ export function TransactionRows({ transactions, mask, privacyMode, fxMap }: Tran
     )
   }
 
+  let previousDayKey: string | undefined
+
   return (
-    <ul className="flex flex-col divide-y divide-border">
+    <ul className="flex flex-col">
       {transactions.map((tx) => {
+        const calendarDay = getLocalCalendarDay(tx.date)
+        // A malformed date has no calendar-day identity. Keep each one in its
+        // own fallback group so it cannot merge with a valid day (or another
+        // malformed row) merely because its source text happens to match.
+        const dayKey = calendarDay.dateTime ? calendarDay.key : `${calendarDay.key}:${tx.key}`
+        const startsNewDay = dayKey !== previousDayKey
+        previousDayKey = dayKey
         const currency = (tx.currency || 'PHP').trim() || 'PHP'
         const showNative = currency !== 'PHP'
         const isFxEstimated = isUnresolvedForeignCurrency(currency, tx.resolvedAmount)
@@ -172,33 +182,56 @@ export function TransactionRows({ transactions, mask, privacyMode, fxMap }: Tran
             }).format(tx.amount)
 
         return (
-          <li key={tx.key} className="flex items-start justify-between py-2 gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-text truncate">
-                <span className="text-xs text-muted">{formatCreditCardTransactionDate(tx.date)}</span>
-                <span className="text-muted"> · </span>
-                {tx.account}
-              </p>
-              {tx.note && (
-                <TransactionNoteTooltip note={tx.note} />
-              )}
-            </div>
-            <div className="flex flex-col items-end shrink-0 text-right">
-              <div className="flex items-center gap-1">
-                {isFxEstimated && (
-                  <FxEstimatedIndicator transaction={tx} />
+          <Fragment key={tx.key}>
+            {startsNewDay && (
+              <li
+                aria-label={`Transactions for ${calendarDay.label}`}
+                className="flex items-center gap-3 pb-2 pt-5 first:pt-1"
+              >
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                {calendarDay.dateTime ? (
+                  <time
+                    dateTime={calendarDay.dateTime}
+                    className="shrink-0 font-display text-xs font-semibold uppercase tracking-widest text-muted"
+                  >
+                    {calendarDay.label}
+                  </time>
+                ) : (
+                  <span className="shrink-0 font-display text-xs font-semibold uppercase tracking-widest text-muted">
+                    {calendarDay.label}
+                  </span>
                 )}
-                <span className="text-sm font-medium tabular-nums text-text">
-                  {mask(signedAmount(tx, fxMap))}
-                </span>
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+              </li>
+            )}
+            <li className={`flex items-start justify-between py-2 gap-3 ${startsNewDay ? '' : 'border-t border-border'}`}>
+              <div className="min-w-0">
+                <p className="text-sm text-text truncate">
+                  <span className="text-xs text-muted">{formatCreditCardTransactionDate(tx.date)}</span>
+                  <span className="text-muted"> · </span>
+                  {tx.account}
+                </p>
+                {tx.note && (
+                  <TransactionNoteTooltip note={tx.note} />
+                )}
               </div>
-              {showNative && (
-                <span className="text-xs text-muted tabular-nums mt-0.5">
-                  {nativeDisplay}
-                </span>
-              )}
-            </div>
-          </li>
+              <div className="flex flex-col items-end shrink-0 text-right">
+                <div className="flex items-center gap-1">
+                  {isFxEstimated && (
+                    <FxEstimatedIndicator transaction={tx} />
+                  )}
+                  <span className="text-sm font-medium tabular-nums text-text">
+                    {mask(signedAmount(tx, fxMap))}
+                  </span>
+                </div>
+                {showNative && (
+                  <span className="text-xs text-muted tabular-nums mt-0.5">
+                    {nativeDisplay}
+                  </span>
+                )}
+              </div>
+            </li>
+          </Fragment>
         )
       })}
     </ul>
