@@ -50,7 +50,55 @@ describe('CC TransactionList — date formatting', () => {
         privacyMode={false}
       />,
     )
-    expect(screen.getByText('not-a-date')).toBeInTheDocument()
+    expect(screen.getAllByText('not-a-date')).toHaveLength(2)
+  })
+
+  it('renders one labelled divider for each contiguous local calendar-day group', () => {
+    render(
+      <TransactionList
+        transactions={[
+          tx({ date: '6/11/2026 13:30:00' }),
+          tx({ date: '6/11/2026 08:15:00' }),
+          tx({ date: '6/10/2026 18:45:00' }),
+          tx({ date: '6/11/2026 07:00:00' }),
+        ]}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.getAllByLabelText('Transactions for Jun 11, 2026')).toHaveLength(2)
+    expect(screen.getByLabelText('Transactions for Jun 10, 2026')).toBeInTheDocument()
+  })
+
+  it('starts a new local calendar-day group across adjacent dates and a year boundary', () => {
+    render(
+      <TransactionList
+        transactions={[
+          tx({ date: '12/31/2026 23:59:00' }),
+          tx({ date: '1/1/2027 00:01:00' }),
+        ]}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.getByLabelText('Transactions for Dec 31, 2026')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions for Jan 01, 2027')).toBeInTheDocument()
+  })
+
+  it('uses a safe fallback divider for invalid dates without grouping them with valid dates', () => {
+    render(
+      <TransactionList
+        transactions={[
+          tx({ date: 'not-a-date' }),
+          tx({ date: 'not-a-date' }),
+          tx({ date: '6/11/2026 13:30:00' }),
+        ]}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.getByLabelText('Transactions for not-a-date')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions for Jun 11, 2026')).toBeInTheDocument()
   })
 
   it('does not render transaction category or subcategory', () => {
