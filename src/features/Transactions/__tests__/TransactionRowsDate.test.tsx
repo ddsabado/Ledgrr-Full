@@ -50,7 +50,63 @@ describe('TransactionRows — date formatting and notes', () => {
         fxMap={{ PHP: 1 }}
       />,
     )
-    expect(screen.getByText('garbage-date')).toBeInTheDocument()
+    expect(screen.getAllByText('garbage-date')).toHaveLength(2)
+  })
+
+  it('renders one accessible divider for each contiguous valid local day', () => {
+    render(
+      <TransactionRows
+        transactions={[
+          tx({ date: '6/11/2026 13:30:00' }),
+          tx({ date: '6/11/2026 08:15:00' }),
+          tx({ date: '6/10/2026 18:45:00' }),
+          tx({ date: '6/11/2026 07:00:00' }),
+        ]}
+        mask={mask}
+        privacyMode={false}
+        fxMap={{ PHP: 1 }}
+      />,
+    )
+
+    expect(screen.getAllByLabelText('Transactions for Jun 11, 2026')).toHaveLength(2)
+    expect(screen.getByLabelText('Transactions for Jun 10, 2026')).toBeInTheDocument()
+  })
+
+  it('starts new groups across adjacent days and a year boundary', () => {
+    render(
+      <TransactionRows
+        transactions={[
+          tx({ date: '12/31/2026 23:59:00' }),
+          tx({ date: '1/1/2027 00:01:00' }),
+        ]}
+        mask={mask}
+        privacyMode={false}
+        fxMap={{ PHP: 1 }}
+      />,
+    )
+
+    expect(screen.getByLabelText('Transactions for Dec 31, 2026')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions for Jan 01, 2027')).toBeInTheDocument()
+  })
+
+  it('keeps invalid and empty dates in distinct fallback groups', () => {
+    render(
+      <TransactionRows
+        transactions={[
+          tx({ date: 'not-a-date' }),
+          tx({ date: 'not-a-date' }),
+          tx({ date: '' }),
+          tx({ date: '6/11/2026 13:30:00' }),
+        ]}
+        mask={mask}
+        privacyMode={false}
+        fxMap={{ PHP: 1 }}
+      />,
+    )
+
+    expect(screen.getAllByLabelText('Transactions for not-a-date')).toHaveLength(2)
+    expect(screen.getByLabelText('Transactions for Invalid date')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions for Jun 11, 2026')).toBeInTheDocument()
   })
 
   it('marks an unresolved foreign-currency transaction as FX-estimated', () => {

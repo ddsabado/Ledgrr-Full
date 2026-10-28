@@ -198,12 +198,14 @@ describe('Transactions panel', () => {
 
     await user.click(screen.getByRole('button', { name: /Food/ }))
     expect(screen.getByText('Page transaction 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions for Jun 11, 2026')).toBeInTheDocument()
     expect(screen.queryByText('Page transaction 11')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Go to previous page' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Go to next page' }))
     expect(screen.queryByText('Page transaction 1')).not.toBeInTheDocument()
     expect(screen.getByText('Page transaction 11')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions for Jun 11, 2026')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Go to next page' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: /Food/ }))
