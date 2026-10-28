@@ -85,6 +85,22 @@ describe('CC TransactionList — date formatting', () => {
     expect(screen.getByLabelText('Transactions for Jan 01, 2027')).toBeInTheDocument()
   })
 
+  it('renders a divider for the first row supplied from a paginated page', () => {
+    // The viewer slices its sorted rows before it renders this shared list.
+    // The list must therefore not rely on a preceding row from the prior page.
+    render(
+      <TransactionList
+        transactions={[
+          tx({ date: '6/10/2026 18:45:00' }),
+          tx({ date: '6/10/2026 08:15:00' }),
+        ]}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.getByLabelText('Transactions for Jun 10, 2026')).toBeInTheDocument()
+  })
+
   it('uses a safe fallback divider for invalid dates without grouping them with valid dates', () => {
     render(
       <TransactionList
@@ -98,6 +114,21 @@ describe('CC TransactionList — date formatting', () => {
     )
 
     expect(screen.getByLabelText('Transactions for not-a-date')).toBeInTheDocument()
+    expect(screen.getByLabelText('Transactions for Jun 11, 2026')).toBeInTheDocument()
+  })
+
+  it('uses the safe fallback label for empty dates without merging it into a valid day', () => {
+    render(
+      <TransactionList
+        transactions={[
+          tx({ date: '' }),
+          tx({ date: '6/11/2026 13:30:00' }),
+        ]}
+        privacyMode={false}
+      />,
+    )
+
+    expect(screen.getByLabelText('Transactions for Invalid date')).toBeInTheDocument()
     expect(screen.getByLabelText('Transactions for Jun 11, 2026')).toBeInTheDocument()
   })
 
