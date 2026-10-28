@@ -7,6 +7,40 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
 
+export interface LocalCalendarDay {
+  /** A local-date identifier used only to group adjacent rendered transactions. */
+  key: string
+  /** Human-readable label for the transaction-list date divider. */
+  label: string
+  /** A machine-readable local date when the source value can be parsed. */
+  dateTime?: string
+}
+
+/**
+ * Returns a local calendar-day label for transaction-list grouping. Invalid
+ * source values remain visible as their own fallback group instead of being
+ * coerced into a different day.
+ */
+export function getLocalCalendarDay(source: string): LocalCalendarDay {
+  const date = new Date(source)
+  if (Number.isNaN(date.getTime())) {
+    return {
+      key: `invalid:${source}`,
+      label: source.trim() || 'Invalid date',
+    }
+  }
+
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const day = date.getDate()
+
+  return {
+    key: `${year}-${pad2(month + 1)}-${pad2(day)}`,
+    label: `${MONTHS[month]} ${pad2(day)}, ${year}`,
+    dateTime: `${year}-${pad2(month + 1)}-${pad2(day)}`,
+  }
+}
+
 /**
  * Formats a transaction source date as `Mmm dd | hh:mm AM/PM` in the viewer's
  * local timezone. Returns the original string unchanged when it is empty,
