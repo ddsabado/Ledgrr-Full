@@ -13,6 +13,29 @@ const group: Group = {
 }
 
 describe('buildSplittrImportRows', () => {
+  it('writes one receipt transaction at the signed itemized total', () => {
+    const itemizedGroup: Group = {
+      id: 'grab-kfc', name: 'Grab KFC', baseCurrency: 'PHP',
+      members: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }],
+      expenses: [{
+        id: 'receipt', description: 'KFC', amount: 705, currency: 'PHP', date: '10/1/2026', paidByMemberId: 'a',
+        shares: [{ memberId: 'a', amount: 400 }, { memberId: 'b', amount: 396 }, { memberId: 'a', amount: -45.5 }, { memberId: 'b', amount: -45.5 }],
+        items: [
+          { description: 'Food', shares: [{ memberId: 'a', amount: 400 }, { memberId: 'b', amount: 396 }] },
+          { description: 'Grab credit', shares: [{ memberId: 'a', amount: -45.5 }, { memberId: 'b', amount: -45.5 }] },
+        ],
+      }],
+    }
+    const rows = buildSplittrImportRows({
+      group: itemizedGroup, memberId: 'a', settledAccount: null, settlementDate: null, debtRow: 2, transactionRow: 2,
+      selected: [{ expenseId: 'receipt', account: 'Card', category: 'Dining', subcategory: '', budget: '' }],
+    })
+
+    expect(rows.filter((row) => row.range.startsWith('Transactions!'))).toEqual([
+      expect.objectContaining({ values: [['10/1/2026', 'Card', '705.00', '', 'PHP', '', 'Expense', 'Dining', '', '', 'Splittr import: KFC']] }),
+    ])
+  })
+
   it('writes the selected member expense without a Split Offset and preserves its metadata', () => {
     const rows = buildSplittrImportRows({
       group, memberId: 'DW8', settledAccount: 'Cash', settlementDate: '2026-10-02', debtRow: 2, transactionRow: 2,

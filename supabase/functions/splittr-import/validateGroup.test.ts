@@ -13,6 +13,33 @@ describe('validateGroup', () => {
     expect(group?.expenses[0].items).toEqual([{ description: 'Pizza', shares: [{ memberId: 'a', amount: 20 }, { memberId: 'b', amount: 80 }] }])
   })
 
+  it('retains itemized discounts and validates the signed receipt total', () => {
+    const group = validateGroup({
+      id: 'grab-kfc', name: 'Grab KFC', baseCurrency: 'PHP',
+      members: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }],
+      expenses: [{
+        id: 'receipt', description: 'KFC', baseAmount: 705, payerId: 'a',
+        items: [
+          { description: 'Food', splits: [{ memberId: 'a', amountBase: 400 }, { memberId: 'b', amountBase: 396 }] },
+          { description: 'Grab credit', splits: [{ memberId: 'a', amountBase: -45.5 }, { memberId: 'b', amountBase: -45.5 }] },
+        ],
+      }],
+    })
+
+    expect(group?.expenses).toHaveLength(1)
+    expect(group?.expenses[0]).toMatchObject({
+      amount: 705,
+      shares: [
+        { memberId: 'a', amount: 400 }, { memberId: 'b', amount: 396 },
+        { memberId: 'a', amount: -45.5 }, { memberId: 'b', amount: -45.5 },
+      ],
+      items: [
+        { description: 'Food', shares: [{ memberId: 'a', amount: 400 }, { memberId: 'b', amount: 396 }] },
+        { description: 'Grab credit', shares: [{ memberId: 'a', amount: -45.5 }, { memberId: 'b', amount: -45.5 }] },
+      ],
+    })
+  })
+
   it('keeps every valid expense from Splittr’s current group payload in the preview', () => {
     const group = validateGroup({
       id: 'trip-2026',
