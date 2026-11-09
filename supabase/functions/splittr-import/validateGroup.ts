@@ -6,9 +6,9 @@ export type Group = { id: string; name: string; baseCurrency: string; members: M
 function text(value: unknown, max = 160): string | null {
   return typeof value === 'string' && value.trim().length > 0 && value.trim().length <= max ? value.trim() : null
 }
-function amount(value: unknown, allowZero = false): number | null {
+function amount(value: unknown, allowZero = false, allowNegative = false): number | null {
   const n = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(n) && (allowZero ? n >= 0 : n > 0) && n < 100_000_000 ? Math.round(n * 100) / 100 : null
+  return Number.isFinite(n) && (allowNegative || (allowZero ? n >= 0 : n > 0)) && Math.abs(n) < 100_000_000 ? Math.round(n * 100) / 100 : null
 }
 function date(value: unknown): string {
   const valueText = text(value, 40) ?? ''
@@ -50,7 +50,7 @@ export function validateGroup(payload: unknown): Group | null {
     const itemDetails = Array.isArray(e.items)
       ? e.items.map(object).map((item) => ({
         description: text(item?.description ?? item?.name ?? item?.title, 160),
-        shares: list(item?.splits).map(object).map((split) => ({ memberId: text(split?.memberId ?? split?.userId ?? split?.id ?? object(split?.member)?.id, 120), amount: amount(split?.amountBase ?? split?.amount ?? split?.share ?? split?.owed, true) })).filter((split): split is { memberId: string; amount: number } => !!split.memberId && split.amount !== null && memberIds.has(split.memberId)),
+        shares: list(item?.splits).map(object).map((split) => ({ memberId: text(split?.memberId ?? split?.userId ?? split?.id ?? object(split?.member)?.id, 120), amount: amount(split?.amountBase ?? split?.amount ?? split?.share ?? split?.owed, true, true) })).filter((split): split is { memberId: string; amount: number } => !!split.memberId && split.amount !== null && memberIds.has(split.memberId)),
       })).filter((item): item is ExpenseItem => !!item.description && item.shares.length > 0)
       : undefined
     const rawShares = itemDetails
